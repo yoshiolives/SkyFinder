@@ -1,7 +1,7 @@
 // Gemini AI Service
 // This service handles communication with Google's Gemini AI
 
-const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY || 'AIzaSyAFPNZ6nkr0Wjz2OsH8w8wjL5qiEMtCRZE';
+const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
 
 // Helper functions for itinerary modifications
 const handleAddActivity = (userMessage, itinerary) => {

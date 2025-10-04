@@ -160,7 +160,7 @@ function App() {
         {/* Google Map Background */}
         <Box sx={{ flexGrow: 1, position: 'relative' }}>
           <LoadScript 
-            googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY || "AIzaSyDLE75-5w3zdWvc0Z2RJjifAJZLYzZi67w"}
+            googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
             onLoad={handleGoogleMapsLoad}
             onError={(error) => {
               console.error('Google Maps failed to load:', error);

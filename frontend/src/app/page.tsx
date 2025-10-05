@@ -262,7 +262,7 @@ export default function Home() {
   const hasLoadedDataRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
-  const [showMapControls, setShowMapControls] = useState(true);
+  const [showMapControls, setShowMapControls] = useState(false);
   const [vacationStartDate, setVacationStartDate] = useState('');
   const [vacationEndDate, setVacationEndDate] = useState('');
   const [isEditingDates, setIsEditingDates] = useState(false);
@@ -1243,89 +1243,94 @@ export default function Home() {
       <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         {/* Top Header with Login */}
         <AppBar
-        position="fixed"
-        sx={{
-          zIndex: (theme) => theme.zIndex.drawer + 1,
-          backgroundColor: 'rgba(25, 118, 210, 0.95)',
-          backdropFilter: 'blur(10px)',
-        }}
-      >
-        <Toolbar>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexGrow: 1 }}>
-            <Image
-              src="/logo.png"
-              alt="Places.ai Logo"
-              width={40}
-              height={40}
-              style={{ borderRadius: '8px' }}
-            />
-            <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
-              Places.ai
-            </Typography>
-          </Box>
+          position="fixed"
+          sx={{
+            zIndex: (theme) => theme.zIndex.drawer + 1,
+            backgroundColor: 'rgba(25, 118, 210, 0.95)',
+            backdropFilter: 'blur(10px)',
+          }}
+        >
+          <Toolbar>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexGrow: 1 }}>
+              <Image
+                src="/logo.png"
+                alt="Places.ai Logo"
+                width={40}
+                height={40}
+                style={{ borderRadius: '8px' }}
+              />
+              <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
+                Places.ai
+              </Typography>
+            </Box>
 
-          {user ? (
-            <>
+            {user ? (
+              <>
+                <Button
+                  color="inherit"
+                  startIcon={<AccountCircle />}
+                  onClick={handleMenuOpen}
+                  sx={{ textTransform: 'none' }}
+                >
+                  {user.email}
+                </Button>
+                <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
+                  <MenuItem onClick={() => {
+                    window.open('https://discord.gg/btd7PUjYkW', '_blank');
+                    handleMenuClose();
+                  }}>
+                    <SupportIcon sx={{ mr: 1 }} />
+                    Discord Support
+                  </MenuItem>
+                  <MenuItem onClick={() => {
+                    setShowMapControls(!showMapControls);
+                    handleMenuClose();
+                  }}>
+                    {showMapControls ? <VisibilityOffIcon sx={{ mr: 1 }} /> : <VisibilityIcon sx={{ mr: 1 }} />}
+                    {showMapControls ? 'Hide Map Controls' : 'Show Map Controls'}
+                  </MenuItem>
+                  <MenuItem onClick={handleLogout}>
+                    <LogoutIcon sx={{ mr: 1 }} />
+                    Logout
+                  </MenuItem>
+                </Menu>
+              </>
+            ) : (
               <Button
                 color="inherit"
-                startIcon={<AccountCircle />}
-                onClick={handleMenuOpen}
-                sx={{ textTransform: 'none' }}
-              >
-                {user.email}
-              </Button>
-              <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-                <MenuItem onClick={() => {
-                  window.open('https://discord.gg/btd7PUjYkW', '_blank');
-                  handleMenuClose();
-                }}>
-                  <SupportIcon sx={{ mr: 1 }} />
-                  Discord Support
-                </MenuItem>
-                <MenuItem onClick={() => {
-                  setShowMapControls(!showMapControls);
-                  handleMenuClose();
-                }}>
-                  {showMapControls ? <VisibilityOffIcon sx={{ mr: 1 }} /> : <VisibilityIcon sx={{ mr: 1 }} />}
-                  {showMapControls ? 'Hide Map Controls' : 'Show Map Controls'}
-                </MenuItem>
-                <MenuItem onClick={handleLogout}>
-                  <LogoutIcon sx={{ mr: 1 }} />
-                  Logout
-                </MenuItem>
-              </Menu>
-            </>
-          ) : (
-            <Button
-              color="inherit"
-              startIcon={<LoginIcon />}
-              onClick={() => setLoginModalOpen(true)}
-              variant="outlined"
-              sx={{
-                borderColor: 'white',
-                '&:hover': {
+                startIcon={<LoginIcon />}
+                onClick={() => setLoginModalOpen(true)}
+                variant="outlined"
+                sx={{
                   borderColor: 'white',
-                  backgroundColor: 'rgba(255,255,255,0.1)',
-                },
-              }}
-            >
-              Login
-            </Button>
-          )}
-        </Toolbar>
-      </AppBar>
+                  '&:hover': {
+                    borderColor: 'white',
+                    backgroundColor: 'rgba(255,255,255,0.1)',
+                  },
+                }}
+              >
+                Login
+              </Button>
+            )}
+          </Toolbar>
+        </AppBar>
 
-      <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', pt: '64px' }}>
+        <Box sx={{
+          display: 'flex',
+          height: '100vh',
+          overflow: 'hidden',
+          pt: { xs: '56px', sm: '64px' } // Smaller top padding on mobile
+        }}>
           {/* Apple-Style Sidebar */}
           <Drawer
             variant="persistent"
             anchor="left"
             open={sidebarOpen}
             sx={{
-              width: sidebarOpen ? 320 : 0,
+              width: sidebarOpen ? { xs: '100vw', sm: 320 } : 0,
               flexShrink: 0,
               '& .MuiDrawer-paper': {
-                width: 320,
+                width: { xs: '100vw', sm: 320 },
                 boxSizing: 'border-box',
                 background: 'linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(240 4.8% 95.9%) 50%, hsl(240 4.8% 98%) 100%)',
                 backdropFilter: 'blur(20px)',
@@ -1334,8 +1339,8 @@ export default function Home() {
                 transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
                 transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
                 boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-                marginTop: '64px',
-                height: 'calc(100vh - 64px)',
+                marginTop: { xs: '56px', sm: '64px' },
+                height: { xs: 'calc(100vh - 56px)', sm: 'calc(100vh - 64px)' },
                 zIndex: 1000,
                 overflow: 'visible',
               },
@@ -1344,7 +1349,7 @@ export default function Home() {
             {/* Sidebar Header */}
             <Box
               sx={{
-                p: 3,
+                p: { xs: 2, sm: 3 },
                 background: 'rgba(255, 255, 255, 0.8)',
                 backdropFilter: 'blur(10px)',
                 borderBottom: '1px solid hsl(220 13% 91%)',
@@ -1384,7 +1389,7 @@ export default function Home() {
                       onClick={handleTitleClick}
                       sx={{
                         fontWeight: 600,
-                        fontSize: '1.25rem',
+                        fontSize: { xs: '1.1rem', sm: '1.25rem' },
                         color: 'hsl(240 5.9% 10%)',
                         cursor: currentTrip ? 'pointer' : 'default',
                         transition: 'all 0.2s ease',
@@ -1519,7 +1524,7 @@ export default function Home() {
                       sx={{
                         position: 'fixed',
                         top: '50%',
-                        left: sidebarOpen ? 308 : -100,
+                        left: sidebarOpen ? { xs: 'calc(100vw - 24px)', sm: 308 } : -100,
                         transform: 'translateY(-50%)',
                         width: 24,
                         height: 60,
@@ -1565,7 +1570,13 @@ export default function Home() {
             </Box>
 
             {/* Sidebar Content */}
-            <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+            <Box sx={{
+              flexGrow: 1,
+              overflow: 'auto',
+              p: { xs: 1.5, sm: 2 },
+              position: 'relative',
+              zIndex: 1, // Ensure content is above background but below drag elements
+            }}>
               {loading ? (
                 <Box
                   sx={{
@@ -1621,12 +1632,12 @@ export default function Home() {
                           borderRadius: 2,
                           mb: isLastDay ? 12 : ((activities.length > 0 && expandedDays.has(day)) ? 1 : 0),
                           '&:before': { display: 'none' },
-                          '&.Mui-expanded': { 
+                          '&.Mui-expanded': {
                             margin: '0 0 8px 0',
                             animation: 'bounceIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
                           },
                           backgroundColor: 'transparent',
-                          minHeight: activities.length > 0 ? 'auto' : '48px',
+                          minHeight: activities.length > 0 ? 'auto' : { xs: '44px', sm: '48px' },
                           transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
                           '@keyframes bounceIn': {
                             '0%': {
@@ -1774,6 +1785,7 @@ export default function Home() {
                                     transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
                                     position: 'relative',
                                     zIndex: snapshot.isDraggingOver ? 1000 : 'auto',
+                                    pointerEvents: 'auto', // Ensure droppable areas are interactive
                                     border: snapshot.isDraggingOver
                                       ? '2px solid #007AFF'
                                       : activities.length === 0 && isDragging
@@ -1801,11 +1813,12 @@ export default function Home() {
                                             {...provided.dragHandleProps}
                                             onClick={() => setSelectedItem(item)}
                                             sx={{
-                                              p: 2,
+                                              p: { xs: 1.5, sm: 2 },
                                               mx: 0.5,
                                               mb: 0.5,
                                               borderRadius: 2,
                                               cursor: snapshot.isDragging ? 'grabbing' : 'grab',
+                                              touchAction: 'none', // Prevent scrolling during drag on mobile
                                               backgroundColor:
                                                 selectedItem?.id === item.id
                                                   ? 'rgba(0, 122, 255, 0.1)'
@@ -2134,7 +2147,7 @@ export default function Home() {
               sx={{
                 background: 'linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(240 4.8% 95.9%) 100%)',
                 borderTop: '1px solid hsl(220 13% 91%)',
-                p: 3,
+                p: { xs: 2, sm: 3 },
               }}
             >
               <Button
@@ -2143,7 +2156,8 @@ export default function Home() {
                 onClick={() => setAddDialogOpen(true)}
                 disabled={!currentTrip}
                 sx={{
-                  width: '100%',
+                  width: { xs: 'calc(100% - 80px)', sm: '100%' }, // Shorter on mobile to avoid AI button overlap
+                  mr: { xs: 0, sm: 0 }, // Remove margin since we're using calc width
                   background: 'linear-gradient(135deg, hsl(240 5.9% 10%) 0%, hsl(240 5.9% 10%) 100%)',
                   color: 'hsl(0 0% 98%)',
                   borderRadius: '8px',
@@ -2185,10 +2199,10 @@ export default function Home() {
               </Box>
             )}
             {isGoogleMapsLoaded && !loadError && !mapCenter && (
-              <Box sx={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
+              <Box sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
                 height: '100%',
                 backgroundColor: '#f5f5f5'
               }}>
@@ -2198,8 +2212,11 @@ export default function Home() {
               </Box>
             )}
             {isGoogleMapsLoaded && !loadError && mapCenter && (
-              <GoogleMap
-                mapContainerStyle={{ width: '100%', height: '100vh' }}
+                <GoogleMap
+                  mapContainerStyle={{
+                    width: '100%',
+                    height: '100vh'
+                  }}
                 center={mapCenter}
                 zoom={13}
                 options={{
@@ -2428,16 +2445,15 @@ export default function Home() {
           <Box
             sx={{
               position: 'fixed',
-              top: '50%',
+              top: { xs: 'calc(56px + 8px)', sm: 'calc(64px + 8px)', md: 'calc(50% - 250px)' },
               left: 0,
-              transform: 'translateY(-50%)',
+              transform: { xs: 'none', sm: 'none', md: 'translateY(-50%)' },
               zIndex: 1001,
               opacity: sidebarOpen ? 0 : 1,
               visibility: sidebarOpen ? 'hidden' : 'visible',
               transition: sidebarOpen
                 ? 'opacity 0.1s ease-out, visibility 0.1s ease-out'
                 : 'opacity 0.3s ease-in 0.3s, visibility 0.3s ease-in 0.3s',
-              marginTop: '32px',
             }}
           >
             <Tooltip title="Open Sidebar (Ctrl+B)" placement="right" arrow>
@@ -2445,12 +2461,9 @@ export default function Home() {
                 onClick={toggleSidebar}
                 aria-label="Open sidebar"
                 sx={{
-                  position: 'fixed',
-                  top: 'calc(50% - 300px)',
-                  left: sidebarOpen ? -100 : 0,
-                  transform: 'translateY(-50%)',
-                  width: 24,
-                  height: 60,
+                  left: sidebarOpen ? -100 : { xs: 0, sm: 0 },
+                  width: 32,
+                  height: 80,
                   background: 'rgba(0, 122, 255, 0.9)',
                   color: 'white',
                   borderRadius: '0 6px 6px 0',
@@ -2481,7 +2494,7 @@ export default function Home() {
                   },
                 }}
               >
-                <MenuIcon sx={{ fontSize: 18 }} />
+                <MenuIcon sx={{ fontSize: 24 }} />
               </IconButton>
             </Tooltip>
           </Box>

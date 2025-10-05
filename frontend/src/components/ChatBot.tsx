@@ -243,8 +243,8 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
         onClick={() => setIsOpen(true)}
         sx={{
           position: 'fixed',
-          bottom: 24,
-          right: 100, // Moved left to avoid overlap with new control buttons
+          bottom: { xs: 16, sm: 24 },
+          right: { xs: 16, sm: 100 },
           display: isOpen ? 'none' : 'flex',
           zIndex: 1000,
           background: 'linear-gradient(135deg, #007AFF 0%, #0051D5 100%)',
@@ -271,10 +271,12 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
         <Paper
           sx={{
             position: 'fixed',
-            bottom: 24,
-            right: 100, // Moved left to avoid overlap with new control buttons
-            width: 400,
-            height: 650,
+            bottom: { xs: 16, sm: 24 },
+            right: { xs: 16, sm: 100 },
+            left: { xs: 16, sm: 'auto' },
+            width: { xs: 'calc(100vw - 32px)', sm: 400 },
+            height: { xs: 'calc(100vh - 120px)', sm: 650 },
+            maxHeight: { xs: 'calc(100vh - 120px)', sm: 'none' },
             display: 'flex',
             flexDirection: 'column',
             zIndex: 1000,
@@ -284,6 +286,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
             backdropFilter: 'blur(20px)',
             border: '1px solid rgba(255, 255, 255, 0.2)',
             overflow: 'hidden',
+            maxWidth: { xs: 'calc(100vw - 32px)', sm: 'none' },
           }}
         >
           {/* Sharp Chat Header */}
@@ -356,7 +359,12 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
           </Box>
 
           {/* Messages */}
-          <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
+          <Box sx={{
+            flexGrow: 1,
+            overflow: 'auto',
+            p: { xs: 1.5, sm: 2 },
+            minHeight: 0, // Ensures proper scrolling on mobile
+          }}>
             <List sx={{ p: 0 }}>
               {messages.map((message) => (
                 <ListItem

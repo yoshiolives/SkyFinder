@@ -379,10 +379,10 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
                     sx={{
                       maxWidth: '80%',
                       backgroundColor: message.sender === 'user'
-                        ? 'linear-gradient(135deg, #007AFF 0%, #0051D5 100%)'
+                        ? 'rgba(0, 122, 255, 0.1)'
                         : 'rgba(242, 242, 247, 0.9)',
                       backdropFilter: message.sender === 'user' ? 'none' : 'blur(10px)',
-                      color: message.sender === 'user' ? 'white' : '#1D1D1F',
+                      color: message.sender === 'user' ? '#1D1D1F' : '#1D1D1F',
                       borderRadius: message.sender === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
                       p: 2,
                       wordBreak: 'break-word',
@@ -390,7 +390,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
                         ? '0 2px 8px rgba(0, 122, 255, 0.3)'
                         : '0 2px 8px rgba(0,0,0,0.08)',
                       border: message.sender === 'user'
-                        ? 'none'
+                        ? '1px solid rgba(0, 122, 255, 0.2)'
                         : '1px solid rgba(255, 255, 255, 0.3)',
                       transition: 'all 0.2s ease',
                       '&:hover': {

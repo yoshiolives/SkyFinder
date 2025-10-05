@@ -1143,6 +1143,12 @@ export default function Home() {
         return '🛍️';
       case 'landmark':
         return '🗽';
+      case 'accommodation':
+        return '🏨';
+      case 'restaurant':
+        return '🍽️';
+      case 'outdoor':
+        return '🌳';
       default:
         return '📍';
     }
@@ -1158,6 +1164,12 @@ export default function Home() {
         return '#ff9800';
       case 'landmark':
         return '#9c27b0';
+      case 'accommodation':
+        return '#673ab7';
+      case 'restaurant':
+        return '#f44336';
+      case 'outdoor':
+        return '#4caf50';
       default:
         return '#757575';
     }
@@ -1882,6 +1894,30 @@ export default function Home() {
                                                           selectedItem?.id === item.id ? 'white' : '#8E8E93',
                                                       }}
                                                     />
+                                                  ) : item.type === 'accommodation' ? (
+                                                    <EventIcon
+                                                      sx={{
+                                                        fontSize: 16,
+                                                        color:
+                                                          selectedItem?.id === item.id ? 'white' : '#8E8E93',
+                                                      }}
+                                                    />
+                                                  ) : item.type === 'restaurant' ? (
+                                                    <StarIcon
+                                                      sx={{
+                                                        fontSize: 16,
+                                                        color:
+                                                          selectedItem?.id === item.id ? 'white' : '#8E8E93',
+                                                      }}
+                                                    />
+                                                  ) : item.type === 'outdoor' ? (
+                                                    <AttractionsIcon
+                                                      sx={{
+                                                        fontSize: 16,
+                                                        color:
+                                                          selectedItem?.id === item.id ? 'white' : '#8E8E93',
+                                                      }}
+                                                    />
                                                   ) : (
                                                     <AttractionsIcon
                                                       sx={{
@@ -2507,6 +2543,9 @@ export default function Home() {
                   <MenuItem value="museum">Museum</MenuItem>
                   <MenuItem value="shopping">Shopping</MenuItem>
                   <MenuItem value="landmark">Landmark</MenuItem>
+                  <MenuItem value="accommodation">Accommodation</MenuItem>
+                  <MenuItem value="restaurant">Restaurant</MenuItem>
+                  <MenuItem value="outdoor">Outdoor</MenuItem>
                 </Select>
               </FormControl>
               <Box sx={{ display: 'flex', gap: 2 }}>
@@ -2600,6 +2639,7 @@ export default function Home() {
                     <MenuItem value="museum">Museum</MenuItem>
                     <MenuItem value="shopping">Shopping</MenuItem>
                     <MenuItem value="landmark">Landmark</MenuItem>
+                    <MenuItem value="accommodation">Accommodation</MenuItem>
                     <MenuItem value="restaurant">Restaurant</MenuItem>
                     <MenuItem value="outdoor">Outdoor</MenuItem>
                   </Select>

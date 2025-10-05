@@ -37,21 +37,35 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ## Project Structure
 
+Following Next.js best practices with all application code in `src/`:
+
 ```
 frontend/
-├── app/                    # Next.js app directory
-│   ├── layout.tsx         # Root layout component
-│   └── page.tsx           # Home page
-├── components/            # React components
-│   └── ChatBot.tsx        # AI chatbot component
-├── services/              # Service layer
-│   └── geminiService.ts   # Gemini AI service
-├── public/                # Static files
-├── .env.local            # Environment variables (gitignored)
-├── .env.example          # Example environment variables
-├── next.config.js        # Next.js configuration
-├── tsconfig.json         # TypeScript configuration
-└── package.json          # Project dependencies
+├── src/
+│   ├── app/                    # Next.js app directory (routing)
+│   │   ├── api/               # API routes
+│   │   │   ├── auth/          # Authentication endpoints
+│   │   │   ├── trips/         # Trip management endpoints
+│   │   │   └── itinerary/     # Itinerary endpoints
+│   │   ├── layout.tsx         # Root layout component
+│   │   └── page.tsx           # Home page
+│   ├── components/            # React components
+│   │   ├── ChatBot.tsx        # AI chatbot component
+│   │   ├── LoginModal.tsx     # Login/signup modal
+│   │   └── TripSelector.tsx   # Trip selection component
+│   ├── lib/                   # Library utilities
+│   │   ├── supabase.ts        # Supabase client
+│   │   ├── supabase-server.ts # Supabase server utilities
+│   │   └── api.ts             # Authenticated API client
+│   └── services/              # Service layer
+│       └── geminiService.ts   # Gemini AI service
+├── docs/                      # Documentation
+├── public/                    # Static files
+├── .env.local                # Environment variables (gitignored)
+├── biome.json                # Biome configuration
+├── next.config.js            # Next.js configuration
+├── tsconfig.json             # TypeScript configuration
+└── package.json              # Project dependencies
 ```
 
 ## Features

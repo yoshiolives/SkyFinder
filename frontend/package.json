@@ -12,11 +12,20 @@
     "biome:format": "biome format --write .",
     "biome:lint": "biome lint .",
     "format": "biome format --write .",
-    "prepare": "simple-git-hooks"
+    "prepare": "simple-git-hooks",
+    "start-scripts": "react-scripts start",
+    "build-scripts": "react-scripts build",
+    "test": "react-scripts test",
+    "test:gemini": "node scripts/simple-test.js",
+    "test:random": "node scripts/test-random-itinerary.js",
+    "test:watch": "react-scripts test --watch",
+    "eject": "react-scripts eject"
   },
   "dependencies": {
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
+    "@google/genai": "^1.22.0",
+    "@google/generative-ai": "^0.24.1",
     "@mui/icons-material": "^5.15.0",
     "@mui/material": "^5.15.0",
     "@react-google-maps/api": "^2.20.7",
@@ -42,7 +51,11 @@
     "eslint": "^8.56.0",
     "eslint-config-next": "^14.0.4",
     "lint-staged": "^16.2.3",
-    "simple-git-hooks": "^2.13.1"
+    "simple-git-hooks": "^2.13.1",
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "jest": "^27.5.1"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm lint-staged"

@@ -1635,22 +1635,22 @@ export default function Home() {
                         <AccordionSummary
                           expandIcon={<ExpandMoreIcon sx={{ color: 'white', fontSize: 20 }} />}
                           sx={{
-                            backgroundColor: '#007AFF !important',
+                            backgroundColor: `${getDayColor(day)} !important`,
                             borderRadius: 2,
                             color: 'white',
                             minHeight: 48,
                             border: '1px solid rgba(255, 255, 255, 0.2)',
                             '&.MuiAccordionSummary-root': {
-                              backgroundColor: '#007AFF !important',
+                              backgroundColor: `${getDayColor(day)} !important`,
                             },
                             '&:hover': {
                               transform: 'translateY(-1px)',
-                              boxShadow: '0 4px 12px rgba(0, 122, 255, 0.3)',
+                              boxShadow: `0 4px 12px ${getDayColor(day)}40`,
                               filter: 'brightness(1.05)',
                             },
                             '&.Mui-expanded': {
                               borderRadius: '8px 8px 0 0',
-                              boxShadow: '0 2px 8px rgba(0, 122, 255, 0.2)',
+                              boxShadow: `0 2px 8px ${getDayColor(day)}40`,
                             },
                             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                           }}
@@ -2158,11 +2158,11 @@ export default function Home() {
               </Box>
             )}
             {isGoogleMapsLoaded && !loadError && mapCenter && (
-              <GoogleMap
-                mapContainerStyle={{
-                  width: '100%',
-                  height: { xs: 'calc(100vh - 56px)', sm: '100vh' }
-                }}
+                <GoogleMap
+                  mapContainerStyle={{
+                    width: '100%',
+                    height: '100vh'
+                  }}
                 center={mapCenter}
                 zoom={13}
                 options={{

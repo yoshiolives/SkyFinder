@@ -25,7 +25,6 @@ import {
 } from '@mui/material';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getGeminiResponse, GeminiAPIError } from '../services/geminiService';
 import { api } from '../lib/api';
 
 interface Message {
@@ -81,8 +80,15 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
     setIsLoading(true);
 
     try {
-      // Get AI response from Gemini service with itinerary context
-      const response = await getGeminiResponse(inputText, itinerary, {}, messages);
+      // Get AI response from server-side API endpoint
+      const apiResponse = await api.post('/api/chat', {
+        message: inputText,
+        itinerary: itinerary,
+        questionnaireData: {},
+        messages: messages,
+      });
+      
+      const response = apiResponse.data;
 
       const botMessage: Message = {
         id: Date.now() + 1,
@@ -192,17 +198,13 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
           onItineraryUpdate(response.itineraryUpdate);
         }
       }, 1000);
-    } catch (error) {
+    } catch (error: any) {
       setIsLoading(false);
       
-      // Handle Gemini API errors
-      if (error instanceof GeminiAPIError) {
-        setSnackbarMessage(error.message);
-        setSnackbarOpen(true);
-      } else {
-        setSnackbarMessage('An unexpected error occurred. Please contact an administrator.');
-        setSnackbarOpen(true);
-      }
+      // Handle API errors
+      const errorMsg = error.response?.data?.error || error.message || 'An unexpected error occurred. Please contact an administrator.';
+      setSnackbarMessage(errorMsg);
+      setSnackbarOpen(true);
       
       // Also show error in chat
       const errorMessage: Message = {

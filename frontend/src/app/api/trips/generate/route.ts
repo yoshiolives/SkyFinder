@@ -127,9 +127,14 @@ export async function POST(request: NextRequest) {
         
         const parsedResponse = JSON.parse(responseText);
         
+        console.log('🤖 AI Response parsed:', JSON.stringify(parsedResponse, null, 2));
+        
         if (!parsedResponse.items || !Array.isArray(parsedResponse.items)) {
+          console.error('❌ Invalid AI response format:', parsedResponse);
           throw new GeminiAPIError('Invalid response format from AI');
         }
+        
+        console.log(`✅ AI generated ${parsedResponse.items.length} itinerary items`);
 
         // Step 3: Bulk insert itinerary items
         const itemsToInsert = parsedResponse.items.map((item: any) => ({
@@ -147,15 +152,19 @@ export async function POST(request: NextRequest) {
           notes: null,
         }));
 
+        console.log(`💾 Inserting ${itemsToInsert.length} items into database...`);
+        
         const { data: insertedItems, error: itemsError } = await supabase
           .from('itinerary_items')
           .insert(itemsToInsert)
           .select();
 
         if (itemsError) {
+          console.error('❌ Database insertion error:', itemsError);
           // Don't fail the entire request if items can't be inserted
           // The trip was created successfully
         } else {
+          console.log(`✅ Successfully inserted ${insertedItems?.length || 0} items into database`);
           // Format items for response
           itineraryItems = insertedItems.map((item: any) => ({
             id: item.id,

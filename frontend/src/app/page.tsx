@@ -320,8 +320,11 @@ export default function Home() {
       }
 
       // Fetch itinerary items for the selected trip
+      console.log(`🔍 Fetching itinerary for trip ${trip.id}...`);
       const itineraryResponse = await api.get(`/api/itinerary?trip_id=${trip.id}`);
       const items = itineraryResponse.data.items;
+      
+      console.log(`📋 Loaded ${items?.length || 0} itinerary items:`, items);
 
       setItinerary(items || []);
 
@@ -454,8 +457,10 @@ export default function Home() {
       // Otherwise load the first trip in the refreshed list
       if (newTrip) {
         console.log('🎯 Auto-selecting newly created trip:', newTrip.title);
+        console.log('🎯 New trip details:', newTrip);
         await loadTripItinerary(newTrip);
       } else if (fetchedTrips && fetchedTrips.length > 0) {
+        console.log('🔄 Loading first trip from refreshed list');
         await loadTripItinerary(fetchedTrips[0]);
       }
 

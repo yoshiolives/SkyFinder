@@ -25,10 +25,8 @@
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "@react-google-maps/api": "^2.20.7"
   }
 }
-
-
-
-
-

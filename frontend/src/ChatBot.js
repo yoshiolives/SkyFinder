@@ -7,7 +7,6 @@ import {
   IconButton,
   List,
   ListItem,
-  ListItemText,
   Avatar,
   Divider,
   Fab,
@@ -60,7 +59,7 @@ const ChatBot = ({ itinerary = [], onItineraryUpdate = null }) => {
     try {
       // Get AI response from Gemini service with itinerary context
       const response = await getGeminiResponse(inputText, itinerary);
-      
+
       const botMessage = {
         id: Date.now() + 1,
         text: response.text,
@@ -71,7 +70,7 @@ const ChatBot = ({ itinerary = [], onItineraryUpdate = null }) => {
       setTimeout(() => {
         setMessages(prev => [...prev, botMessage]);
         setIsLoading(false);
-        
+
         // If the response includes itinerary updates, apply them
         if (response.itineraryUpdate && onItineraryUpdate) {
           onItineraryUpdate(response.itineraryUpdate);
@@ -146,8 +145,8 @@ const ChatBot = ({ itinerary = [], onItineraryUpdate = null }) => {
                 <BotIcon />
               </Avatar>
               <Box>
-                <Typography variant="h6">AI Assistant</Typography>
-                <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                <Typography variant="h6" component="div">AI Assistant</Typography>
+                <Typography variant="caption" component="div" sx={{ opacity: 0.8 }}>
                   Powered by Gemini
                 </Typography>
               </Box>
@@ -187,8 +186,8 @@ const ChatBot = ({ itinerary = [], onItineraryUpdate = null }) => {
                   <Box
                     sx={{
                       maxWidth: '80%',
-                      backgroundColor: message.sender === 'user' 
-                        ? '#1976d2' 
+                      backgroundColor: message.sender === 'user'
+                        ? '#1976d2'
                         : '#f5f5f5',
                       color: message.sender === 'user' ? 'white' : 'black',
                       borderRadius: 2,
@@ -196,11 +195,12 @@ const ChatBot = ({ itinerary = [], onItineraryUpdate = null }) => {
                       wordBreak: 'break-word'
                     }}
                   >
-                    <Typography variant="body2">
+                    <Typography variant="body2" component="div">
                       {message.text}
                     </Typography>
                     <Typography
                       variant="caption"
+                      component="div"
                       sx={{
                         display: 'block',
                         mt: 0.5,
@@ -218,7 +218,7 @@ const ChatBot = ({ itinerary = [], onItineraryUpdate = null }) => {
               ))}
               {isLoading && (
                 <ListItem sx={{ justifyContent: 'center' }}>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" component="div">
                     AI is typing...
                   </Typography>
                 </ListItem>

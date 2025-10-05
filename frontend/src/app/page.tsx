@@ -59,7 +59,7 @@ import {
 } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { GoogleMap, InfoWindow, LoadScript, Marker } from '@react-google-maps/api';
+import { GoogleMap, InfoWindow, Marker, useLoadScript } from '@react-google-maps/api';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ChatBot from '@/components/ChatBot';
 import LandingPage from '@/components/LandingPage';
@@ -114,9 +114,14 @@ const theme = createTheme({
 });
 
 export default function Home() {
+  // Load Google Maps script (prevents duplicate loading on hot reload)
+  const { isLoaded: isGoogleMapsLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+    libraries: ['places'] as any,
+  });
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedItem, setSelectedItem] = useState<any>(null);
-  const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false);
   const [itinerary, setItinerary] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
@@ -265,10 +270,6 @@ export default function Home() {
   
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
-  };
-  
-  const handleGoogleMapsLoad = () => {
-    setIsGoogleMapsLoaded(true);
   };
 
   // Handle drag and drop
@@ -1418,13 +1419,17 @@ export default function Home() {
 
         {/* Google Map Background */}
         <Box sx={{ flexGrow: 1, position: 'relative' }}>
-          <LoadScript
-            googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}
-            onLoad={handleGoogleMapsLoad}
-            onError={(error) => {
-              console.error('Google Maps failed to load:', error);
-            }}
-          >
+          {loadError && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <Typography color="error">Error loading Google Maps</Typography>
+            </Box>
+          )}
+          {!isGoogleMapsLoaded && !loadError && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <CircularProgress />
+            </Box>
+          )}
+          {isGoogleMapsLoaded && !loadError && (
             <GoogleMap
               mapContainerStyle={{ width: '100%', height: '100vh' }}
               center={{ lat: 40.7128, lng: -74.006 }} // New York City center
@@ -1511,7 +1516,7 @@ export default function Home() {
                 </InfoWindow>
               )}
             </GoogleMap>
-          </LoadScript>
+          )}
         </Box>
 
         {/* Sidebar Trigger */}

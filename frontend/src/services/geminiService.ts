@@ -3,9 +3,30 @@
 
 import { GoogleGenAI } from "@google/genai";
 
+// Type definitions
+interface Preferences {
+  interests?: string[];
+  budget?: string;
+  dates?: string;
+  special?: string;
+  location?: string;
+}
+
+interface QuestionnaireData {
+  step?: number;
+  data?: {
+    location?: string;
+    dates?: string;
+    interests?: string;
+    budget?: string;
+  };
+  generate?: boolean;
+  preferences?: Preferences;
+}
+
 // Initialize Google GenAI with API key check
 let ai = null;
-const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
+const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
 if (apiKey && apiKey !== 'test-api-key' && apiKey !== 'your_gemini_api_key') {
   try {
@@ -16,8 +37,8 @@ if (apiKey && apiKey !== 'test-api-key' && apiKey !== 'your_gemini_api_key') {
   }
 }
 
-// Helper function to generate AI-powered itinerary
-const generateAIItinerary = async (location = "Vancouver, BC", duration = "2 weeks") => {
+// Helper function to generate AI-powered itinerary with user preferences
+const generateAIItinerary = async (location = "Vancouver, BC", duration = "2 weeks", preferences: Preferences = {}) => {
   try {
     if (!ai) {
       // Fallback to mock data if no AI available
@@ -26,16 +47,27 @@ const generateAIItinerary = async (location = "Vancouver, BC", duration = "2 wee
 
     console.log('🤖 AI generating custom itinerary...');
     
-    const prompt = `Create a comprehensive ${duration} travel itinerary for ${location}. 
+    // Build preferences context
+    const preferencesText = preferences.interests ? 
+      `User Preferences:
+- Interests: ${preferences.interests.join(', ')}
+- Budget Level: ${preferences.budget || 'medium'}
+- Trip Dates: ${preferences.dates || 'flexible'}
+- Special Requirements: ${preferences.special || 'none'}` : '';
+
+    const prompt = `Create a comprehensive ${duration} travel itinerary for ${location}.
+
+${preferencesText}
 
 Generate a detailed day-by-day schedule with:
 - Morning, afternoon, and evening activities
 - Specific locations with addresses
 - Activity descriptions and durations
 - Realistic timing (9 AM to 9 PM daily)
-- Mix of attractions, restaurants, cultural sites, outdoor activities
+- Activities matching user interests and budget level
 - Include travel time between locations
 - Vary the pace (some busy days, some relaxed days)
+- Consider local recommendations and hidden gems
 
 IMPORTANT: Return ONLY a valid JSON array. No other text. Start with [ and end with ].
 
@@ -133,7 +165,7 @@ const generateMockItinerary = () => {
 };
 
 // Real Gemini API function
-const getRealGeminiResponse = async (userMessage, itinerary = []) => {
+const getRealGeminiResponse = async (userMessage: string, itinerary: any[] = [], questionnaireData: QuestionnaireData = {}, messages: any[] = []) => {
   try {
     // Check if AI instance is available
     if (!ai) {
@@ -143,28 +175,48 @@ const getRealGeminiResponse = async (userMessage, itinerary = []) => {
     
     console.log('🤖 Using real Gemini API');
     
-    const prompt = `You are an AI travel assistant. User message: "${userMessage}". 
-    Current itinerary: ${JSON.stringify(itinerary, null, 2)}
+    // Build chat history context
+    const chatHistory = messages.slice(-10).map(msg => 
+      `${msg.sender === 'user' ? 'User' : 'Assistant'}: ${msg.text}`
+    ).join('\n');
     
-    Respond with a JSON object containing:
-    - "text": Your response to the user
-    - "itineraryUpdate": null or array of new itinerary items
-    
-    For itinerary items, use this structure:
-    {
-      "id": timestamp,
-      "date": "YYYY-MM-DD",
-      "time": "HH:MM",
-      "location": "Location name",
-      "address": "Full address",
-      "activity": "Activity description",
-      "duration": "X hours",
-      "type": "activity|museum|shopping|landmark|restaurant",
-      "rating": number (0-5),
-      "coordinates": [latitude, longitude]
-    }
-    
-    Always respond with valid JSON only.`;
+    const prompt = `You are an AI travel assistant with access to the conversation history.
+
+CONVERSATION HISTORY:
+${chatHistory}
+
+CURRENT USER MESSAGE: "${userMessage}"
+
+CURRENT ITINERARY: ${JSON.stringify(itinerary, null, 2)}
+
+QUESTIONNAIRE DATA: ${JSON.stringify(questionnaireData, null, 2)}
+
+Instructions:
+- Use the conversation history to provide contextual responses
+- Reference previous parts of the conversation when relevant
+- Build on previous answers and questions
+- Be conversational and remember what was discussed earlier
+
+Respond with a JSON object containing:
+- "text": Your response to the user (can reference chat history)
+- "itineraryUpdate": null or array of new itinerary items
+- "questionnaire": null or questionnaire data if continuing the flow
+
+For itinerary items, use this structure:
+{
+  "id": timestamp,
+  "date": "YYYY-MM-DD",
+  "time": "HH:MM",
+  "location": "Location name",
+  "address": "Full address",
+  "activity": "Activity description",
+  "duration": "X hours",
+  "type": "activity|museum|shopping|landmark|restaurant",
+  "rating": number (0-5),
+  "coordinates": [latitude, longitude]
+}
+
+Always respond with valid JSON only.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -187,21 +239,162 @@ const getRealGeminiResponse = async (userMessage, itinerary = []) => {
   }
 };
 
+// Questionnaire handler
+const handleQuestionnaire = (message: string, questionnaireData: QuestionnaireData = {}) => {
+  const step = questionnaireData.step || 1;
+  const data = questionnaireData.data || {};
+  
+  switch (step) {
+    case 1: // City/Region
+      return {
+        text: "Great! I'd love to help you plan your perfect trip! Let me ask you a few questions to create a personalized itinerary.\n\n**1. Where would you like to go?** (City or region)\n\nPlease tell me your destination!",
+        itineraryUpdate: null,
+        questionnaire: {
+          step: 1,
+          data: {}
+        }
+      };
+      
+    case 2: // Trip Dates
+      return {
+        text: "Perfect! Now let's plan your travel dates.\n\n**2. When are you planning to travel?** (Dates or time period)\n\nPlease tell me your travel dates!",
+        itineraryUpdate: null,
+        questionnaire: {
+          step: 2,
+          data: { ...data, location: message }
+        }
+      };
+      
+    case 3: // Interests
+      return {
+        text: "Excellent! Now let's talk about what you enjoy.\n\n**3. What are your interests?** (Select all that apply)\n\n- 🌿 Nature & Outdoor activities\n- 🍽️ Food & Culinary experiences\n- 🎨 Art & Culture\n- 🌃 Nightlife & Entertainment\n- 🏛️ History & Museums\n- 🛍️ Shopping\n- 🏃‍♀️ Sports & Adventure\n\nPlease tell me what interests you!",
+        itineraryUpdate: null,
+        questionnaire: {
+          step: 3,
+          data: { ...data, dates: message }
+        }
+      };
+      
+    case 4: // Budget Level
+      return {
+        text: "Great choices! Now let's talk about your budget.\n\n**4. What's your budget level?**\n\n- 💰 Low Budget: Hostels, street food, free activities\n- 💳 Medium Budget: Mid-range hotels, local restaurants, some paid attractions\n- 💎 High Budget: Luxury hotels, fine dining, premium experiences\n\nPlease tell me your budget preference!",
+        itineraryUpdate: null,
+        questionnaire: {
+          step: 4,
+          data: { ...data, interests: message }
+        }
+      };
+      
+    case 5: // Generate Itinerary
+      const preferences = {
+        interests: data.interests || ['nature', 'food', 'art'],
+        budget: data.budget || 'medium',
+        dates: data.dates || 'flexible',
+        location: data.location || 'Vancouver, BC'
+      };
+      
+      return {
+        text: `Perfect! I have all the information I need to create your personalized itinerary.\n\n**Your Trip Details:**\n- Destination: ${preferences.location}\n- Travel Dates: ${preferences.dates}\n- Interests: ${preferences.interests}\n- Budget: ${preferences.budget}\n\nLet me generate your custom itinerary now...`,
+        itineraryUpdate: null,
+        questionnaire: {
+          step: 5,
+          data: { ...data, budget: message },
+          generate: true,
+          preferences: preferences
+        }
+      };
+      
+    default:
+      return {
+        text: "Let's start planning your trip! Say 'plan a trip' to begin.",
+        itineraryUpdate: null
+      };
+  }
+};
+
 // Mock response function (fallback and development)
-const getMockGeminiResponse = async (userMessage, itinerary = []) => {
+const getMockGeminiResponse = async (userMessage: string, itinerary: any[] = [], questionnaireData: QuestionnaireData = {}, messages: any[] = []) => {
   try {
     console.log('🤖 Using mock Gemini responses for development');
     
+    // Build chat history context for mock responses
+    const chatHistory = messages.slice(-5).map(msg => 
+      `${msg.sender === 'user' ? 'User' : 'Assistant'}: ${msg.text}`
+    ).join('\n');
+    
+    if (chatHistory) {
+      console.log('💬 Chat history context:', chatHistory.substring(0, 100) + '...');
+    }
+    
     const message = userMessage.toLowerCase();
     
-    // Handle AI itinerary generation
-    if (message.includes('generate') || message.includes('create') || message.includes('build') || 
-        message.includes('plan') || message.includes('itinerary') || message.includes('2 weeks') || 
-        message.includes('two weeks') || message.includes('14 days')) {
+    // Handle questionnaire start
+    if (message.includes('plan') || message.includes('create') || message.includes('build') || 
+        message.includes('itinerary') || message.includes('trip') || message.includes('travel')) {
+      
+      return handleQuestionnaire(message, { step: 1, data: {} });
+    }
+    
+    // Handle questionnaire responses
+    if (questionnaireData && questionnaireData.step) {
+      const nextStep = questionnaireData.step + 1;
+      const response = handleQuestionnaire(message, { step: nextStep, data: questionnaireData.data });
+      
+      // If questionnaire is complete and generate is true, automatically generate itinerary
+      if (response.questionnaire && response.questionnaire.generate) {
+        console.log('🎯 Questionnaire complete, generating full itinerary...');
+        
+        const questionnaireDataObj = (response.questionnaire.data || {}) as { location?: string; dates?: string; interests?: string; budget?: string };
+        const interestsValue = questionnaireDataObj.interests || 'nature, food, art';
+        const preferences = {
+          location: questionnaireDataObj.location || 'Vancouver, BC',
+          dates: questionnaireDataObj.dates || 'flexible',
+          interests: typeof interestsValue === 'string' ? interestsValue.split(',').map(i => i.trim()) : interestsValue,
+          budget: questionnaireDataObj.budget || 'medium'
+        };
+        
+        // Determine duration from dates or default to 2 weeks
+        let duration = "2 weeks";
+        if (preferences.dates.includes('week')) {
+          duration = preferences.dates;
+        } else if (preferences.dates.includes('month')) {
+          duration = "1 month";
+        } else if (preferences.dates.includes('day')) {
+          duration = "1 week";
+        }
+        
+        console.log('🤖 Generating AI itinerary with:', preferences);
+        const aiItinerary = await generateAIItinerary(preferences.location, duration, preferences);
+        
+        return {
+          text: response.text + `\n\nI've created your complete ${duration} itinerary for ${preferences.location} with ${aiItinerary.length} activities!`,
+          itineraryUpdate: aiItinerary,
+          questionnaire: response.questionnaire
+        };
+      }
+      
+      return response;
+    }
+    
+    // Handle first question response (location) - if no questionnaire data but user gives a location
+    if (!questionnaireData && (message.includes('vancouver') || message.includes('toronto') || 
+        message.includes('montreal') || message.includes('calgary') || message.includes('city') || 
+        message.includes('go to') || message.includes('visit'))) {
+      
+      return handleQuestionnaire(message, { step: 2, data: { location: message } });
+    }
+    
+    // Handle AI itinerary generation with preferences
+    if (message.includes('generate') || message.includes('final') || message.includes('complete')) {
       
       // Extract location and duration from user message
       let location = "Vancouver, BC";
       let duration = "2 weeks";
+      let preferences = {
+        interests: ['nature', 'food', 'art'],
+        budget: 'medium',
+        dates: 'flexible'
+      };
       
       if (message.includes('vancouver')) location = "Vancouver, BC";
       if (message.includes('toronto')) location = "Toronto, ON";
@@ -216,7 +409,7 @@ const getMockGeminiResponse = async (userMessage, itinerary = []) => {
         duration = "1 month";
       }
       
-      const aiItinerary = await generateAIItinerary(location, duration);
+      const aiItinerary = await generateAIItinerary(location, duration, preferences);
       return {
         text: `I've created a comprehensive ${duration} itinerary for ${location} with ${aiItinerary.length} activities! This includes a mix of attractions, restaurants, cultural sites, and outdoor activities spread across your stay.`,
         itineraryUpdate: aiItinerary
@@ -312,296 +505,9 @@ const getMockGeminiResponse = async (userMessage, itinerary = []) => {
       return {
         text: "Granville Island is the heart of Vancouver's cultural scene! It's always bustling with energy. Visit during the day to see the public market and local artisans. Don't miss the Granville Island Brewing Company for local craft beer.",
         itineraryUpdate: null
-// Gemini AI Service
-// This service handles communication with Google's Gemini AI
-// Currently using mock responses - can be upgraded to real API later
-
-interface GeminiResponse {
-  text: string;
-  itineraryUpdate: any[] | null;
-}
-
-// Helper functions for itinerary modifications
-const handleAddActivity = (userMessage: string, itinerary: any[]): GeminiResponse => {
-  const message = userMessage.toLowerCase();
-  const newActivity = {
-    id: Date.now(),
-    date: '2024-01-17', // Default to next day
-    time: '14:00',
-    location: 'New Activity',
-    address: 'To be determined',
-    activity: 'Activity to be planned',
-    duration: '2 hours',
-    type: 'activity',
-    rating: 4.0,
-    coordinates: [40.7128, -74.006], // Default to NYC center
-  };
-
-  // Try to extract location from user message
-  if (message.includes('central park')) {
-    newActivity.location = 'Central Park';
-    newActivity.address = 'New York, NY 10024';
-    newActivity.coordinates = [40.7829, -73.9654];
-    newActivity.activity = 'Morning Walk & Photography';
-  } else if (message.includes('empire state')) {
-    newActivity.location = 'Empire State Building';
-    newActivity.address = '350 5th Ave, New York, NY 10118';
-    newActivity.coordinates = [40.7484, -73.9857];
-    newActivity.activity = 'Observation Deck Visit';
-    newActivity.type = 'landmark';
-  } else if (message.includes('high line')) {
-    newActivity.location = 'High Line Park';
-    newActivity.address = 'New York, NY 10011';
-    newActivity.coordinates = [40.748, -74.0048];
-    newActivity.activity = 'Park Walk & Art Viewing';
-  } else if (message.includes('times square')) {
-    newActivity.location = 'Times Square';
-    newActivity.address = 'Times Square, New York, NY 10036';
-    newActivity.coordinates = [40.758, -73.9855];
-    newActivity.activity = 'Shopping & Sightseeing';
-    newActivity.type = 'shopping';
-  } else if (message.includes('ice cream') || message.includes('gelato')) {
-    newActivity.location = 'Amorino Gelato';
-    newActivity.address = '60 University Pl, New York, NY 10003';
-    newActivity.coordinates = [40.7326, -73.9925];
-    newActivity.activity = 'Artisanal Gelato Tasting';
-    newActivity.type = 'food';
-    newActivity.rating = 4.4;
-  } else if (
-    message.includes('restaurant') ||
-    message.includes('food') ||
-    message.includes('eat')
-  ) {
-    newActivity.location = "Joe's Pizza";
-    newActivity.address = '7 Carmine St, New York, NY 10014';
-    newActivity.coordinates = [40.7306, -74.0014];
-    newActivity.activity = 'Classic NYC Pizza Experience';
-    newActivity.type = 'food';
-    newActivity.rating = 4.3;
-  } else if (message.includes('vancouver') || message.includes('museum')) {
-    if (message.includes('museum of anthropology') || message.includes('anthropology')) {
-      newActivity.location = 'Museum of Anthropology';
-      newActivity.address = '6393 NW Marine Dr, Vancouver, BC V6T 1Z2, Canada';
-      newActivity.activity = 'First Nations Art & Culture Tour';
-      newActivity.coordinates = [49.2697, -123.2604];
-      newActivity.type = 'museum';
-      newActivity.rating = 4.6;
-    } else if (message.includes('science world') || message.includes('science')) {
-      newActivity.location = 'Science World';
-      newActivity.address = '1455 Quebec St, Vancouver, BC V6A 3Z7, Canada';
-      newActivity.activity = 'Interactive Science Exhibits';
-      newActivity.coordinates = [49.2731, -123.1043];
-      newActivity.type = 'museum';
-      newActivity.rating = 4.3;
-    } else if (message.includes('vancouver art gallery') || message.includes('art gallery')) {
-      newActivity.location = 'Vancouver Art Gallery';
-      newActivity.address = '750 Hornby St, Vancouver, BC V6Z 2H7, Canada';
-      newActivity.activity = 'Contemporary Art Exhibition';
-      newActivity.coordinates = [49.2827, -123.1207];
-      newActivity.type = 'museum';
-      newActivity.rating = 4.2;
-    } else {
-      newActivity.location = 'Museum of Anthropology';
-      newActivity.address = '6393 NW Marine Dr, Vancouver, BC V6T 1Z2, Canada';
-      newActivity.activity = 'First Nations Art & Culture Tour';
-      newActivity.coordinates = [49.2697, -123.2604];
-      newActivity.type = 'museum';
-      newActivity.rating = 4.6;
-    }
-  } else {
-    newActivity.location = 'New Activity';
-    newActivity.activity = 'Activity to be planned';
-  }
-
-  return {
-    text: `I've added "${newActivity.location}" to your itinerary for ${newActivity.date} at ${newActivity.time}. You can modify the details by asking me to change it!`,
-    itineraryUpdate: [...itinerary, newActivity],
-  };
-};
-
-const handleRemoveActivity = (userMessage: string, itinerary: any[]): GeminiResponse => {
-  let activityToRemove = null;
-
-  if (userMessage.toLowerCase().includes('central park')) {
-    activityToRemove = itinerary.find((item) =>
-      item.location.toLowerCase().includes('central park')
-    );
-  } else if (userMessage.toLowerCase().includes('metropolitan')) {
-    activityToRemove = itinerary.find((item) =>
-      item.location.toLowerCase().includes('metropolitan')
-    );
-  } else if (userMessage.toLowerCase().includes('times square')) {
-    activityToRemove = itinerary.find((item) =>
-      item.location.toLowerCase().includes('times square')
-    );
-  } else if (userMessage.toLowerCase().includes('statue of liberty')) {
-    activityToRemove = itinerary.find((item) => item.location.toLowerCase().includes('statue'));
-  } else if (userMessage.toLowerCase().includes('brooklyn bridge')) {
-    activityToRemove = itinerary.find((item) => item.location.toLowerCase().includes('brooklyn'));
-  }
-
-  if (activityToRemove) {
-    const updatedItinerary = itinerary.filter((item) => item.id !== activityToRemove.id);
-    return {
-      text: `I've removed "${activityToRemove.location}" from your itinerary. Your updated schedule is ready!`,
-      itineraryUpdate: updatedItinerary,
-    };
-  } else {
-    return {
-      text: "I couldn't find that activity in your itinerary. Could you be more specific about which location you'd like to remove?",
-      itineraryUpdate: null,
-    };
-  }
-};
-
-const handleModifyActivity = (_userMessage: string, _itinerary: any[]): GeminiResponse => {
-  return {
-    text: "I can help you modify activities! Tell me which location you want to change and what you'd like to update (time, date, or activity details).",
-    itineraryUpdate: null,
-  };
-};
-
-const handleReorderActivities = (_userMessage: string, _itinerary: any[]): GeminiResponse => {
-  return {
-    text: "I can help you reorder your activities! Tell me which activity you want to move and when you'd like to schedule it.",
-    itineraryUpdate: null,
-  };
-};
-
-// Enhanced Gemini responses with itinerary modification capabilities
-export const getGeminiResponse = async (
-  userMessage: string,
-  itinerary: any[] = []
-): Promise<GeminiResponse> => {
-  try {
-    // Check if user wants to modify itinerary
-    const message = userMessage.toLowerCase();
-
-    // Itinerary modification patterns
-    if (
-      message.includes('add') ||
-      message.includes('can you add') ||
-      message.includes('add it to')
-    ) {
-      return handleAddActivity(userMessage, itinerary);
-    }
-
-    if (message.includes('remove') || message.includes('delete') || message.includes('cancel')) {
-      return handleRemoveActivity(userMessage, itinerary);
-    }
-
-    if (message.includes('change') || message.includes('modify') || message.includes('update')) {
-      return handleModifyActivity(userMessage, itinerary);
-    }
-
-    if (message.includes('reorder') || message.includes('reschedule') || message.includes('move')) {
-      return handleReorderActivities(userMessage, itinerary);
-    }
-
-    // Handle specific location requests
-    if (message.includes('vancouver') && message.includes('museums')) {
-      return {
-        text: 'Great choice! Vancouver has amazing museums. The top ones are: 1) Museum of Anthropology (world-renowned First Nations art), 2) Science World (interactive exhibits), and 3) Vancouver Art Gallery (contemporary art). Would you like me to add one of these to your itinerary?',
-        itineraryUpdate: null,
       };
     }
-
-    if (message.includes('ice cream') || message.includes('gelato')) {
-      return {
-        text: 'Great choice! For the best ice cream in NYC, I recommend Amorino Gelato - they have amazing artisanal gelato with beautiful flower-shaped scoops. Would you like me to add it to your itinerary?',
-        itineraryUpdate: null,
-      };
-    }
-
-    // Regular responses for other queries
-    const responses = {
-      greeting: [
-        "Hello! I'm your AI travel assistant. I can help you plan your itinerary, suggest activities, or answer questions about your trip!",
-        "Hi there! I'm here to help make your travel experience amazing. What would you like to know?",
-        'Welcome! I can assist you with your travel plans, recommend places to visit, or help optimize your itinerary.',
-      ],
-      itinerary: [
-        'Your current itinerary looks great! You have a nice mix of cultural and outdoor activities planned for New York City.',
-        "I can see you're visiting some iconic NYC locations. Would you like suggestions for nearby restaurants or additional activities?",
-        'Your schedule is well-balanced between sightseeing and leisure. The timing looks good for each location.',
-      ],
-      suggestions: [
-        "Based on your itinerary, I'd recommend checking the weather and planning accordingly. NYC weather can be unpredictable!",
-        "For the best experience, I suggest visiting Central Park early in the morning when it's less crowded.",
-        "Don't forget to book tickets in advance for popular attractions like the Statue of Liberty and Metropolitan Museum.",
-        "Times Square is always exciting! Consider checking out Broadway shows if you're interested in theater.",
-        'The Brooklyn Bridge walk is beautiful at sunset - perfect for photography!',
-      ],
-      general: [
-        "That's a wonderful choice! I can help you find similar activities in the area.",
-        "I'd be happy to help you plan the best route between your destinations.",
-        'Great question! Let me help you with that.',
-        'I can provide more details about any of the locations in your itinerary.',
-        'Would you like me to suggest alternatives or additional activities?',
-      ],
-    };
-
-    // Determine response type based on user input
-    if (message.includes('hello') || message.includes('hi') || message.includes('hey')) {
-      return {
-        text: responses.greeting[Math.floor(Math.random() * responses.greeting.length)],
-        itineraryUpdate: null,
-      };
-    }
-
-    if (message.includes('itinerary') || message.includes('schedule') || message.includes('plan')) {
-      return {
-        text: responses.itinerary[Math.floor(Math.random() * responses.itinerary.length)],
-        itineraryUpdate: null,
-      };
-    }
-
-    if (
-      message.includes('suggest') ||
-      message.includes('recommend') ||
-      message.includes('advice')
-    ) {
-      return {
-        text: responses.suggestions[Math.floor(Math.random() * responses.suggestions.length)],
-        itineraryUpdate: null,
-      };
-    }
-
-    if (message.includes('central park')) {
-      return {
-        text: "Central Park is a must-visit! It's 843 acres of green space in the heart of Manhattan. I recommend starting at the Bethesda Fountain and walking through the Mall. Early morning or late afternoon are the best times to visit.",
-        itineraryUpdate: null,
-      };
-    }
-
-    if (message.includes('metropolitan') || message.includes('museum')) {
-      return {
-        text: "The Metropolitan Museum of Art is one of the world's largest art museums! You'll need at least 2-3 hours to see the highlights. I recommend starting with the Egyptian Art galleries and the American Wing.",
-        itineraryUpdate: null,
-      };
-    }
-
-    if (message.includes('times square')) {
-      return {
-        text: "Times Square is the heart of NYC! It's always bustling with energy. Visit at night to see the famous billboards lit up. Don't miss the TKTS booth for discounted Broadway tickets.",
-        itineraryUpdate: null,
-      };
-    }
-
-    if (message.includes('statue of liberty')) {
-      return {
-        text: 'The Statue of Liberty is an iconic symbol of freedom! Book your ferry tickets in advance. The crown access requires separate tickets and sells out quickly. The views from the island are spectacular.',
-        itineraryUpdate: null,
-      };
-    }
-
-    if (message.includes('brooklyn bridge')) {
-      return {
-        text: "The Brooklyn Bridge walk is one of NYC's most iconic experiences! It's about 1.3 miles long and offers amazing views of Manhattan. Best times are early morning or sunset for photography.",
-        itineraryUpdate: null,
-      };
-    }
-
+    
     if (message.includes('weather')) {
       return {
         text: "Vancouver weather can be unpredictable! I recommend checking the forecast before your trip and dressing in layers. Spring and fall are generally the most pleasant times to visit.",
@@ -621,49 +527,24 @@ export const getGeminiResponse = async (
       text: "I'm here to help you plan your Vancouver trip! You can ask me to add activities, generate random itineraries, get information about attractions, or help with your itinerary.",
       itineraryUpdate: null
     };
+    
   } catch (error) {
     console.error('Error in mock Gemini service:', error);
-        text: 'NYC weather can be unpredictable! I recommend checking the forecast before your trip and dressing in layers. Spring and fall are generally the most pleasant times to visit.',
-        itineraryUpdate: null,
-      };
-    }
-
-    if (message.includes('food') || message.includes('restaurant') || message.includes('eat')) {
-      return {
-        text: "NYC has incredible food options! For your itinerary, I'd recommend: near Central Park - try The Loeb Boathouse; near Times Square - Carmine's for family-style Italian; near Brooklyn Bridge - Grimaldi's for pizza.",
-        itineraryUpdate: null,
-      };
-    }
-
-    if (message.includes('transport') || message.includes('subway') || message.includes('metro')) {
-      return {
-        text: 'The NYC subway system is extensive and the best way to get around! Get a MetroCard or use your phone with Apple Pay/Google Pay. The 1, 2, 3, 4, 5, 6 lines run north-south through Manhattan.',
-        itineraryUpdate: null,
-      };
-    }
-
-    // Default response
-    return {
-      text: responses.general[Math.floor(Math.random() * responses.general.length)],
-      itineraryUpdate: null,
-    };
-  } catch (error) {
-    console.error('Error getting Gemini response:', error);
     return {
       text: "I'm sorry, I'm having trouble processing your request right now. Please try again later.",
-      itineraryUpdate: null,
+      itineraryUpdate: null
     };
   }
 };
 
 // Main function that decides whether to use real API or mock
-const getGeminiResponse = async (userMessage, itinerary = []) => {
+const getGeminiResponse = async (userMessage: string, itinerary: any[] = [], questionnaireData: QuestionnaireData = {}, messages: any[] = []) => {
   // Check if we have a valid AI instance
   if (ai) {
-    return await getRealGeminiResponse(userMessage, itinerary);
+    return await getRealGeminiResponse(userMessage, itinerary, questionnaireData, messages);
   } else {
     console.log('⚠️ No valid Gemini API key found, using mock responses');
-    return await getMockGeminiResponse(userMessage, itinerary);
+    return await getMockGeminiResponse(userMessage, itinerary, questionnaireData, messages);
   }
 };
 

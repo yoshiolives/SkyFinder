@@ -7,9 +7,9 @@ console.log('🧪 Gemini API Test Runner');
 console.log('========================\n');
 
 // Check if API key is set
-if (!process.env.REACT_APP_GEMINI_API_KEY || process.env.REACT_APP_GEMINI_API_KEY === 'test-api-key') {
+if (!process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY === 'test-api-key') {
   console.log('⚠️  Warning: No valid Gemini API key found.');
-  console.log('   Set REACT_APP_GEMINI_API_KEY environment variable to test with real API.\n');
+  console.log('   Set NEXT_PUBLIC_GEMINI_API_KEY environment variable to test with real API.\n');
 } else {
   console.log('✅ Gemini API key found');
 }

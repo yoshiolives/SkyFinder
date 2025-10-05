@@ -2,8 +2,8 @@
 import '@testing-library/jest-dom';
 
 // Mock environment variables
-process.env.REACT_APP_GEMINI_API_KEY = 'test-api-key';
-process.env.REACT_APP_GOOGLE_MAPS_API_KEY = 'test-maps-key';
+process.env.NEXT_PUBLIC_GEMINI_API_KEY = 'test-api-key';
+process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = 'test-maps-key';
 
 // Mock Google Maps
 global.google = {

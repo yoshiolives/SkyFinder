@@ -8,3 +8,5 @@ yarn.lock
 
 # Environment variables
 .env
+.next
+next-env.d.ts

@@ -32,8 +32,10 @@ interface QuestionnaireData {
   preferences?: Preferences;
 }
 
-// Initialize Google GenAI with API key check
-const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+// Initialize Google GenAI with API key check (server-side only)
+// NOTE: This service should ONLY be imported and used in API routes (server-side)
+// Never import this directly in client-side components
+const apiKey = process.env.GEMINI_API_KEY;
 
 if (!apiKey || apiKey === 'test-api-key' || apiKey === 'your_gemini_api_key') {
   throw new GeminiAPIError('Gemini API key is not configured. Please contact an administrator.');

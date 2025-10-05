@@ -1,58 +1,74 @@
-import React, { useState, useRef, useEffect } from 'react';
+'use client';
+
 import {
+  SmartToy as BotIcon,
+  Close as CloseIcon,
+  Person as PersonIcon,
+  Send as SendIcon,
+} from '@mui/icons-material';
+import {
+  Avatar,
   Box,
-  Paper,
-  Typography,
-  TextField,
+  Divider,
+  Fab,
   IconButton,
   List,
   ListItem,
-  Avatar,
-  Divider,
-  Fab,
-  Slide
+  Paper,
+  Slide,
+  TextField,
+  Typography,
 } from '@mui/material';
-import {
-  Send as SendIcon,
-  Close as CloseIcon,
-  SmartToy as BotIcon,
-  Person as PersonIcon
-} from '@mui/icons-material';
-import { getGeminiResponse } from './services/geminiService';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { getGeminiResponse } from '../services/geminiService';
 
-const ChatBot = ({ itinerary = [], onItineraryUpdate = null }) => {
+interface Message {
+  id: number;
+  text: string;
+  sender: 'user' | 'bot';
+  timestamp: Date;
+}
+
+interface ChatBotProps {
+  itinerary?: any[];
+  onItineraryUpdate?: (itinerary: any) => void;
+}
+
+const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = null }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
       text: "Hi! I'm your AI travel assistant. I can help you plan your itinerary, suggest activities, or answer questions about your trip!",
       sender: 'bot',
-      timestamp: new Date()
-    }
+      timestamp: new Date(),
+    },
   ]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: We want to scroll on every message change
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, scrollToBottom]);
 
   const handleSendMessage = async () => {
     if (!inputText.trim() || isLoading) return;
 
-    const userMessage = {
+    const userMessage: Message = {
       id: Date.now(),
       text: inputText,
       sender: 'user',
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInputText('');
     setIsLoading(true);
 
@@ -60,15 +76,15 @@ const ChatBot = ({ itinerary = [], onItineraryUpdate = null }) => {
       // Get AI response from Gemini service with itinerary context
       const response = await getGeminiResponse(inputText, itinerary);
 
-      const botMessage = {
+      const botMessage: Message = {
         id: Date.now() + 1,
         text: response.text,
         sender: 'bot',
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       setTimeout(() => {
-        setMessages(prev => [...prev, botMessage]);
+        setMessages((prev) => [...prev, botMessage]);
         setIsLoading(false);
 
         // If the response includes itinerary updates, apply them
@@ -76,20 +92,19 @@ const ChatBot = ({ itinerary = [], onItineraryUpdate = null }) => {
           onItineraryUpdate(response.itineraryUpdate);
         }
       }, 1000);
-    } catch (error) {
-      const errorMessage = {
+    } catch (_error) {
+      const errorMessage: Message = {
         id: Date.now() + 1,
         text: "Sorry, I'm having trouble connecting right now. Please try again later.",
         sender: 'bot',
-        timestamp: new Date()
+        timestamp: new Date(),
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages((prev) => [...prev, errorMessage]);
       setIsLoading(false);
     }
   };
 
-
-  const handleKeyPress = (event) => {
+  const handleKeyPress = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       handleSendMessage();
@@ -108,7 +123,7 @@ const ChatBot = ({ itinerary = [], onItineraryUpdate = null }) => {
           bottom: 16,
           right: 16,
           display: isOpen ? 'none' : 'flex',
-          zIndex: 1000
+          zIndex: 1000,
         }}
       >
         <BotIcon />
@@ -126,7 +141,7 @@ const ChatBot = ({ itinerary = [], onItineraryUpdate = null }) => {
             display: 'flex',
             flexDirection: 'column',
             zIndex: 1000,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
+            boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
           }}
         >
           {/* Chat Header */}
@@ -137,7 +152,7 @@ const ChatBot = ({ itinerary = [], onItineraryUpdate = null }) => {
               color: 'white',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between'
+              justifyContent: 'space-between',
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -151,11 +166,7 @@ const ChatBot = ({ itinerary = [], onItineraryUpdate = null }) => {
                 </Typography>
               </Box>
             </Box>
-            <IconButton
-              color="inherit"
-              onClick={() => setIsOpen(false)}
-              size="small"
-            >
+            <IconButton color="inherit" onClick={() => setIsOpen(false)} size="small">
               <CloseIcon />
             </IconButton>
           </Box>
@@ -169,7 +180,7 @@ const ChatBot = ({ itinerary = [], onItineraryUpdate = null }) => {
                   sx={{
                     flexDirection: message.sender === 'user' ? 'row-reverse' : 'row',
                     alignItems: 'flex-start',
-                    mb: 1
+                    mb: 1,
                   }}
                 >
                   <Avatar
@@ -178,7 +189,7 @@ const ChatBot = ({ itinerary = [], onItineraryUpdate = null }) => {
                       width: 32,
                       height: 32,
                       mr: message.sender === 'user' ? 0 : 1,
-                      ml: message.sender === 'user' ? 1 : 0
+                      ml: message.sender === 'user' ? 1 : 0,
                     }}
                   >
                     {message.sender === 'user' ? <PersonIcon /> : <BotIcon />}
@@ -186,18 +197,14 @@ const ChatBot = ({ itinerary = [], onItineraryUpdate = null }) => {
                   <Box
                     sx={{
                       maxWidth: '80%',
-                      backgroundColor: message.sender === 'user'
-                        ? '#1976d2'
-                        : '#f5f5f5',
+                      backgroundColor: message.sender === 'user' ? '#1976d2' : '#f5f5f5',
                       color: message.sender === 'user' ? 'white' : 'black',
                       borderRadius: 2,
                       p: 1.5,
-                      wordBreak: 'break-word'
+                      wordBreak: 'break-word',
                     }}
                   >
-                    <Typography variant="body2" component="div">
-                      {message.text}
-                    </Typography>
+                    <Typography variant="body2">{message.text}</Typography>
                     <Typography
                       variant="caption"
                       component="div"
@@ -205,12 +212,12 @@ const ChatBot = ({ itinerary = [], onItineraryUpdate = null }) => {
                         display: 'block',
                         mt: 0.5,
                         opacity: 0.7,
-                        fontSize: '0.7rem'
+                        fontSize: '0.7rem',
                       }}
                     >
                       {message.timestamp.toLocaleTimeString([], {
                         hour: '2-digit',
-                        minute: '2-digit'
+                        minute: '2-digit',
                       })}
                     </Typography>
                   </Box>

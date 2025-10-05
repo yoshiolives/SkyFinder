@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { createPortal } from 'react-dom';
 import {
@@ -811,9 +812,18 @@ export default function Home() {
         }}
       >
         <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
-            ✈️ Places.ai
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexGrow: 1 }}>
+            <Image
+              src="/logo.png"
+              alt="Places.ai Logo"
+              width={40}
+              height={40}
+              style={{ borderRadius: '8px' }}
+            />
+            <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
+              Places.ai
+            </Typography>
+          </Box>
 
           {user ? (
             <>

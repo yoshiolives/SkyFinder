@@ -62,6 +62,8 @@ import {
   TextField,
   Toolbar,
   Typography,
+  Tooltip,
+  Backdrop,
 } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
@@ -468,6 +470,24 @@ export default function Home() {
     setSidebarOpen(!sidebarOpen);
   };
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Ctrl/Cmd + B to toggle sidebar
+      if ((event.ctrlKey || event.metaKey) && event.key === 'b') {
+        event.preventDefault();
+        toggleSidebar();
+      }
+      // Escape to close sidebar
+      if (event.key === 'Escape' && sidebarOpen) {
+        setSidebarOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [sidebarOpen]);
+
   // Handle drag start
   const handleDragStart = (result: any) => {
     console.log('Drag start result:', result);
@@ -477,6 +497,8 @@ export default function Home() {
   // Track which day is being dragged over for hover-to-expand
   const [draggedOverDay, setDraggedOverDay] = useState<string | null>(null);
   const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [dragFeedback, setDragFeedback] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Handle hover-to-expand for empty day boxes
   useEffect(() => {
@@ -534,6 +556,16 @@ export default function Home() {
     if (hoverTimeout) {
       clearTimeout(hoverTimeout);
       setHoverTimeout(null);
+    }
+
+    // Show drag feedback if successful drop
+    if (result.destination) {
+      setDragFeedback(true);
+      // Haptic feedback if supported
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+      setTimeout(() => setDragFeedback(false), 300);
     }
 
     if (!result.destination) {
@@ -1265,7 +1297,7 @@ export default function Home() {
               '& .MuiDrawer-paper': {
                 width: 320,
                 boxSizing: 'border-box',
-                background: 'linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(240 4.8% 95.9%) 100%)',
+                background: 'linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(240 4.8% 95.9%) 50%, hsl(240 4.8% 98%) 100%)',
                 backdropFilter: 'blur(20px)',
                 border: '1px solid hsl(220 13% 91%)',
                 borderLeft: 'none',
@@ -1450,31 +1482,34 @@ export default function Home() {
 
                 {/* Close Button */}
                 {sidebarOpen && (
-                  <IconButton
-                    onClick={toggleSidebar}
-                    sx={{
-                      position: 'fixed',
-                      top: '50%',
-                      left: sidebarOpen ? 308 : -100,
-                      transform: 'translateY(-50%)',
-                      width: 24,
-                      height: 60,
-                      background: 'hsl(0 0% 100%)',
-                      border: '2px solid hsl(220 13% 91%)',
-                      borderRadius: '0 6px 6px 0',
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-                      color: 'hsl(240 5.9% 10%)',
-                      zIndex: 1001,
-                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                      '&:hover': {
-                        background: 'hsl(240 4.8% 95.9%)',
-                        transform: 'translateY(-50%) translateX(2px)',
+                  <Tooltip title="Close Sidebar (Esc)" placement="right" arrow>
+                    <IconButton
+                      onClick={toggleSidebar}
+                      aria-label="Close sidebar"
+                      sx={{
+                        position: 'fixed',
+                        top: '50%',
+                        left: sidebarOpen ? 308 : -100,
+                        transform: 'translateY(-50%)',
+                        width: 24,
+                        height: 60,
+                        background: 'hsl(0 0% 100%)',
+                        border: '2px solid hsl(220 13% 91%)',
+                        borderRadius: '0 6px 6px 0',
                         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-                      },
-                    }}
-                  >
-                    <ChevronLeftIcon sx={{ fontSize: 18 }} />
-                  </IconButton>
+                        color: 'hsl(240 5.9% 10%)',
+                        zIndex: 1001,
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                        '&:hover': {
+                          background: 'hsl(240 4.8% 95.9%)',
+                          transform: 'translateY(-50%) translateX(2px)',
+                          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                        },
+                      }}
+                    >
+                      <ChevronLeftIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                  </Tooltip>
                 )}
               </Box>
 
@@ -1556,9 +1591,27 @@ export default function Home() {
                           borderRadius: 2,
                           mb: isLastDay ? 12 : ((activities.length > 0 && expandedDays.has(day)) ? 1 : 0),
                           '&:before': { display: 'none' },
-                          '&.Mui-expanded': { margin: '0 0 8px 0' },
+                          '&.Mui-expanded': { 
+                            margin: '0 0 8px 0',
+                            animation: 'bounceIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                          },
                           backgroundColor: 'transparent',
                           minHeight: activities.length > 0 ? 'auto' : '48px',
+                          transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                          '@keyframes bounceIn': {
+                            '0%': {
+                              transform: 'scale(0.95)',
+                              opacity: 0.8,
+                            },
+                            '50%': {
+                              transform: 'scale(1.02)',
+                              opacity: 1,
+                            },
+                            '100%': {
+                              transform: 'scale(1)',
+                              opacity: 1,
+                            },
+                          },
                           '& .MuiAccordionSummary-root': {
                             minHeight: '48px',
                             cursor: activities.length > 0 ? 'pointer' : 'default',
@@ -2313,34 +2366,50 @@ export default function Home() {
               marginTop: '32px',
             }}
           >
-            <IconButton
-              onClick={toggleSidebar}
-              sx={{
-                position: 'fixed',
-                top: 'calc(50% - 300px)',
-                left: sidebarOpen ? -100 : 0,
-                transform: 'translateY(-50%)',
-                width: 24,
-                height: 60,
-                background: 'rgba(0, 122, 255, 0.9)',
-                color: 'white',
-                borderRadius: '0 6px 6px 0',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-                border: '2px solid hsl(220 13% 91%)',
-                zIndex: 1001,
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                '&:hover': {
-                  background: 'rgba(0, 122, 255, 1)',
-                  transform: 'translateY(-50%) translateX(2px)',
-                  boxShadow: '0 4px 12px rgba(0, 122, 255, 0.3)',
-                },
-                '&:active': {
-                  transform: 'translateY(-50%) translateX(1px) scale(0.98)',
-                },
-              }}
-            >
-              <MenuIcon sx={{ fontSize: 18 }} />
-            </IconButton>
+            <Tooltip title="Open Sidebar (Ctrl+B)" placement="right" arrow>
+              <IconButton
+                onClick={toggleSidebar}
+                aria-label="Open sidebar"
+                sx={{
+                  position: 'fixed',
+                  top: 'calc(50% - 300px)',
+                  left: sidebarOpen ? -100 : 0,
+                  transform: 'translateY(-50%)',
+                  width: 24,
+                  height: 60,
+                  background: 'rgba(0, 122, 255, 0.9)',
+                  color: 'white',
+                  borderRadius: '0 6px 6px 0',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                  border: '2px solid hsl(220 13% 91%)',
+                  zIndex: 1001,
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  animation: 'pulse 2s infinite',
+                  '@keyframes pulse': {
+                    '0%': {
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                    },
+                    '50%': {
+                      boxShadow: '0 4px 12px rgba(0, 122, 255, 0.4), 0 0 0 4px rgba(0, 122, 255, 0.1)',
+                    },
+                    '100%': {
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                    },
+                  },
+                  '&:hover': {
+                    background: 'rgba(0, 122, 255, 1)',
+                    transform: 'translateY(-50%) translateX(2px)',
+                    boxShadow: '0 4px 12px rgba(0, 122, 255, 0.3)',
+                    animation: 'none',
+                  },
+                  '&:active': {
+                    transform: 'translateY(-50%) translateX(1px) scale(0.98)',
+                  },
+                }}
+              >
+                <MenuIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
           </Box>
         </Box>
 

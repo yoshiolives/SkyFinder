@@ -59,7 +59,7 @@ import {
 import CssBaseline from '@mui/material/CssBaseline';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { GoogleMap, InfoWindow, LoadScript, Marker } from '@react-google-maps/api';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ChatBot from '@/components/ChatBot';
 import LandingPage from '@/components/LandingPage';
 import LoginModal from '@/components/LoginModal';
@@ -203,6 +203,7 @@ export default function Home() {
   const [activitySuggestions, setActivitySuggestions] = useState<any[]>([]);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTripTitle, setEditedTripTitle] = useState('');
+  const hasLoadedDataRef = useRef(false);
 
   const loadTripItinerary = useCallback(async (trip: any) => {
     try {
@@ -262,6 +263,12 @@ export default function Home() {
         setItinerary([]);
         setCurrentTrip(null);
         setLoading(false);
+        hasLoadedDataRef.current = false;
+        return;
+      }
+
+      // Only fetch if we haven't loaded data yet for this user
+      if (hasLoadedDataRef.current) {
         return;
       }
 
@@ -280,6 +287,9 @@ export default function Home() {
           setItinerary([]);
           setCurrentTrip(null);
         }
+        
+        // Mark data as loaded
+        hasLoadedDataRef.current = true;
       } catch (error) {
         console.error('Failed to fetch trips:', error);
         setTrips([]);
@@ -307,6 +317,9 @@ export default function Home() {
       if (fetchedTrips && fetchedTrips.length > 0) {
         await loadTripItinerary(fetchedTrips[0]);
       }
+      
+      // Keep the loaded flag as true since we just loaded data
+      hasLoadedDataRef.current = true;
     } catch (error) {
       console.error('Failed to refresh trips:', error);
     }
@@ -315,7 +328,7 @@ export default function Home() {
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
-
+  
   const handleGoogleMapsLoad = () => {
     setIsGoogleMapsLoaded(true);
   };
@@ -500,7 +513,7 @@ export default function Home() {
       );
 
       // Try Google Places API if available
-      if (window.google && window.google.maps && window.google.maps.places) {
+      if (typeof window !== 'undefined' && window.google?.maps?.places) {
         try {
           const service = new window.google.maps.places.AutocompleteService();
           service.getPlacePredictions(
@@ -510,7 +523,7 @@ export default function Home() {
               componentRestrictions: { country: 'us' },
             },
             (predictions, status) => {
-              if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+              if (window.google?.maps?.places && status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
                 const googleSuggestions = predictions.map((prediction) => ({
                   label: prediction.description,
                   value: prediction.description,
@@ -546,34 +559,42 @@ export default function Home() {
         address: selectedAddress.value,
         coordinates: selectedAddress.coordinates,
       });
-    } else if (selectedAddress && selectedAddress.placeId && window.google && window.google.maps) {
+    } else if (selectedAddress && selectedAddress.placeId && typeof window !== 'undefined' && window.google?.maps) {
       // Geocode the selected address to get coordinates
-      const geocoder = new window.google.maps.Geocoder();
-      geocoder.geocode({ placeId: selectedAddress.placeId }, (results, status) => {
-        if (status === 'OK' && results && results[0]) {
-          const location = results[0].geometry.location;
-          const coords = [location.lat(), location.lng()];
-          setNewActivity({
-            ...newActivity,
-            address: selectedAddress.value,
-            coordinates: coords,
-          });
-        }
-      });
-    } else if (selectedAddress && window.google && window.google.maps) {
+      try {
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode({ placeId: selectedAddress.placeId }, (results, status) => {
+          if (status === 'OK' && results && results[0]) {
+            const location = results[0].geometry.location;
+            const coords = [location.lat(), location.lng()];
+            setNewActivity({
+              ...newActivity,
+              address: selectedAddress.value,
+              coordinates: coords,
+            });
+          }
+        });
+      } catch (error) {
+        console.error('Geocoding failed:', error);
+      }
+    } else if (selectedAddress && typeof window !== 'undefined' && window.google?.maps) {
       // Fallback: geocode by address string
-      const geocoder = new window.google.maps.Geocoder();
-      geocoder.geocode({ address: selectedAddress.value }, (results, status) => {
-        if (status === 'OK' && results && results[0]) {
-          const location = results[0].geometry.location;
-          const coords = [location.lat(), location.lng()];
-          setNewActivity({
-            ...newActivity,
-            address: selectedAddress.value,
-            coordinates: coords,
-          });
-        }
-      });
+      try {
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode({ address: selectedAddress.value }, (results, status) => {
+          if (status === 'OK' && results && results[0]) {
+            const location = results[0].geometry.location;
+            const coords = [location.lat(), location.lng()];
+            setNewActivity({
+              ...newActivity,
+              address: selectedAddress.value,
+              coordinates: coords,
+            });
+          }
+        });
+      } catch (error) {
+        console.error('Geocoding failed:', error);
+      }
     }
   };
 
@@ -823,96 +844,6 @@ export default function Home() {
       </AppBar>
 
       <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', pt: '64px' }}>
-        {/* Google Map Background */}
-        <Box sx={{ flexGrow: 1, position: 'relative' }}>
-          <LoadScript
-            googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}
-            onLoad={handleGoogleMapsLoad}
-            onError={(error) => {
-              console.error('Google Maps failed to load:', error);
-            }}
-          >
-            <GoogleMap
-              mapContainerStyle={{ width: '100%', height: '100vh' }}
-              center={{ lat: 40.7128, lng: -74.006 }} // New York City center
-              zoom={12}
-              options={{
-                styles: [
-                  {
-                    featureType: 'all',
-                    elementType: 'geometry',
-                    stylers: [{ color: '#f5f5f5' }],
-                  },
-                  {
-                    featureType: 'water',
-                    elementType: 'geometry',
-                    stylers: [{ color: '#c9c9c9' }],
-                  },
-                  {
-                    featureType: 'poi',
-                    elementType: 'labels.text.fill',
-                    stylers: [{ color: '#757575' }],
-                  },
-                ],
-              }}
-            >
-              {/* Map Markers for each itinerary item */}
-              {itinerary.map((item) => (
-                <Marker
-                  key={item.id}
-                  position={{ lat: item.coordinates[0], lng: item.coordinates[1] }}
-                  onClick={() => setSelectedItem(item)}
-                  icon={
-                    isGoogleMapsLoaded
-                      ? {
-                          url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-                      <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="20" cy="20" r="18" fill="${getActivityColor(item.type)}" stroke="white" stroke-width="3"/>
-                        <text x="20" y="26" text-anchor="middle" fill="white" font-size="16" font-weight="bold">
-                          ${getActivityIcon(item.type)}
-                        </text>
-                      </svg>
-                    `)}`,
-                          scaledSize: new window.google.maps.Size(40, 40),
-                          anchor: new window.google.maps.Point(20, 20),
-                        }
-                      : undefined
-                  }
-                />
-              ))}
-
-              {/* Info Window for selected item */}
-              {selectedItem && (
-                <InfoWindow
-                  position={{ lat: selectedItem.coordinates[0], lng: selectedItem.coordinates[1] }}
-                  onCloseClick={() => setSelectedItem(null)}
-                >
-                  <Box sx={{ p: 1, minWidth: 250 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
-                      {selectedItem.location}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                      📅 {selectedItem.date} • 🕐 {selectedItem.time}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                      📍 {selectedItem.address}
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      {selectedItem.activity} • {selectedItem.duration}
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <StarIcon sx={{ fontSize: 16, color: '#ffc107', mr: 0.5 }} />
-                      <Typography variant="body2" color="text.secondary">
-                        {selectedItem.rating}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </InfoWindow>
-              )}
-            </GoogleMap>
-          </LoadScript>
-        </Box>
-
         {/* Apple-Style Sidebar */}
         <Drawer
           variant="persistent"
@@ -1478,6 +1409,104 @@ export default function Home() {
           </Box>
         </Drawer>
 
+        {/* Google Map Background */}
+        <Box sx={{ flexGrow: 1, position: 'relative' }}>
+          <LoadScript
+            googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}
+            onLoad={handleGoogleMapsLoad}
+            onError={(error) => {
+              console.error('Google Maps failed to load:', error);
+            }}
+          >
+            <GoogleMap
+              mapContainerStyle={{ width: '100%', height: '100vh' }}
+              center={{ lat: 40.7128, lng: -74.006 }} // New York City center
+              zoom={12}
+              options={{
+                styles: [
+                  {
+                    featureType: 'all',
+                    elementType: 'geometry',
+                    stylers: [{ color: '#f5f5f5' }],
+                  },
+                  {
+                    featureType: 'water',
+                    elementType: 'geometry',
+                    stylers: [{ color: '#c9c9c9' }],
+                  },
+                  {
+                    featureType: 'poi',
+                    elementType: 'labels.text.fill',
+                    stylers: [{ color: '#757575' }],
+                  },
+                ],
+              }}
+            >
+              {/* Map Markers for each itinerary item */}
+              {itinerary.map((item) => {
+                // Create custom icon only if Google Maps is fully loaded
+                let customIcon = undefined;
+                try {
+                  if (isGoogleMapsLoaded && typeof window !== 'undefined' && window.google?.maps?.Size && window.google?.maps?.Point) {
+                    customIcon = {
+                      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+                    <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="20" cy="20" r="18" fill="${getActivityColor(item.type)}" stroke="white" stroke-width="3"/>
+                      <text x="20" y="26" text-anchor="middle" fill="white" font-size="16" font-weight="bold">
+                        ${getActivityIcon(item.type)}
+                      </text>
+                    </svg>
+                  `)}`,
+                      scaledSize: new window.google.maps.Size(40, 40),
+                      anchor: new window.google.maps.Point(20, 20),
+                    };
+                  }
+                } catch (error) {
+                  console.warn('Failed to create custom marker icon:', error);
+                }
+                
+                return (
+                  <Marker
+                    key={item.id}
+                    position={{ lat: item.coordinates[0], lng: item.coordinates[1] }}
+                    onClick={() => setSelectedItem(item)}
+                    icon={customIcon}
+                  />
+                );
+              })}
+
+              {/* Info Window for selected item */}
+              {selectedItem && (
+                <InfoWindow
+                  position={{ lat: selectedItem.coordinates[0], lng: selectedItem.coordinates[1] }}
+                  onCloseClick={() => setSelectedItem(null)}
+                >
+                  <Box sx={{ p: 1, minWidth: 250 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
+                      {selectedItem.location}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                      📅 {selectedItem.date} • 🕐 {selectedItem.time}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                      📍 {selectedItem.address}
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      {selectedItem.activity} • {selectedItem.duration}
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <StarIcon sx={{ fontSize: 16, color: '#ffc107', mr: 0.5 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        {selectedItem.rating}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </InfoWindow>
+              )}
+            </GoogleMap>
+          </LoadScript>
+        </Box>
+
         {/* Sidebar Trigger */}
         <Box
           sx={{
@@ -1533,10 +1562,10 @@ export default function Home() {
         >
           <MenuIcon />
         </Fab>
-
-        {/* AI Chat Bot */}
-        <ChatBot itinerary={itinerary} onItineraryUpdate={handleItineraryUpdate} />
       </Box>
+
+      {/* AI Chat Bot - Overlaid on top of everything */}
+      <ChatBot itinerary={itinerary} onItineraryUpdate={handleItineraryUpdate} />
 
       {/* Login Modal */}
       <LoginModal

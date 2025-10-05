@@ -20,6 +20,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import Image from 'next/image';
 import { useState } from 'react';
 
 interface LandingPageProps {
@@ -44,18 +45,27 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
 
   return (
     <Box>
-      {/* Fixed Header */}
+      {/* Header */}
       <AppBar
-        position="fixed"
+        position="static"
         sx={{
           backgroundColor: 'rgba(25, 118, 210, 0.95)',
           backdropFilter: 'blur(10px)',
         }}
       >
         <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
-            ✈️ Places.ai
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexGrow: 1 }}>
+            <Image
+              src="/logo.png"
+              alt="Places.ai Logo"
+              width={40}
+              height={40}
+              style={{ borderRadius: '8px' }}
+            />
+            <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
+              Places.ai
+            </Typography>
+          </Box>
           <Button
             color="inherit"
             startIcon={<LoginIcon />}
@@ -71,40 +81,118 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
         sx={{
           minHeight: '100vh',
           background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-          pt: 8,
         }}
       >
         {/* Hero Section */}
-        <Container maxWidth="lg" sx={{ pt: 12, pb: 8 }}>
+        <Container maxWidth="lg" sx={{ pt: { xs: 6, md: 12 }, pb: { xs: 4, md: 8 } }}>
           <Box
             sx={{
               textAlign: 'center',
               color: 'white',
-              mb: 8,
+              mb: { xs: 4, md: 8 },
             }}
           >
-            <Typography
-              variant="h2"
-              component="h1"
+            {/* Mobile: Banner above text */}
+            <Box
               sx={{
-                fontWeight: 700,
-                mb: 2,
-                fontSize: { xs: '2.5rem', md: '3.5rem' },
-                textShadow: '0 2px 10px rgba(0,0,0,0.2)',
+                mb: { xs: 4, md: 0 },
+                display: { xs: 'flex', md: 'none' },
+                justifyContent: 'center',
+                alignItems: 'center',
               }}
             >
-              Stop Planning. Start Traveling.
-            </Typography>
+              <Image
+                src="/banner.png"
+                alt="Places.ai Hero Banner"
+                width={800}
+                height={400}
+                style={{
+                  borderRadius: '16px',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                  maxWidth: '100%',
+                  height: 'auto',
+                }}
+                priority
+              />
+            </Box>
+
+            {/* Desktop: Side-by-side layout */}
+            <Box
+              sx={{
+                display: { xs: 'block', md: 'flex' },
+                alignItems: 'center',
+                gap: { md: 6 },
+                justifyContent: 'center',
+                mb: { xs: 0, md: 2 },
+              }}
+            >
+              {/* Desktop: Banner on the left */}
+              <Box
+                sx={{
+                  display: { xs: 'none', md: 'flex' },
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  flex: 1,
+                }}
+              >
+                <Image
+                  src="/banner.png"
+                  alt="Places.ai Hero Banner"
+                  width={500}
+                  height={300}
+                  style={{
+                    borderRadius: '16px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                    maxWidth: '100%',
+                    height: 'auto',
+                  }}
+                  priority
+                />
+              </Box>
+
+              {/* Text content */}
+              <Box sx={{ flex: 1, textAlign: { xs: 'center', md: 'left' } }}>
+                <Typography
+                  variant="h2"
+                  component="h1"
+                  sx={{
+                    fontWeight: 700,
+                    mb: 2,
+                    fontSize: { xs: '2.5rem', md: '3.5rem' },
+                    textShadow: '0 2px 10px rgba(0,0,0,0.2)',
+                  }}
+                >
+                  Stop Planning. Start Traveling.
+                </Typography>
+                <Typography
+                  variant="h5"
+                  sx={{
+                    mb: 4,
+                    fontWeight: 300,
+                    opacity: 0.95,
+                    lineHeight: 1.6,
+                    fontSize: { xs: '1.1rem', md: '1.5rem' },
+                  }}
+                >
+                  Let AI handle the details while you focus on what matters—making memories with the
+                  people you love.
+                </Typography>
+              </Box>
+            </Box>
+
+            {/* Mobile subheading - positioned below banner on mobile only */}
             <Typography
               variant="h5"
               sx={{
                 mb: 4,
                 fontWeight: 300,
                 opacity: 0.95,
-                maxWidth: '800px',
+                maxWidth: '100%',
                 mx: 'auto',
                 lineHeight: 1.6,
                 fontSize: { xs: '1.1rem', md: '1.5rem' },
+                textAlign: 'center',
+                display: { xs: 'block', md: 'none' },
               }}
             >
               Let AI handle the details while you focus on what matters—making memories with the
@@ -138,7 +226,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           </Box>
 
           {/* Value Proposition Cards */}
-          <Grid container spacing={3} sx={{ mb: 8 }}>
+          <Grid container spacing={3} sx={{ mb: { xs: 4, md: 8 } }}>
             <Grid item xs={12} md={4}>
               <Paper
                 elevation={3}
@@ -225,7 +313,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
         </Container>
 
         {/* Features Section */}
-        <Box sx={{ bgcolor: 'white', py: 10 }}>
+        <Box sx={{ bgcolor: 'white', py: { xs: 6, md: 10 } }}>
           <Container maxWidth="lg">
             <Typography variant="h3" align="center" sx={{ fontWeight: 700, mb: 2 }}>
               Everything You Need, Nothing You Don't
@@ -234,12 +322,12 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               variant="h6"
               align="center"
               color="text.secondary"
-              sx={{ mb: 8, fontWeight: 300 }}
+              sx={{ mb: { xs: 4, md: 8 }, fontWeight: 300 }}
             >
               Simple tools that actually make travel planning enjoyable
             </Typography>
 
-            <Grid container spacing={6}>
+            <Grid container spacing={{ xs: 3, md: 6 }}>
               <Grid item xs={12} md={6}>
                 <Box sx={{ display: 'flex', gap: 3 }}>
                   <AutoAwesomeIcon
@@ -314,7 +402,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
         {/* Social Proof / Testimonial Section */}
         <Box
           sx={{
-            py: 10,
+            py: { xs: 6, md: 10 },
             background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
           }}
         >
@@ -525,7 +613,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
         </Box>
 
         {/* CTA Section */}
-        <Box sx={{ bgcolor: 'white', py: 10 }}>
+        <Box sx={{ bgcolor: 'white', py: { xs: 6, md: 10 } }}>
           <Container maxWidth="md" sx={{ textAlign: 'center' }}>
             <Typography variant="h3" sx={{ fontWeight: 700, mb: 3 }}>
               Your Next Adventure Awaits

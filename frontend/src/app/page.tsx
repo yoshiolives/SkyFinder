@@ -262,7 +262,7 @@ export default function Home() {
   const hasLoadedDataRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
-  const [showMapControls, setShowMapControls] = useState(true);
+  const [showMapControls, setShowMapControls] = useState(false);
   const [vacationStartDate, setVacationStartDate] = useState('');
   const [vacationEndDate, setVacationEndDate] = useState('');
   const [isEditingDates, setIsEditingDates] = useState(false);
@@ -2466,8 +2466,8 @@ export default function Home() {
                   top: 'calc(50% - 300px)',
                   left: sidebarOpen ? -100 : { xs: 0, sm: 0 },
                   transform: 'translateY(-50%)',
-                  width: 24,
-                  height: 60,
+                  width: 32,
+                  height: 80,
                   background: 'rgba(0, 122, 255, 0.9)',
                   color: 'white',
                   borderRadius: '0 6px 6px 0',
@@ -2498,7 +2498,7 @@ export default function Home() {
                   },
                 }}
               >
-                <MenuIcon sx={{ fontSize: 18 }} />
+                <MenuIcon sx={{ fontSize: 24 }} />
               </IconButton>
             </Tooltip>
           </Box>

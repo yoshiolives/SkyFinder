@@ -75,6 +75,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
     setIsLoading(true);
 
     try {
+      // Get AI response from Gemini service with itinerary context
       const response = await getGeminiResponse(inputText, itinerary);
 
       const botMessage: Message = {
@@ -88,6 +89,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
         setMessages((prev) => [...prev, botMessage]);
         setIsLoading(false);
 
+        // If the response includes itinerary updates, apply them
         if (response.itineraryUpdate && onItineraryUpdate) {
           onItineraryUpdate(response.itineraryUpdate);
         }

@@ -1,8 +1,11 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Places & AI Explorer',
-  description: 'Discover amazing places with AI-powered recommendations',
+  title: 'Places.ai - AI Travel Planner',
+  description: 'Plan your perfect trip in seconds with AI-powered itinerary generation',
+  icons: {
+    icon: '/logo.ico',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

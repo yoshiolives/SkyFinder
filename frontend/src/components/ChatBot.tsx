@@ -87,7 +87,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
         questionnaireData: {},
         messages: messages,
       });
-      
+
       const response = apiResponse.data;
 
       const botMessage: Message = {
@@ -138,7 +138,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
                 if (onItineraryUpdate) {
                   onItineraryUpdate([...itinerary, formattedItem]);
                 }
-                
+
                 setSnackbarMessage('Successfully added to your itinerary!');
                 setSnackbarOpen(true);
                 break;
@@ -165,7 +165,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
                   );
                   onItineraryUpdate(updatedItinerary);
                 }
-                
+
                 setSnackbarMessage('Successfully updated your itinerary!');
                 setSnackbarOpen(true);
                 break;
@@ -180,7 +180,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
                   const updatedItinerary = itinerary.filter(item => item.id !== response.actionData.id);
                   onItineraryUpdate(updatedItinerary);
                 }
-                
+
                 setSnackbarMessage('Successfully removed from your itinerary!');
                 setSnackbarOpen(true);
                 break;
@@ -200,12 +200,12 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
       }, 1000);
     } catch (error: any) {
       setIsLoading(false);
-      
+
       // Handle API errors
       const errorMsg = error.response?.data?.error || error.message || 'An unexpected error occurred. Please contact an administrator.';
       setSnackbarMessage(errorMsg);
       setSnackbarOpen(true);
-      
+
       // Also show error in chat
       const errorMessage: Message = {
         id: Date.now() + 1,
@@ -238,7 +238,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
         sx={{
           position: 'fixed',
           bottom: 24,
-          right: 24,
+          right: 100, // Moved left to avoid overlap with new control buttons
           display: isOpen ? 'none' : 'flex',
           zIndex: 1000,
           background: 'linear-gradient(135deg, #007AFF 0%, #0051D5 100%)',
@@ -266,7 +266,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
           sx={{
             position: 'fixed',
             bottom: 24,
-            right: 24,
+            right: 100, // Moved left to avoid overlap with new control buttons
             width: 400,
             height: 650,
             display: 'flex',

@@ -1,39 +1,33 @@
-import React, { useState } from 'react';
+/* global google */
+import React, { useState, useEffect } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { 
-  Box, 
-  Typography, 
-  Paper, 
-  List, 
-  ListItem, 
-  ListItemText, 
+import {
+  Box,
+  Typography,
+  List,
+  ListItem,
   ListItemIcon,
   Chip,
   IconButton,
   Fab,
   Drawer,
-  AppBar,
-  Toolbar,
   Button,
-  Card,
-  CardContent,
   Avatar,
   Divider
 } from '@mui/material';
-import { 
-  Map as MapIcon, 
-  Add as AddIcon, 
-  LocationOn as LocationIcon,
-  AccessTime as TimeIcon,
-  CalendarToday as CalendarIcon,
+import {
+  Add as AddIcon,
   Directions as DirectionsIcon,
   Star as StarIcon,
   Menu as MenuIcon,
   Close as CloseIcon
 } from '@mui/icons-material';
-import { GoogleMap, LoadScript, Marker, InfoWindow } from '@react-google-maps/api';
+import { GoogleMap, LoadScript, InfoWindow } from '@react-google-maps/api';
 import ChatBot from './ChatBot';
+
+// Constants to prevent re-renders
+const LIBRARIES = ['places'];
 
 const theme = createTheme({
   palette: {
@@ -117,14 +111,93 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false);
+  const [mapInstance, setMapInstance] = useState(null);
   const [itinerary, setItinerary] = useState(sampleItinerary);
+  const [markers, setMarkers] = useState([]);
 
+  // Debug selectedItem changes
+  React.useEffect(() => {
+    console.log('selectedItem changed:', selectedItem);
+  }, [selectedItem]);
+
+  // Create markers only once when map is ready
+  useEffect(() => {
+    if (isGoogleMapsLoaded && mapInstance && markers.length === 0) {
+      console.log('Creating markers once...');
+      const newMarkers = [];
+
+      itinerary.forEach((item, index) => {
+        // Add delay between marker creation
+        setTimeout(() => {
+          const lat = Number(item.coordinates[0]);
+          const lng = Number(item.coordinates[1]);
+          console.log(`Creating marker ${item.id}: ${item.location} at [${lat}, ${lng}]`);
+          console.log(`Marker ${item.id} coordinates: lat=${lat}, lng=${lng}`);
+
+          // Add larger offset to ensure markers are clearly separated
+          const offsetLat = lat + (item.id * 0.001); // Larger offset based on ID
+          const offsetLng = lng + (item.id * 0.001);
+
+          // Create marker using native Google Maps API with different colors
+          const colors = ['red', 'blue', 'green', 'orange', 'purple'];
+          const marker = new google.maps.Marker({
+            position: { lat: offsetLat, lng: offsetLng },
+            map: mapInstance,
+            title: item.location,
+            zIndex: 1000 + item.id, // Higher z-index to ensure visibility
+            clickable: true,
+            animation: google.maps.Animation.DROP,
+            optimized: false, // Disable optimization to ensure all markers are visible
+            icon: {
+              url: `https://maps.google.com/mapfiles/ms/icons/${colors[item.id - 1]}-dot.png`,
+              scaledSize: new google.maps.Size(32, 32)
+            },
+            label: {
+              text: item.id.toString(),
+              color: 'white',
+              fontWeight: 'bold',
+              fontSize: '14px'
+            }
+          });
+
+          // Add click listener with proper event handling
+          google.maps.event.addListener(marker, 'click', () => {
+            console.log('Marker clicked:', item.location);
+            console.log('Setting selected item:', item);
+            setSelectedItem(item);
+          });
+
+          console.log(`Marker ${item.id} created:`, marker);
+          console.log(`Marker ${item.id} visible:`, marker.getVisible());
+          console.log(`Marker ${item.id} clickable:`, marker.getClickable());
+          console.log(`Marker ${item.id} zIndex:`, marker.getZIndex());
+          console.log(`Marker ${item.id} final position: lat=${offsetLat}, lng=${offsetLng}`);
+
+          newMarkers.push(marker);
+
+          // Final check after delay
+          setTimeout(() => {
+            console.log(`Marker ${item.id} after delay - visible:`, marker.getVisible());
+            console.log(`Marker ${item.id} after delay - position:`, marker.getPosition());
+          }, 500);
+        }, index * 200); // 200ms delay between each marker
+      });
+
+      setMarkers(newMarkers);
+      console.log('All markers created:', newMarkers.length);
+    }
+  }, [isGoogleMapsLoaded, mapInstance, itinerary, markers.length]);
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
   const handleGoogleMapsLoad = () => {
-    setIsGoogleMapsLoaded(true);
+    console.log('Google Maps loaded successfully!');
+    console.log('Google Maps API available:', !!window.google?.maps);
+    console.log('Marker constructor available:', !!window.google?.maps?.Marker);
+    console.log('Animation available:', !!window.google?.maps?.Animation);
+    console.log('Total markers to render:', itinerary.length);
+    // Don't set isGoogleMapsLoaded here - wait for map onLoad
   };
 
   const handleItineraryUpdate = (updatedItinerary) => {
@@ -158,81 +231,127 @@ function App() {
       <CssBaseline />
       <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
         {/* Google Map Background */}
-        <Box sx={{ flexGrow: 1, position: 'relative' }}>
-          <LoadScript 
+        <Box sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 1,
+          '& .gm-style': {
+            zIndex: 'auto !important'
+          },
+          '& .gm-style-iw': {
+            zIndex: '1000 !important'
+          },
+          '& .gm-style-iw-d': {
+            zIndex: '1000 !important'
+          },
+          '& .gm-style-iw-c': {
+            zIndex: '1000 !important'
+          },
+          '& .gm-style-iw-t': {
+            zIndex: '1000 !important'
+          },
+          '& .gm-style-iw-tc': {
+            zIndex: '1000 !important'
+          },
+          '& .gm-style-iw-t::after': {
+            zIndex: '1000 !important'
+          },
+          '& .gm-style-iw-tc::after': {
+            zIndex: '1000 !important'
+          },
+          '& .gm-style-marker': {
+            zIndex: '100 !important'
+          },
+          '& .gm-style-marker div': {
+            zIndex: '100 !important'
+          },
+          '& .gm-style img': {
+            zIndex: '100 !important'
+          },
+          '& .gm-style div[style*="position: absolute"]': {
+            zIndex: '100 !important'
+          }
+        }}>
+          <LoadScript
             googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
             onLoad={handleGoogleMapsLoad}
             onError={(error) => {
               console.error('Google Maps failed to load:', error);
+              console.error('Error details:', error);
             }}
+            libraries={LIBRARIES}
           >
             <GoogleMap
-              mapContainerStyle={{ width: '100%', height: '100vh' }}
-              center={{ lat: 40.7128, lng: -74.0060 }} // New York City center
-              zoom={12}
+              mapContainerStyle={{
+                width: '100%',
+                height: '100vh',
+                position: 'relative',
+                zIndex: 1
+              }}
+              center={{ lat: 40.758, lng: -73.9855 }} // Optimized center for all markers
+              zoom={11}
+              onLoad={(map) => {
+                console.log('GoogleMap onLoad called, map instance:', map);
+                console.log('Map center:', map.getCenter());
+                console.log('Map zoom:', map.getZoom());
+                console.log('Map container size:', map.getDiv().offsetWidth, 'x', map.getDiv().offsetHeight);
+                setMapInstance(map);
+                setIsGoogleMapsLoaded(true);
+
+                // Test creating markers directly with native Google Maps API
+                console.log('Testing native Google Maps markers...');
+                const testMarker = new google.maps.Marker({
+                  position: { lat: 40.758, lng: -73.9855 },
+                  map: map,
+                  title: "Test Marker",
+                  zIndex: 999
+                });
+                console.log('Test marker created:', testMarker);
+                console.log('Test marker visible:', testMarker.getVisible());
+              }}
               options={{
-                styles: [
-                  {
-                    featureType: 'all',
-                    elementType: 'geometry',
-                    stylers: [{ color: '#f5f5f5' }]
-                  },
-                  {
-                    featureType: 'water',
-                    elementType: 'geometry',
-                    stylers: [{ color: '#c9c9c9' }]
-                  },
-                  {
-                    featureType: 'poi',
-                    elementType: 'labels.text.fill',
-                    stylers: [{ color: '#757575' }]
-                  }
-                ]
+                // Remove custom styling to show default colorful map
+                mapTypeId: 'roadmap',
+                disableDefaultUI: false,
+                zoomControl: true,
+                streetViewControl: true,
+                fullscreenControl: true,
+                styles: [] // Remove any custom styles that might hide markers
               }}
             >
-              {/* Map Markers for each itinerary item */}
-                     {itinerary.map((item) => (
-                <Marker
-                  key={item.id}
-                  position={{ lat: item.coordinates[0], lng: item.coordinates[1] }}
-                  onClick={() => setSelectedItem(item)}
-                  icon={isGoogleMapsLoaded ? {
-                    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-                      <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="20" cy="20" r="18" fill="${getActivityColor(item.type)}" stroke="white" stroke-width="3"/>
-                        <text x="20" y="26" text-anchor="middle" fill="white" font-size="16" font-weight="bold">
-                          ${getActivityIcon(item.type)}
-                        </text>
-                      </svg>
-                    `)}`,
-                    scaledSize: new window.google.maps.Size(40, 40),
-                    anchor: new window.google.maps.Point(20, 20)
-                  } : undefined}
-                />
-              ))}
+              {/* Markers are now created in useEffect to prevent duplication */}
 
               {/* Info Window for selected item */}
               {selectedItem && (
                 <InfoWindow
-                  position={{ lat: selectedItem.coordinates[0], lng: selectedItem.coordinates[1] }}
-                  onCloseClick={() => setSelectedItem(null)}
+                  position={{ lat: Number(selectedItem.coordinates[0]), lng: Number(selectedItem.coordinates[1]) }}
+                  onCloseClick={() => {
+                    console.log('InfoWindow close clicked');
+                    setSelectedItem(null);
+                  }}
+                  onLoad={() => {
+                    console.log('InfoWindow loaded for:', selectedItem.location);
+                  }}
                 >
                   <Box sx={{ p: 1, minWidth: 250 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }} component="div">
                       {selectedItem.location}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }} component="div">
                       📅 {selectedItem.date} • 🕐 {selectedItem.time}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }} component="div">
                       📍 {selectedItem.address}
                     </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    <Typography variant="body2" sx={{ mb: 0.5 }} component="div">
                       {selectedItem.activity} • {selectedItem.duration}
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <StarIcon sx={{ fontSize: 16, color: '#ffc107', mr: 0.5 }} />
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" color="text.secondary" component="div">
                         {selectedItem.rating}
                       </Typography>
                     </Box>
@@ -243,9 +362,10 @@ function App() {
           </LoadScript>
 
           {/* Map Title Overlay */}
-          <Typography 
-            variant="h4" 
-            sx={{ 
+          <Typography
+            variant="h4"
+            component="div"
+            sx={{
               position: 'absolute',
               top: 20,
               left: '50%',
@@ -271,13 +391,16 @@ function App() {
           sx={{
             width: sidebarOpen ? 400 : 0,
             flexShrink: 0,
+            zIndex: 1000,
             '& .MuiDrawer-paper': {
               width: 400,
               boxSizing: 'border-box',
               backgroundColor: 'rgba(250, 250, 250, 0.95)',
               backdropFilter: 'blur(10px)',
               border: 'none',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+              boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+              position: 'relative',
+              zIndex: 1000
             },
           }}
         >
@@ -295,7 +418,7 @@ function App() {
                 <CloseIcon />
               </IconButton>
             </Box>
-            <Typography variant="body2" sx={{ opacity: 0.8, mt: 1 }}>
+            <Typography variant="body2" sx={{ opacity: 0.8, mt: 1 }} component="div">
               New York City • Jan 15-16, 2024
             </Typography>
           </Box>
@@ -303,7 +426,7 @@ function App() {
           {/* Itinerary List */}
           <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
             <List sx={{ p: 0 }}>
-                     {itinerary.map((item, index) => (
+              {itinerary.map((item, index) => (
                 <React.Fragment key={item.id}>
                   <ListItem
                     sx={{
@@ -322,45 +445,41 @@ function App() {
                         {getActivityIcon(item.type)}
                       </Avatar>
                     </ListItemIcon>
-                    <ListItemText
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                            {item.location}
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }} component="div">
+                          {item.location}
+                        </Typography>
+                        <Chip
+                          label={item.type}
+                          size="small"
+                          sx={{
+                            backgroundColor: getActivityColor(item.type),
+                            color: 'white',
+                            fontSize: '0.7rem'
+                          }}
+                        />
+                      </Box>
+                      <Box>
+                        <Typography variant="body2" color="text.secondary" component="div">
+                          📅 {item.date} • 🕐 {item.time}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" component="div">
+                          📍 {item.address}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5 }} component="div">
+                          {item.activity} • {item.duration}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                          <StarIcon sx={{ fontSize: 16, color: '#ffc107', mr: 0.5 }} />
+                          <Typography variant="body2" color="text.secondary" component="div">
+                            {item.rating}
                           </Typography>
-                          <Chip
-                            label={item.type}
-                            size="small"
-                            sx={{
-                              backgroundColor: getActivityColor(item.type),
-                              color: 'white',
-                              fontSize: '0.7rem'
-                            }}
-                          />
                         </Box>
-                      }
-                      secondary={
-                        <Box>
-                          <Typography variant="body2" color="text.secondary">
-                            📅 {item.date} • 🕐 {item.time}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            📍 {item.address}
-                          </Typography>
-                          <Typography variant="body2" sx={{ mt: 0.5 }}>
-                            {item.activity} • {item.duration}
-                          </Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                            <StarIcon sx={{ fontSize: 16, color: '#ffc107', mr: 0.5 }} />
-                            <Typography variant="body2" color="text.secondary">
-                              {item.rating}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      }
-                    />
+                      </Box>
+                    </Box>
                   </ListItem>
-                         {index < itinerary.length - 1 && <Divider />}
+                  {index < itinerary.length - 1 && <Divider />}
                 </React.Fragment>
               ))}
             </List>
@@ -395,7 +514,8 @@ function App() {
             position: 'fixed',
             bottom: 16,
             left: 16,
-            display: { xs: 'flex', sm: 'none' }
+            display: { xs: 'flex', sm: 'none' },
+            zIndex: 1001
           }}
         >
           <MenuIcon />

@@ -36,6 +36,7 @@ interface QuestionnaireData {
 // NOTE: This service should ONLY be imported and used in API routes (server-side)
 // Never import this directly in client-side components
 const apiKey = process.env.GEMINI_API_KEY;
+const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
 if (!apiKey || apiKey === 'test-api-key' || apiKey === 'your_gemini_api_key') {
   throw new GeminiAPIError('Gemini API key is not configured. Please contact an administrator.');
@@ -136,7 +137,7 @@ Then you can mention: "Note: This may overlap with your Statue of Liberty visit 
 ALWAYS respond with valid JSON only. NO markdown, NO extra text, JUST JSON.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: modelName,
       contents: prompt,
     });
 

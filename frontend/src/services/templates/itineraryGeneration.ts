@@ -15,28 +15,33 @@ export const generateItineraryPrompt = (tripDetails: TripDetails): string => {
   const start = new Date(startDate);
   const end = new Date(endDate);
   const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const nights = days - 1; // Number of nights staying
   
-  return `Generate a ${days}-day travel itinerary for ${destination} (${startDate} to ${endDate}).
-${description ? `Preferences: ${description}` : ''}
+  return `Generate a complete ${days}-day travel itinerary for ${destination} (${startDate} to ${endDate}).
 
-Create ${Math.min(days * 3, 20)} activities with these exact fields:
-- date (YYYY-MM-DD between ${startDate} and ${endDate})
-- time (HH:MM 24hr format)
-- location (venue name)
-- address (full address)
-- activity (what to do, 1-2 sentences)
-- duration (e.g., "2 hours")
-- type (one of: activity, museum, shopping, landmark, restaurant, outdoor)
-- rating (0-5 number)
-- coordinates ([lat, lng] as numbers)
+${description ? `IMPORTANT - User Preferences (MUST address ALL of these): ${description}` : ''}
 
-Rules:
-- Use real places in ${destination}
-- Include breakfast (~08:00), lunch (~12:00), dinner (~18:00)
-- No overlapping times
-- All fields required
+REQUIRED ITEMS (${Math.min(days * 4 + nights, 30)} total):
+1. Hotel check-in for EACH night (${nights} hotels total) - include around 15:00-16:00
+2. Breakfast EVERY morning (~08:00)
+3. Lunch EVERY day (~12:00-13:00)
+4. Dinner EVERY evening (~18:00-19:00)
+5. ${description ? 'Activities matching user preferences' : 'Varied activities (museums, landmarks, outdoor, shopping)'}
 
-Return ONLY valid JSON (no markdown):
-{"items": [{"date":"2025-01-15","time":"09:00","location":"Name","address":"123 St","activity":"Description","duration":"2 hours","type":"landmark","rating":4.5,"coordinates":[lat,lng]}]}`;
+Each item needs these exact fields:
+- date: YYYY-MM-DD (${startDate} to ${endDate})
+- time: HH:MM (24hr)
+- location: Full venue/hotel name
+- address: Complete street address
+- activity: What to do (1-2 sentences)${description ? ` - MUST align with: ${description}` : ''}
+- duration: "X hours"
+- type: activity, museum, shopping, landmark, restaurant, outdoor
+- rating: 0-5 number
+- coordinates: [lat, lng]
+
+${description ? `CRITICAL: Every activity must directly address the user's request: "${description}". Include specific venues that match these preferences.` : ''}
+
+Return ONLY valid JSON:
+{"items":[{"date":"${startDate}","time":"08:00","location":"Breakfast Spot","address":"123 St","activity":"Desc","duration":"1 hour","type":"restaurant","rating":4.5,"coordinates":[40.7,-73.9]}]}`;
 };
 

@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_API_KEY || '';
     const geminiApiKey = process.env.GEMINI_API_KEY;
+    const geminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
     // Validate Gemini API key
     if (!geminiApiKey || geminiApiKey === 'test-api-key' || geminiApiKey === 'your_gemini_api_key') {
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
         );
 
         const apiPromise = ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: geminiModel,
           contents: prompt,
         });
 

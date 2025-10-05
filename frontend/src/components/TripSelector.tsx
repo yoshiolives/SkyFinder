@@ -24,8 +24,9 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
+import { getRandomMessage } from '@/lib/loadingMessages';
 
 interface TripSelectorProps {
   open: boolean;
@@ -57,6 +58,7 @@ export default function TripSelector({
   const [tripToDelete, setTripToDelete] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
   const [destinationSuggestions, setDestinationSuggestions] = useState<any[]>([]);
+  const [messageQueue, setMessageQueue] = useState<Array<{ id: number; text: string }>>([]);
 
   const handleCreateTrip = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -222,6 +224,31 @@ export default function TripSelector({
       setDestinationSuggestions([]);
     }
   };
+
+  // Message queue effect during loading
+  useEffect(() => {
+    if (loading && autoGenerateItinerary && showCreateForm) {
+      // Add new message every 2 seconds
+      const messageInterval = setInterval(() => {
+        const newMessage = {
+          id: Date.now(),
+          text: getRandomMessage(),
+        };
+        
+        setMessageQueue(prev => [...prev, newMessage]);
+        
+        // Remove message after 8 seconds (show 3-4 messages at a time)
+        setTimeout(() => {
+          setMessageQueue(prev => prev.filter(msg => msg.id !== newMessage.id));
+        }, 8000);
+      }, 2000);
+
+      return () => {
+        clearInterval(messageInterval);
+        setMessageQueue([]);
+      };
+    }
+  }, [loading, autoGenerateItinerary, showCreateForm]);
 
   return (
     <Dialog
@@ -497,13 +524,15 @@ export default function TripSelector({
           position: 'absolute',
           borderRadius: 2,
           backdropFilter: 'blur(4px)',
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          backgroundColor: 'rgba(0, 0, 0, 0.85)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          overflow: 'hidden',
         }}
         open={loading && autoGenerateItinerary && showCreateForm}
       >
+        {/* Main content */}
         <Box
           sx={{
             display: 'flex',
@@ -511,16 +540,65 @@ export default function TripSelector({
             alignItems: 'center',
             gap: 3,
             p: 4,
+            maxWidth: '500px',
           }}
         >
           <CircularProgress size={60} thickness={4} sx={{ color: '#007AFF' }} />
-          <Box sx={{ textAlign: 'center' }}>
+          <Box sx={{ textAlign: 'center', width: '100%' }}>
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
               Creating Your Trip
             </Typography>
             <Typography variant="body2" sx={{ opacity: 0.9, mb: 2 }}>
               AI is generating a personalized itinerary for {destination}...
             </Typography>
+            
+            {/* Stacked messages that fade out - newest at bottom */}
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column-reverse',
+                gap: 0.5,
+                minHeight: '120px',
+                mb: 2,
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+              }}
+            >
+              {messageQueue.map((msg, index) => (
+                <Typography
+                  key={msg.id}
+                  variant="body2"
+                  sx={{
+                    color: '#FFD700',
+                    fontSize: '0.875rem',
+                    fontStyle: 'italic',
+                    textAlign: 'center',
+                    animation: 'slide-up-fade 8s ease-out forwards',
+                    '@keyframes slide-up-fade': {
+                      '0%': {
+                        opacity: 0,
+                        transform: 'translateY(10px)',
+                      },
+                      '5%': {
+                        opacity: 0.9,
+                        transform: 'translateY(0)',
+                      },
+                      '85%': {
+                        opacity: 0.8,
+                        transform: 'translateY(0)',
+                      },
+                      '100%': {
+                        opacity: 0,
+                        transform: 'translateY(-5px)',
+                      },
+                    },
+                  }}
+                >
+                  {msg.text}
+                </Typography>
+              ))}
+            </Box>
+
             <Box sx={{ display: 'flex', justifyContent: 'center' }}>
               <LinearProgress
                 sx={{

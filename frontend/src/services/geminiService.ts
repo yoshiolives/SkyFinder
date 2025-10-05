@@ -62,8 +62,11 @@ Generate 14-21 days of activities. Be creative and comprehensive.`;
       contents: prompt,
     });
 
-    const responseText = response.text;
+    let responseText = response.text;
     console.log('🤖 Raw AI response:', responseText.substring(0, 200) + '...');
+    
+    // Remove markdown code block formatting if present
+    responseText = responseText.replace(/^```json\s*/i, '').replace(/\s*```$/, '');
     
     // Try to extract JSON from the response
     let jsonText = responseText;
@@ -168,7 +171,11 @@ const getRealGeminiResponse = async (userMessage, itinerary = []) => {
       contents: prompt,
     });
 
-    const responseText = response.text;
+    let responseText = response.text;
+    
+    // Remove markdown code block formatting if present (```json ... ```)
+    responseText = responseText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/g, '');
+    
     const parsedResponse = JSON.parse(responseText);
     
     return parsedResponse;

@@ -150,6 +150,7 @@ export default function Home() {
   const [editedTripTitle, setEditedTripTitle] = useState('');
   const hasLoadedDataRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   const loadTripItinerary = useCallback(async (trip: any) => {
     try {
@@ -161,6 +162,17 @@ export default function Home() {
       const items = itineraryResponse.data.items;
       
       setItinerary(items || []);
+
+      // Calculate map center from itinerary items
+      if (items && items.length > 0) {
+        // Calculate average coordinates from all items
+        const avgLat = items.reduce((sum: number, item: any) => sum + item.coordinates[0], 0) / items.length;
+        const avgLng = items.reduce((sum: number, item: any) => sum + item.coordinates[1], 0) / items.length;
+        setMapCenter({ lat: avgLat, lng: avgLng });
+      } else {
+        // No items, reset map center
+        setMapCenter(null);
+      }
     } catch (error) {
       console.error('Failed to fetch itinerary:', error);
       setItinerary([]);
@@ -250,15 +262,19 @@ export default function Home() {
     loadTripItinerary(trip);
   };
 
-  const handleTripCreated = async () => {
+  const handleTripCreated = async (newTrip?: any) => {
     // Refresh trips list
     try {
       const tripsResponse = await api.get('/api/trips');
       const fetchedTrips = tripsResponse.data.trips;
       setTrips(fetchedTrips || []);
 
-      // Load the newly created trip (first in list after refresh)
-      if (fetchedTrips && fetchedTrips.length > 0) {
+      // If we have the new trip, load it directly
+      // Otherwise load the first trip in the refreshed list
+      if (newTrip) {
+        console.log('🎯 Auto-selecting newly created trip:', newTrip.title);
+        await loadTripItinerary(newTrip);
+      } else if (fetchedTrips && fetchedTrips.length > 0) {
         await loadTripItinerary(fetchedTrips[0]);
       }
       
@@ -982,7 +998,7 @@ export default function Home() {
                   },
                 }}
               >
-                {trips.length === 0 ? 'Create Your First Trip' : `Switch Trip (${trips.length})`}
+                {trips.length === 0 ? 'Create Your First Trip' : `Select Trip (${trips.length})`}
               </Button>
             )}
           </Box>
@@ -1430,10 +1446,23 @@ export default function Home() {
               <CircularProgress />
             </Box>
           )}
-          {isGoogleMapsLoaded && !loadError && (
+          {isGoogleMapsLoaded && !loadError && !mapCenter && (
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              height: '100%',
+              backgroundColor: '#f5f5f5'
+            }}>
+              <Typography variant="h6" color="text.secondary">
+                Select or create a trip to view on the map
+              </Typography>
+            </Box>
+          )}
+          {isGoogleMapsLoaded && !loadError && mapCenter && (
             <GoogleMap
               mapContainerStyle={{ width: '100%', height: '100vh' }}
-              center={{ lat: 40.7128, lng: -74.006 }} // New York City center
+              center={mapCenter}
               zoom={12}
               options={{
                 styles: [

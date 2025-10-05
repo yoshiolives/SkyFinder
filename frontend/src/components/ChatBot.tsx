@@ -54,6 +54,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
   const [isLoading, setIsLoading] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
@@ -140,6 +141,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
                 }
 
                 setSnackbarMessage('Successfully added to your itinerary!');
+                setSnackbarSeverity('success');
                 setSnackbarOpen(true);
                 break;
               }
@@ -167,6 +169,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
                 }
 
                 setSnackbarMessage('Successfully updated your itinerary!');
+                setSnackbarSeverity('success');
                 setSnackbarOpen(true);
                 break;
               }
@@ -182,6 +185,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
                 }
 
                 setSnackbarMessage('Successfully removed from your itinerary!');
+                setSnackbarSeverity('success');
                 setSnackbarOpen(true);
                 break;
               }
@@ -189,6 +193,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
           } catch (apiError: any) {
             console.error('Failed to perform API action:', apiError);
             setSnackbarMessage(`Failed to ${response.action.replace('_', ' ')}: ${apiError.message}`);
+            setSnackbarSeverity('error');
             setSnackbarOpen(true);
           }
         }
@@ -204,6 +209,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
       // Handle API errors
       const errorMsg = error.response?.data?.error || error.message || 'An unexpected error occurred. Please contact an administrator.';
       setSnackbarMessage(errorMsg);
+      setSnackbarSeverity('error');
       setSnackbarOpen(true);
 
       // Also show error in chat
@@ -528,7 +534,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
         </Paper>
       </Slide>
 
-      {/* Error Snackbar */}
+      {/* Success/Error Snackbar */}
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={6000}
@@ -537,7 +543,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
       >
         <Alert
           onClose={handleSnackbarClose}
-          severity="error"
+          severity={snackbarSeverity}
           variant="filled"
           sx={{ width: '100%' }}
         >

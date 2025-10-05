@@ -121,7 +121,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
         sx={{
           position: 'fixed',
           bottom: 16,
-          right: 16,
+          right: 80,
           display: isOpen ? 'none' : 'flex',
           zIndex: 1000,
         }}
@@ -135,7 +135,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
           sx={{
             position: 'fixed',
             bottom: 16,
-            right: 16,
+            right: 80,
             width: 350,
             height: 500,
             display: 'flex',

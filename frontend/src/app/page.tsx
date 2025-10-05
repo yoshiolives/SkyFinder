@@ -3,30 +3,47 @@
 import {
   AccountCircle,
   Add as AddIcon,
+  AccessTime as ClockIcon,
+  CalendarToday as CalendarIcon,
   Close as CloseIcon,
+  Delete as DeleteIcon,
   Directions as DirectionsIcon,
+  ExpandMore as ExpandMoreIcon,
+  KeyboardArrowDown as ChevronDownIcon,
   Login as LoginIcon,
   Logout as LogoutIcon,
   Menu as MenuIcon,
   Star as StarIcon,
 } from '@mui/icons-material';
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   AppBar,
+  Autocomplete,
   Avatar,
   Box,
   Button,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   Drawer,
   Fab,
+  FormControl,
   IconButton,
+  InputLabel,
   List,
   ListItem,
   ListItemIcon,
   ListItemText,
   Menu,
   MenuItem,
+  Select,
+  TextField,
   Toolbar,
   Typography,
 } from '@mui/material';
@@ -43,14 +60,44 @@ import { supabase } from '@/lib/supabase';
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#1976d2',
+      main: '#3B82F6', // Blue-500 like iOS
     },
     secondary: {
-      main: '#dc004e',
+      main: '#8B5CF6', // Purple-500 for accents
     },
     background: {
-      default: '#f5f5f5',
+      default: '#F9FAFB', // Light gray like macOS
     },
+    text: {
+      primary: '#1F2937', // Dark gray for text
+      secondary: '#6B7280', // Medium gray for secondary text
+    },
+  },
+  typography: {
+    fontFamily: 'system-ui, -apple-system, "SF Pro Display", sans-serif',
+    h1: {
+      fontWeight: 300,
+      fontSize: '2.5rem',
+    },
+    h2: {
+      fontWeight: 400,
+      fontSize: '2rem',
+    },
+    h3: {
+      fontWeight: 500,
+      fontSize: '1.5rem',
+    },
+    body1: {
+      fontWeight: 400,
+      lineHeight: 1.6,
+    },
+    body2: {
+      fontWeight: 400,
+      lineHeight: 1.5,
+    },
+  },
+  shape: {
+    borderRadius: 12,
   },
 });
 
@@ -130,6 +177,22 @@ export default function Home() {
   const [trips, setTrips] = useState<any[]>([]);
   const [tripSelectorOpen, setTripSelectorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [newActivity, setNewActivity] = useState<any>({
+    location: '',
+    address: '',
+    activity: '',
+    type: 'activity',
+    date: new Date().toISOString().split('T')[0],
+    time: '09:00',
+    duration: '2 hours',
+    rating: 4.5,
+    coordinates: [40.758, -73.9855], // Default to Times Square
+  });
+  const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
+  const [activitySuggestions, setActivitySuggestions] = useState<any[]>([]);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTripTitle, setEditedTripTitle] = useState('');
 
   const loadTripItinerary = useCallback(async (trip: any) => {
     try {
@@ -278,6 +341,325 @@ export default function Home() {
 
   const handleMenuClose = () => {
     setAnchorEl(null);
+  };
+
+  // Group activities by day
+  const getActivitiesByDay = () => {
+    const grouped: { [key: string]: any[] } = {};
+    itinerary.forEach((activity) => {
+      const day = activity.date || `Day ${activity.day || 1}`;
+      if (!grouped[day]) {
+        grouped[day] = [];
+      }
+      grouped[day].push(activity);
+    });
+    return grouped;
+  };
+
+  // Activity suggestions based on type
+  const getActivitySuggestions = (type: string) => {
+    const suggestions: { [key: string]: string[] } = {
+      activity: [
+        'Walking Tour',
+        'Photography Session',
+        'Hiking',
+        'Cycling',
+        'Swimming',
+        'Yoga Class',
+        'Dance Lesson',
+        'Cooking Class',
+        'Art Workshop',
+        'Fitness Training',
+      ],
+      museum: [
+        'Art Museum Visit',
+        'History Museum Tour',
+        'Science Museum Exploration',
+        'Natural History Museum',
+        'Modern Art Gallery',
+        'Cultural Center Tour',
+        'Historical Site Visit',
+        'Exhibition Viewing',
+        'Guided Museum Tour',
+      ],
+      shopping: [
+        'Shopping Mall Visit',
+        'Local Market Tour',
+        'Boutique Shopping',
+        'Antique Shopping',
+        'Flea Market',
+        'Department Store',
+        'Street Shopping',
+        'Artisan Market',
+        'Fashion Shopping',
+      ],
+      landmark: [
+        'Monument Visit',
+        'Historic Site Tour',
+        'Architecture Tour',
+        'Scenic Viewpoint',
+        'Famous Building Visit',
+        'Cultural Landmark',
+        'Religious Site Visit',
+        'Public Square Tour',
+        'Heritage Site Visit',
+      ],
+    };
+    return suggestions[type] || suggestions.activity;
+  };
+
+  // Handle address autocomplete
+  const handleAddressChange = (value: string) => {
+    setNewActivity({ ...newActivity, address: value });
+
+    if (value.length > 2) {
+      // Simple fallback suggestions for common addresses with coordinates
+      const commonAddresses = [
+        { address: 'Times Square, New York, NY', coordinates: [40.758, -73.9855] },
+        { address: 'Central Park, New York, NY', coordinates: [40.7829, -73.9654] },
+        { address: 'Brooklyn Bridge, New York, NY', coordinates: [40.7061, -73.9969] },
+        { address: 'Statue of Liberty, New York, NY', coordinates: [40.6892, -74.0445] },
+        { address: 'Empire State Building, New York, NY', coordinates: [40.7484, -73.9857] },
+        { address: 'High Line, New York, NY', coordinates: [40.748, -74.0048] },
+        { address: '9/11 Memorial, New York, NY', coordinates: [40.7115, -74.0134] },
+        { address: 'One World Trade Center, New York, NY', coordinates: [40.7127, -74.0134] },
+        { address: 'Broadway, New York, NY', coordinates: [40.7589, -73.9851] },
+        { address: 'Fifth Avenue, New York, NY', coordinates: [40.7505, -73.9934] },
+      ];
+
+      const filtered = commonAddresses.filter((addr) =>
+        addr.address.toLowerCase().includes(value.toLowerCase())
+      );
+
+      setAddressSuggestions(
+        filtered.map((addr) => ({
+          label: addr.address,
+          value: addr.address,
+          coordinates: addr.coordinates,
+        }))
+      );
+
+      // Try Google Places API if available
+      if (window.google && window.google.maps && window.google.maps.places) {
+        try {
+          const service = new window.google.maps.places.AutocompleteService();
+          service.getPlacePredictions(
+            {
+              input: value,
+              types: ['establishment', 'geocode'],
+              componentRestrictions: { country: 'us' },
+            },
+            (predictions, status) => {
+              if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+                const googleSuggestions = predictions.map((prediction) => ({
+                  label: prediction.description,
+                  value: prediction.description,
+                  placeId: prediction.place_id,
+                }));
+                // Combine with fallback suggestions
+                setAddressSuggestions([
+                  ...googleSuggestions,
+                  ...filtered.map((addr) => ({
+                    label: addr.address,
+                    value: addr.address,
+                    coordinates: addr.coordinates,
+                  })),
+                ]);
+              }
+            }
+          );
+        } catch (error) {
+          console.log('Google Places API not ready yet:', error);
+        }
+      }
+    } else {
+      setAddressSuggestions([]);
+    }
+  };
+
+  // Handle address selection and geocoding
+  const handleAddressSelect = (selectedAddress: any) => {
+    if (selectedAddress && selectedAddress.coordinates) {
+      // Use coordinates from fallback suggestions
+      setNewActivity({
+        ...newActivity,
+        address: selectedAddress.value,
+        coordinates: selectedAddress.coordinates,
+      });
+    } else if (selectedAddress && selectedAddress.placeId && window.google && window.google.maps) {
+      // Geocode the selected address to get coordinates
+      const geocoder = new window.google.maps.Geocoder();
+      geocoder.geocode({ placeId: selectedAddress.placeId }, (results, status) => {
+        if (status === 'OK' && results && results[0]) {
+          const location = results[0].geometry.location;
+          const coords = [location.lat(), location.lng()];
+          setNewActivity({
+            ...newActivity,
+            address: selectedAddress.value,
+            coordinates: coords,
+          });
+        }
+      });
+    } else if (selectedAddress && window.google && window.google.maps) {
+      // Fallback: geocode by address string
+      const geocoder = new window.google.maps.Geocoder();
+      geocoder.geocode({ address: selectedAddress.value }, (results, status) => {
+        if (status === 'OK' && results && results[0]) {
+          const location = results[0].geometry.location;
+          const coords = [location.lat(), location.lng()];
+          setNewActivity({
+            ...newActivity,
+            address: selectedAddress.value,
+            coordinates: coords,
+          });
+        }
+      });
+    }
+  };
+
+  // Handle activity autocomplete
+  const handleActivityChange = (value: string) => {
+    setNewActivity({ ...newActivity, activity: value });
+
+    if (value.length > 1) {
+      const suggestions = getActivitySuggestions(newActivity.type);
+      const filtered = suggestions.filter((suggestion) =>
+        suggestion.toLowerCase().includes(value.toLowerCase())
+      );
+      setActivitySuggestions(
+        filtered.map((suggestion) => ({
+          label: suggestion,
+          value: suggestion,
+        }))
+      );
+    } else {
+      setActivitySuggestions([]);
+    }
+  };
+
+  const removeActivity = async (activityId: number) => {
+    if (!currentTrip) return;
+
+    try {
+      // Delete from backend
+      await api.delete(`/api/itinerary/${activityId}`);
+
+      // Update local state
+      const updatedItinerary = itinerary.filter((item) => item.id !== activityId);
+      setItinerary(updatedItinerary);
+
+      // Clear selection if the removed item was selected
+      if (selectedItem && selectedItem.id === activityId) {
+        setSelectedItem(null);
+      }
+    } catch (error) {
+      console.error('Failed to remove activity:', error);
+    }
+  };
+
+  const addActivity = async () => {
+    if (!newActivity.location || !newActivity.activity) {
+      alert('Please fill in location and activity name');
+      return;
+    }
+
+    if (!currentTrip) {
+      alert('Please select a trip first');
+      return;
+    }
+
+    try {
+      // Add to backend
+      const response = await api.post('/api/itinerary', {
+        trip_id: currentTrip.id,
+        location: newActivity.location,
+        address: newActivity.address,
+        activity: newActivity.activity,
+        type: newActivity.type,
+        date: newActivity.date,
+        time: newActivity.time,
+        duration: newActivity.duration,
+        rating: newActivity.rating,
+        coordinates: newActivity.coordinates,
+      });
+
+      // Format the response to match frontend format
+      const formattedItem = {
+        id: response.data.item.id,
+        date: response.data.item.date,
+        time: response.data.item.time,
+        location: response.data.item.location,
+        address: response.data.item.address,
+        activity: response.data.item.activity,
+        duration: response.data.item.duration,
+        type: response.data.item.type,
+        rating: response.data.item.rating,
+        coordinates: [response.data.item.latitude, response.data.item.longitude],
+      };
+
+      // Add to local state
+      setItinerary([...itinerary, formattedItem]);
+      setAddDialogOpen(false);
+      setNewActivity({
+        location: '',
+        address: '',
+        activity: '',
+        type: 'activity',
+        date: new Date().toISOString().split('T')[0],
+        time: '09:00',
+        duration: '2 hours',
+        rating: 4.5,
+        coordinates: [40.758, -73.9855],
+      });
+    } catch (error) {
+      console.error('Failed to add activity:', error);
+      alert('Failed to add activity. Please try again.');
+    }
+  };
+
+  const handleTitleClick = () => {
+    if (currentTrip) {
+      setEditedTripTitle(currentTrip.title);
+      setIsEditingTitle(true);
+    }
+  };
+
+  const handleTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setEditedTripTitle(event.target.value);
+  };
+
+  const handleTitleSubmit = async () => {
+    if (!currentTrip || !editedTripTitle.trim()) {
+      setIsEditingTitle(false);
+      return;
+    }
+
+    try {
+      await api.put(`/api/trips/${currentTrip.id}`, {
+        title: editedTripTitle,
+      });
+
+      // Update local state
+      setCurrentTrip({ ...currentTrip, title: editedTripTitle });
+      setTrips(
+        trips.map((trip) =>
+          trip.id === currentTrip.id ? { ...trip, title: editedTripTitle } : trip
+        )
+      );
+      setIsEditingTitle(false);
+    } catch (error) {
+      console.error('Failed to update trip title:', error);
+      setIsEditingTitle(false);
+    }
+  };
+
+  const handleTitleKeyPress = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter') {
+      handleTitleSubmit();
+    }
+    if (event.key === 'Escape') {
+      setIsEditingTitle(false);
+    }
   };
 
   const getActivityIcon = (type: string) => {
@@ -456,51 +838,135 @@ export default function Home() {
           </LoadScript>
         </Box>
 
-        {/* Left Sidebar */}
+        {/* Apple-Style Sidebar */}
         <Drawer
           variant="persistent"
           anchor="left"
           open={sidebarOpen}
           sx={{
-            width: sidebarOpen ? 400 : 0,
+            width: sidebarOpen ? 320 : 0,
             flexShrink: 0,
             '& .MuiDrawer-paper': {
-              width: 400,
+              width: 320,
               boxSizing: 'border-box',
-              backgroundColor: 'rgba(250, 250, 250, 0.95)',
-              backdropFilter: 'blur(10px)',
-              border: 'none',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+              background: 'linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(240 4.8% 95.9%) 100%)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid hsl(220 13% 91%)',
+              borderLeft: 'none',
+              transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+              transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
               marginTop: '64px',
               height: 'calc(100vh - 64px)',
+              zIndex: 1000,
             },
           }}
         >
           {/* Sidebar Header */}
-          <Box sx={{ p: 2, backgroundColor: '#1976d2', color: 'white' }}>
+          <Box
+            sx={{
+              p: 3,
+              background: 'rgba(255, 255, 255, 0.8)',
+              backdropFilter: 'blur(10px)',
+              borderBottom: '1px solid hsl(220 13% 91%)',
+              position: 'relative',
+            }}
+          >
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Typography variant="h6" component="div">
-                📅 {currentTrip ? currentTrip.title : 'My Itinerary'}
-              </Typography>
+              <Box sx={{ flex: 1 }}>
+                {isEditingTitle ? (
+                  <TextField
+                    value={editedTripTitle}
+                    onChange={handleTitleChange}
+                    onBlur={handleTitleSubmit}
+                    onKeyDown={handleTitleKeyPress}
+                    autoFocus
+                    variant="standard"
+                    sx={{
+                      '& .MuiInput-root': {
+                        color: 'hsl(240 5.9% 10%)',
+                        fontSize: '1.25rem',
+                        fontWeight: 600,
+                        '&:before': { borderBottomColor: 'hsl(220 13% 91%)' },
+                        '&:after': { borderBottomColor: 'hsl(217.2 91.2% 59.8%)' },
+                        '&:hover:not(.Mui-disabled):before': { borderBottomColor: 'hsl(220 13% 91%)' },
+                      },
+                      '& .MuiInput-input': {
+                        color: 'hsl(240 5.9% 10%)',
+                        fontSize: '1.25rem',
+                        fontWeight: 600,
+                      },
+                    }}
+                  />
+                ) : (
+                  <Typography
+                    variant="h5"
+                    component="div"
+                    onClick={handleTitleClick}
+                    sx={{
+                      fontWeight: 600,
+                      fontSize: '1.25rem',
+                      color: 'hsl(240 5.9% 10%)',
+                      cursor: currentTrip ? 'pointer' : 'default',
+                      transition: 'all 0.2s ease',
+                      borderRadius: '4px',
+                      px: 1,
+                      py: 0.5,
+                      '&:hover': currentTrip
+                        ? {
+                            backgroundColor: 'hsl(240 4.8% 95.9%)',
+                          }
+                        : {},
+                    }}
+                  >
+                    {currentTrip ? currentTrip.title : 'My Itinerary'}
+                  </Typography>
+                )}
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'hsl(240 3.8% 46.1%)',
+                    mt: 0.5,
+                    fontSize: '0.875rem',
+                    fontWeight: 400,
+                  }}
+                  component="div"
+                >
+                  {currentTrip
+                    ? `${currentTrip.destination || 'Destination'} • ${new Date(currentTrip.start_date).toLocaleDateString()} - ${new Date(currentTrip.end_date).toLocaleDateString()}`
+                    : user
+                      ? 'No trip selected'
+                      : 'Sign in to get started'}
+                </Typography>
+              </Box>
+
+              {/* Close Button */}
               <IconButton
-                color="inherit"
                 onClick={toggleSidebar}
-                sx={{ display: { xs: 'block', sm: 'none' } }}
+                sx={{
+                  position: 'absolute',
+                  top: '50%',
+                  right: -20,
+                  transform: 'translateY(-50%)',
+                  width: 20,
+                  height: 60,
+                  background: 'hsl(0 0% 100%)',
+                  border: '1px solid hsl(220 13% 91%)',
+                  borderRadius: '0 6px 6px 0',
+                  boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                  color: 'hsl(240 5.9% 10%)',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  '&:hover': {
+                    background: 'hsl(240 4.8% 95.9%)',
+                    transform: 'translateY(-50%) translateX(2px)',
+                    boxShadow: '0 2px 4px 0 rgba(0, 0, 0, 0.1)',
+                  },
+                }}
               >
-                <CloseIcon />
+                <CloseIcon sx={{ fontSize: 16 }} />
               </IconButton>
             </Box>
-            <Box
-              sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}
-            >
-              <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                {currentTrip
-                  ? `${currentTrip.destination} • ${new Date(currentTrip.start_date).toLocaleDateString()} - ${new Date(currentTrip.end_date).toLocaleDateString()}`
-                  : user
-                    ? 'No trip selected'
-                    : 'Sign in to get started'}
-              </Typography>
-            </Box>
+
             {user && (
               <Button
                 variant="outlined"
@@ -509,11 +975,11 @@ export default function Home() {
                 onClick={() => setTripSelectorOpen(true)}
                 sx={{
                   mt: 1.5,
-                  color: 'white',
-                  borderColor: 'rgba(255,255,255,0.5)',
+                  color: 'hsl(240 5.9% 10%)',
+                  borderColor: 'hsl(220 13% 91%)',
                   '&:hover': {
-                    borderColor: 'white',
-                    backgroundColor: 'rgba(255,255,255,0.1)',
+                    borderColor: 'hsl(217.2 91.2% 59.8%)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.05)',
                   },
                 }}
               >
@@ -522,7 +988,7 @@ export default function Home() {
             )}
           </Box>
 
-          {/* Itinerary List */}
+          {/* Sidebar Content */}
           <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
             {loading ? (
               <Box
@@ -548,84 +1014,228 @@ export default function Home() {
                 </Typography>
               </Box>
             ) : (
-              <List sx={{ p: 0 }}>
-                {itinerary.map((item, index) => (
-                  <React.Fragment key={item.id}>
-                    <ListItem
+              Object.entries(getActivitiesByDay())
+                .sort(([a], [b]) => {
+                  const dateA = new Date(a);
+                  const dateB = new Date(b);
+                  return dateA.getTime() - dateB.getTime();
+                })
+                .map(([day, activities]) => (
+                  <Accordion key={day} sx={{ mb: 1, '&:before': { display: 'none' } }}>
+                    <AccordionSummary
+                      expandIcon={<ChevronDownIcon />}
                       sx={{
-                        cursor: 'pointer',
-                        backgroundColor:
-                          selectedItem?.id === item.id ? 'rgba(25, 118, 210, 0.1)' : 'transparent',
-                        '&:hover': { backgroundColor: 'rgba(0,0,0,0.05)' },
+                        background: 'hsl(240 4.8% 95.9%)',
+                        borderBottom: '1px solid hsl(220 13% 91%)',
+                        minHeight: 48,
+                        '&.Mui-expanded': {
+                          minHeight: 48,
+                        },
+                        '& .MuiAccordionSummary-content': {
+                          margin: '12px 0',
+                          '&.Mui-expanded': {
+                            margin: '12px 0',
+                          },
+                        },
                       }}
-                      onClick={() => setSelectedItem(item)}
                     >
-                      <ListItemIcon>
-                        <Avatar
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CalendarIcon sx={{ fontSize: 16, color: 'hsl(240 5.9% 10%)' }} />
+                        <Typography
+                          variant="subtitle2"
                           sx={{
-                            bgcolor: getActivityColor(item.type),
-                            width: 40,
-                            height: 40,
+                            fontWeight: 600,
+                            color: 'hsl(240 5.9% 10%)',
+                            fontSize: '0.875rem',
                           }}
                         >
-                          {getActivityIcon(item.type)}
-                        </Avatar>
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                              {item.location}
-                            </Typography>
-                            <Chip
-                              label={item.type}
-                              size="small"
-                              sx={{
-                                backgroundColor: getActivityColor(item.type),
-                                color: 'white',
-                                fontSize: '0.7rem',
-                              }}
-                            />
-                          </Box>
-                        }
-                        secondary={
-                          <Box>
-                            <Typography variant="body2" color="text.secondary">
-                              📅 {item.date} • 🕐 {item.time}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              📍 {item.address}
-                            </Typography>
-                            <Typography variant="body2" sx={{ mt: 0.5 }}>
-                              {item.activity} • {item.duration}
-                            </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                              <StarIcon sx={{ fontSize: 16, color: '#ffc107', mr: 0.5 }} />
-                              <Typography variant="body2" color="text.secondary">
-                                {item.rating}
+                          {new Date(day).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </Typography>
+                      </Box>
+                    </AccordionSummary>
+
+                    <AccordionDetails sx={{ p: 0 }}>
+                      <List sx={{ p: 0 }}>
+                        {activities.map((item: any) => (
+                          <ListItem
+                            key={item.id}
+                            onClick={() => setSelectedItem(item)}
+                            sx={{
+                              cursor: 'pointer',
+                              px: 3,
+                              py: 2,
+                              borderBottom: '1px solid hsl(220 13% 91%)',
+                              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                              backgroundColor:
+                                selectedItem?.id === item.id ? 'hsl(240 4.8% 95.9%)' : 'transparent',
+                              '&:hover': {
+                                background: 'hsl(240 4.8% 95.9%)',
+                              },
+                              '&:last-child': {
+                                borderBottom: 'none',
+                              },
+                            }}
+                          >
+                            <ListItemIcon sx={{ minWidth: 40 }}>
+                              <Box
+                                sx={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: '50%',
+                                  background:
+                                    selectedItem?.id === item.id
+                                      ? 'hsl(217.2 91.2% 59.8%)'
+                                      : 'hsl(240 3.8% 46.1%)',
+                                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                }}
+                              />
+                            </ListItemIcon>
+                            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  fontWeight: 500,
+                                  color: 'hsl(240 5.9% 10%)',
+                                  fontSize: '0.875rem',
+                                  mb: 0.5,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                                component="div"
+                              >
+                                {item.location}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: 'hsl(240 3.8% 46.1%)',
+                                  fontSize: '0.75rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 0.5,
+                                }}
+                                component="div"
+                              >
+                                <ClockIcon sx={{ fontSize: 12 }} />
+                                {item.time}
                               </Typography>
                             </Box>
-                          </Box>
-                        }
-                      />
-                    </ListItem>
-                    {index < itinerary.length - 1 && <Divider />}
-                  </React.Fragment>
-                ))}
-              </List>
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeActivity(item.id);
+                              }}
+                              sx={{
+                                color: 'hsl(240 3.8% 46.1%)',
+                                opacity: 0.7,
+                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                '&:hover': {
+                                  color: 'hsl(0 84.2% 60.2%)',
+                                  opacity: 1,
+                                  background: 'hsl(0 84.2% 60.2% / 0.1)',
+                                },
+                              }}
+                            >
+                              <DeleteIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </ListItem>
+                        ))}
+                      </List>
+                    </AccordionDetails>
+                  </Accordion>
+                ))
             )}
           </Box>
 
           {/* Sidebar Footer */}
-          <Box sx={{ p: 2, backgroundColor: 'rgba(245, 245, 245, 0.8)' }}>
-            <Button variant="contained" startIcon={<AddIcon />} fullWidth sx={{ mb: 1 }}>
+          <Box
+            sx={{
+              background: 'linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(240 4.8% 95.9%) 100%)',
+              borderTop: '1px solid hsl(220 13% 91%)',
+              p: 3,
+            }}
+          >
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setAddDialogOpen(true)}
+              disabled={!currentTrip}
+              sx={{
+                width: '100%',
+                background: 'linear-gradient(135deg, hsl(240 5.9% 10%) 0%, hsl(240 5.9% 10%) 100%)',
+                color: 'hsl(0 0% 98%)',
+                borderRadius: '8px',
+                py: 1.5,
+                fontWeight: 500,
+                textTransform: 'none',
+                fontSize: '0.875rem',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, hsl(240 5.9% 10%) 0%, hsl(240 5.9% 10%) 100%)',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                  transform: 'translateY(-1px)',
+                },
+                '&:active': {
+                  transform: 'scale(0.98)',
+                },
+                '&:disabled': {
+                  background: 'hsl(240 4.8% 95.9%)',
+                  color: 'hsl(240 3.8% 46.1%)',
+                },
+              }}
+            >
               Add New Activity
-            </Button>
-            <Button variant="outlined" startIcon={<DirectionsIcon />} fullWidth>
-              Get Directions
             </Button>
           </Box>
         </Drawer>
+
+        {/* Sidebar Trigger */}
+        <Box
+          sx={{
+            position: 'fixed',
+            top: '50%',
+            left: 0,
+            transform: 'translateY(-50%)',
+            zIndex: 1001,
+            opacity: sidebarOpen ? 0 : 1,
+            visibility: sidebarOpen ? 'hidden' : 'visible',
+            transition: sidebarOpen
+              ? 'opacity 0.1s ease-out, visibility 0.1s ease-out'
+              : 'opacity 0.3s ease-in 0.3s, visibility 0.3s ease-in 0.3s',
+            marginTop: '32px',
+          }}
+        >
+          <IconButton
+            onClick={toggleSidebar}
+            sx={{
+              background: 'hsl(0 0% 100%)',
+              color: 'hsl(240 5.9% 10%)',
+              width: 32,
+              height: 32,
+              borderRadius: '0 6px 6px 0',
+              boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+              border: '1px solid hsl(220 13% 91%)',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                background: 'hsl(240 4.8% 95.9%)',
+                transform: 'translateX(2px)',
+                boxShadow: '0 2px 4px 0 rgba(0, 0, 0, 0.1)',
+              },
+              '&:active': {
+                transform: 'translateX(1px) scale(0.98)',
+              },
+            }}
+          >
+            <MenuIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Box>
 
         {/* Floating Action Button */}
         <Fab
@@ -662,6 +1272,131 @@ export default function Home() {
         onTripSelect={handleTripSelect}
         onTripCreated={handleTripCreated}
       />
+
+      {/* Add Activity Dialog */}
+      <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add New Activity</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <TextField
+              label="Location Name"
+              value={newActivity.location}
+              onChange={(e) => setNewActivity({ ...newActivity, location: e.target.value })}
+              fullWidth
+              required
+            />
+            <Autocomplete
+              freeSolo
+              options={addressSuggestions}
+              value={newActivity.address}
+              onInputChange={(event, newValue) => handleAddressChange(newValue)}
+              onChange={(event, selectedOption) => handleAddressSelect(selectedOption)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Address"
+                  fullWidth
+                  placeholder="Start typing an address..."
+                />
+              )}
+              renderOption={(props, option) => {
+                const { key, ...otherProps } = props;
+                return (
+                  <Box component="li" key={key} {...otherProps}>
+                    {option.label}
+                  </Box>
+                );
+              }}
+            />
+            <Autocomplete
+              freeSolo
+              options={activitySuggestions}
+              value={newActivity.activity}
+              onInputChange={(event, newValue) => handleActivityChange(newValue)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Activity Description"
+                  fullWidth
+                  required
+                  placeholder="Start typing an activity..."
+                />
+              )}
+              renderOption={(props, option) => {
+                const { key, ...otherProps } = props;
+                return (
+                  <Box component="li" key={key} {...otherProps}>
+                    {option.label}
+                  </Box>
+                );
+              }}
+            />
+            <FormControl fullWidth>
+              <InputLabel>Activity Type</InputLabel>
+              <Select
+                value={newActivity.type}
+                onChange={(e) => setNewActivity({ ...newActivity, type: e.target.value })}
+                label="Activity Type"
+              >
+                <MenuItem value="activity">Activity</MenuItem>
+                <MenuItem value="museum">Museum</MenuItem>
+                <MenuItem value="shopping">Shopping</MenuItem>
+                <MenuItem value="landmark">Landmark</MenuItem>
+              </Select>
+            </FormControl>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                label="Date"
+                type="date"
+                value={newActivity.date}
+                onChange={(e) => setNewActivity({ ...newActivity, date: e.target.value })}
+                sx={{ flex: 1 }}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+              <TextField
+                label="Time"
+                type="time"
+                value={newActivity.time}
+                onChange={(e) => setNewActivity({ ...newActivity, time: e.target.value })}
+                sx={{ flex: 1 }}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+            </Box>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                label="Duration"
+                value={newActivity.duration}
+                onChange={(e) => setNewActivity({ ...newActivity, duration: e.target.value })}
+                sx={{ flex: 1 }}
+              />
+              <TextField
+                label="Rating"
+                type="number"
+                value={newActivity.rating}
+                onChange={(e) =>
+                  setNewActivity({ ...newActivity, rating: parseFloat(e.target.value) })
+                }
+                inputProps={{ min: 1, max: 5, step: 0.1 }}
+                sx={{ flex: 1 }}
+              />
+            </Box>
+            <Typography variant="body2" color="text.secondary">
+              Note: Coordinates will be set to Times Square by default. You can update them later by
+              using the address autocomplete.
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddDialogOpen(false)}>Cancel</Button>
+          <Button onClick={addActivity} variant="contained">
+            Add Activity
+          </Button>
+        </DialogActions>
+      </Dialog>
     </ThemeProvider>
   );
 }

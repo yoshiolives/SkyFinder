@@ -1,5 +1,7 @@
 'use client';
 
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { createPortal } from 'react-dom';
 import {
   AccountCircle,
   Add as AddIcon,
@@ -14,6 +16,13 @@ import {
   Logout as LogoutIcon,
   Menu as MenuIcon,
   Star as StarIcon,
+  Schedule as ScheduleIcon,
+  LocationOn as LocationIcon,
+  Attractions as AttractionsIcon,
+  Museum as MuseumIcon,
+  ShoppingBag as ShoppingIcon,
+  Place as PlaceIcon,
+  Event as EventIcon,
 } from '@mui/icons-material';
 import {
   Accordion,
@@ -308,6 +317,56 @@ export default function Home() {
 
   const handleGoogleMapsLoad = () => {
     setIsGoogleMapsLoaded(true);
+  };
+
+  // Handle drag and drop
+  const handleDragEnd = async (result: any) => {
+    if (!result.destination) return;
+
+    const { source, destination, draggableId } = result;
+    const sourceDay = source.droppableId;
+    const destinationDay = destination.droppableId;
+
+    if (sourceDay === destinationDay) {
+      // Same day - reorder within the day
+      const dayActivities = itinerary.filter((item) => item.date === sourceDay);
+      const otherActivities = itinerary.filter((item) => item.date !== sourceDay);
+
+      const [reorderedItem] = dayActivities.splice(source.index, 1);
+      dayActivities.splice(destination.index, 0, reorderedItem);
+
+      const newItinerary = [...otherActivities, ...dayActivities];
+      setItinerary(newItinerary);
+    } else {
+      // Different day - move to new day
+      const sourceActivities = itinerary.filter((item) => item.date === sourceDay);
+      const destinationActivities = itinerary.filter((item) => item.date === destinationDay);
+      const otherActivities = itinerary.filter(
+        (item) => item.date !== sourceDay && item.date !== destinationDay
+      );
+
+      // Remove from source day
+      const [movedItem] = sourceActivities.splice(source.index, 1);
+
+      // Add to destination day at specific position
+      const updatedItem = { ...movedItem, date: destinationDay };
+      destinationActivities.splice(destination.index, 0, updatedItem);
+
+      // Rebuild itinerary
+      const newItinerary = [...otherActivities, ...sourceActivities, ...destinationActivities];
+      setItinerary(newItinerary);
+
+      // Update in backend
+      try {
+        await api.put(`/api/itinerary/${movedItem.id}`, {
+          date: destinationDay,
+        });
+      } catch (error) {
+        console.error('Failed to update activity date:', error);
+        // Revert on error
+        setItinerary(itinerary);
+      }
+    }
   };
 
   const handleItineraryUpdate = (updatedItinerary: any) => {
@@ -695,9 +754,9 @@ export default function Home() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-
-      {/* Top Header with Login */}
-      <AppBar
+      <DragDropContext onDragEnd={handleDragEnd}>
+        {/* Top Header with Login */}
+        <AppBar
         position="fixed"
         sx={{
           zIndex: (theme) => theme.zIndex.drawer + 1,
@@ -1021,32 +1080,57 @@ export default function Home() {
                   return dateA.getTime() - dateB.getTime();
                 })
                 .map(([day, activities]) => (
-                  <Accordion key={day} sx={{ mb: 1, '&:before': { display: 'none' } }}>
+                  <Accordion
+                    key={day}
+                    defaultExpanded
+                    sx={{
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                      borderRadius: 2,
+                      mb: 1,
+                      '&:before': { display: 'none' },
+                      '&.Mui-expanded': { margin: '0 0 8px 0' },
+                      backgroundColor: 'transparent',
+                    }}
+                  >
                     <AccordionSummary
-                      expandIcon={<ChevronDownIcon />}
+                      expandIcon={<ExpandMoreIcon sx={{ color: 'white', fontSize: 20 }} />}
                       sx={{
-                        background: 'hsl(240 4.8% 95.9%)',
-                        borderBottom: '1px solid hsl(220 13% 91%)',
+                        backgroundColor: '#007AFF !important',
+                        borderRadius: 2,
+                        color: 'white',
                         minHeight: 48,
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        '&.MuiAccordionSummary-root': {
+                          backgroundColor: '#007AFF !important',
+                        },
+                        '&:hover': {
+                          transform: 'translateY(-1px)',
+                          boxShadow: '0 4px 12px rgba(0, 122, 255, 0.3)',
+                          filter: 'brightness(1.05)',
+                        },
                         '&.Mui-expanded': {
-                          minHeight: 48,
+                          borderRadius: '8px 8px 0 0',
+                          boxShadow: '0 2px 8px rgba(0, 122, 255, 0.2)',
                         },
-                        '& .MuiAccordionSummary-content': {
-                          margin: '12px 0',
-                          '&.Mui-expanded': {
-                            margin: '12px 0',
-                          },
-                        },
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                       }}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CalendarIcon sx={{ fontSize: 16, color: 'hsl(240 5.9% 10%)' }} />
-                        <Typography
-                          variant="subtitle2"
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <EventIcon
                           sx={{
-                            fontWeight: 600,
-                            color: 'hsl(240 5.9% 10%)',
-                            fontSize: '0.875rem',
+                            color: 'white',
+                            fontSize: 22,
+                            filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3))',
+                          }}
+                        />
+                        <Typography
+                          variant="subtitle1"
+                          sx={{
+                            fontWeight: 700,
+                            color: 'white',
+                            textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+                            fontSize: '1rem',
+                            letterSpacing: '0.01em',
                           }}
                         >
                           {new Date(day).toLocaleDateString('en-US', {
@@ -1055,98 +1139,280 @@ export default function Home() {
                             year: 'numeric',
                           })}
                         </Typography>
+                        <Chip
+                          label={`${activities.length} activities`}
+                          size="small"
+                          sx={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                            color: 'white',
+                            fontSize: '0.75rem',
+                            height: 22,
+                            fontWeight: 600,
+                            border: '1px solid rgba(255, 255, 255, 0.3)',
+                            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                            '& .MuiChip-label': { px: 1.5 },
+                            '&:hover': {
+                              backgroundColor: 'rgba(255, 255, 255, 0.35)',
+                              transform: 'scale(1.05)',
+                            },
+                            transition: 'all 0.2s ease',
+                          }}
+                        />
                       </Box>
                     </AccordionSummary>
 
-                    <AccordionDetails sx={{ p: 0 }}>
-                      <List sx={{ p: 0 }}>
-                        {activities.map((item: any) => (
-                          <ListItem
-                            key={item.id}
-                            onClick={() => setSelectedItem(item)}
-                            sx={{
-                              cursor: 'pointer',
-                              px: 3,
-                              py: 2,
-                              borderBottom: '1px solid hsl(220 13% 91%)',
-                              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                              backgroundColor:
-                                selectedItem?.id === item.id ? 'hsl(240 4.8% 95.9%)' : 'transparent',
-                              '&:hover': {
-                                background: 'hsl(240 4.8% 95.9%)',
-                              },
-                              '&:last-child': {
-                                borderBottom: 'none',
-                              },
+                    <AccordionDetails
+                      sx={{
+                        p: 1,
+                        backgroundColor: 'rgba(248, 249, 250, 0.5)',
+                        borderRadius: '0 0 8px 8px',
+                      }}
+                    >
+                      <Droppable droppableId={day.toString()}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            style={{
+                              minHeight: '50px',
+                              backgroundColor: snapshot.isDraggingOver
+                                ? 'rgba(0, 122, 255, 0.1)'
+                                : 'transparent',
+                              borderRadius: '4px',
+                              transition: 'background-color 0.2s ease',
+                              position: 'relative',
+                              zIndex: snapshot.isDraggingOver ? 1000 : 'auto',
                             }}
                           >
-                            <ListItemIcon sx={{ minWidth: 40 }}>
-                              <Box
-                                sx={{
-                                  width: 8,
-                                  height: 8,
-                                  borderRadius: '50%',
-                                  background:
-                                    selectedItem?.id === item.id
-                                      ? 'hsl(217.2 91.2% 59.8%)'
-                                      : 'hsl(240 3.8% 46.1%)',
-                                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                            {activities.map((item: any, index: number) => (
+                              <Draggable key={item.id} draggableId={item.id.toString()} index={index}>
+                                {(provided, snapshot) => {
+                                  const child = (
+                                    <Box
+                                      ref={provided.innerRef}
+                                      {...provided.draggableProps}
+                                      {...provided.dragHandleProps}
+                                      onClick={() => setSelectedItem(item)}
+                                      sx={{
+                                        p: 2,
+                                        mx: 0.5,
+                                        mb: 0.5,
+                                        borderRadius: 2,
+                                        cursor: 'grab',
+                                        backgroundColor:
+                                          selectedItem?.id === item.id
+                                            ? 'rgba(0, 122, 255, 0.1)'
+                                            : 'rgba(248, 249, 250, 0.8)',
+                                        border:
+                                          selectedItem?.id === item.id
+                                            ? '1px solid rgba(0, 122, 255, 0.3)'
+                                            : '1px solid rgba(0, 0, 0, 0.05)',
+                                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                        position: 'relative',
+                                        transform: snapshot.isDragging ? 'rotate(2deg)' : 'none',
+                                        zIndex: snapshot.isDragging ? 99999 : 'auto',
+                                        boxShadow: snapshot.isDragging
+                                          ? '0 8px 25px rgba(0, 0, 0, 0.3)'
+                                          : selectedItem?.id === item.id
+                                            ? '0 2px 8px rgba(0, 122, 255, 0.15)'
+                                            : '0 1px 3px rgba(0, 0, 0, 0.1)',
+                                        '&:hover': {
+                                          backgroundColor:
+                                            selectedItem?.id === item.id
+                                              ? 'rgba(0, 122, 255, 0.15)'
+                                              : 'rgba(0, 122, 255, 0.05)',
+                                          transform: 'translateY(-1px)',
+                                          boxShadow: '0 2px 8px rgba(0, 122, 255, 0.15)',
+                                        },
+                                        '&:active': {
+                                          cursor: 'grabbing',
+                                          transform: 'translateY(0) scale(0.98)',
+                                        },
+                                      }}
+                                    >
+                                      <Box
+                                        sx={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'space-between',
+                                          minHeight: 64,
+                                          py: 1,
+                                        }}
+                                      >
+                                        <Box
+                                          sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 2,
+                                            flex: 1,
+                                            minWidth: 0,
+                                          }}
+                                        >
+                                          <Box
+                                            sx={{
+                                              width: 36,
+                                              height: 36,
+                                              borderRadius: 2,
+                                              backgroundColor:
+                                                selectedItem?.id === item.id ? '#007AFF' : '#F2F2F7',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              mt: 0,
+                                              flexShrink: 0,
+                                              transition: 'all 0.2s ease',
+                                              boxShadow:
+                                                selectedItem?.id === item.id
+                                                  ? '0 2px 8px rgba(0, 122, 255, 0.3)'
+                                                  : '0 1px 3px rgba(0,0,0,0.1)',
+                                              '&:hover': {
+                                                transform: 'scale(1.05)',
+                                              },
+                                            }}
+                                          >
+                                            {item.type === 'museum' ? (
+                                              <MuseumIcon
+                                                sx={{
+                                                  fontSize: 16,
+                                                  color:
+                                                    selectedItem?.id === item.id ? 'white' : '#8E8E93',
+                                                }}
+                                              />
+                                            ) : item.type === 'shopping' ? (
+                                              <ShoppingIcon
+                                                sx={{
+                                                  fontSize: 16,
+                                                  color:
+                                                    selectedItem?.id === item.id ? 'white' : '#8E8E93',
+                                                }}
+                                              />
+                                            ) : item.type === 'landmark' ? (
+                                              <PlaceIcon
+                                                sx={{
+                                                  fontSize: 16,
+                                                  color:
+                                                    selectedItem?.id === item.id ? 'white' : '#8E8E93',
+                                                }}
+                                              />
+                                            ) : (
+                                              <AttractionsIcon
+                                                sx={{
+                                                  fontSize: 16,
+                                                  color:
+                                                    selectedItem?.id === item.id ? 'white' : '#8E8E93',
+                                                }}
+                                              />
+                                            )}
+                                          </Box>
+                                          <Box
+                                            sx={{
+                                              flex: 1,
+                                              minWidth: 0,
+                                              display: 'flex',
+                                              flexDirection: 'column',
+                                              justifyContent: 'center',
+                                              minHeight: 48,
+                                              py: 0.5,
+                                            }}
+                                          >
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                              <Typography
+                                                variant="subtitle2"
+                                                sx={{
+                                                  fontWeight: 500,
+                                                  color: '#1D1D1F',
+                                                  fontSize: '0.875rem',
+                                                  lineHeight: 1.4,
+                                                }}
+                                              >
+                                                {item.location}
+                                              </Typography>
+                                              <Chip
+                                                label={item.type}
+                                                size="small"
+                                                sx={{
+                                                  backgroundColor: `${getActivityColor(item.type)}20`,
+                                                  color: getActivityColor(item.type),
+                                                  fontWeight: 500,
+                                                  fontSize: '0.75rem',
+                                                  height: 20,
+                                                  borderRadius: 2,
+                                                  transition: 'all 0.2s ease',
+                                                  '&:hover': {
+                                                    transform: 'scale(1.05)',
+                                                    backgroundColor: `${getActivityColor(item.type)}30`,
+                                                  },
+                                                }}
+                                              />
+                                            </Box>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                <ScheduleIcon sx={{ fontSize: 14, color: '#8E8E93' }} />
+                                                <Typography
+                                                  variant="caption"
+                                                  sx={{
+                                                    color: '#8E8E93',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: 400,
+                                                  }}
+                                                >
+                                                  {item.time}
+                                                </Typography>
+                                              </Box>
+                                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                <LocationIcon sx={{ fontSize: 14, color: '#8E8E93' }} />
+                                                <Typography
+                                                  variant="caption"
+                                                  sx={{
+                                                    color: '#8E8E93',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: 400,
+                                                    maxWidth: 120,
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                  }}
+                                                >
+                                                  {item.address}
+                                                </Typography>
+                                              </Box>
+                                            </Box>
+                                          </Box>
+                                        </Box>
+                                        <IconButton
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            removeActivity(item.id);
+                                          }}
+                                          size="small"
+                                          sx={{
+                                            color: '#8E8E93',
+                                            borderRadius: 2,
+                                            transition: 'all 0.2s ease',
+                                            alignSelf: 'center',
+                                            mt: 0,
+                                            flexShrink: 0,
+                                            '&:hover': {
+                                              color: '#FF3B30',
+                                              backgroundColor: 'rgba(255, 59, 48, 0.08)',
+                                              transform: 'scale(1.05)',
+                                            },
+                                          }}
+                                        >
+                                          <DeleteIcon fontSize="small" />
+                                        </IconButton>
+                                      </Box>
+                                    </Box>
+                                  );
+
+                                  return snapshot.isDragging ? createPortal(child, document.body) : child;
                                 }}
-                              />
-                            </ListItemIcon>
-                            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  fontWeight: 500,
-                                  color: 'hsl(240 5.9% 10%)',
-                                  fontSize: '0.875rem',
-                                  mb: 0.5,
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                }}
-                                component="div"
-                              >
-                                {item.location}
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                sx={{
-                                  color: 'hsl(240 3.8% 46.1%)',
-                                  fontSize: '0.75rem',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 0.5,
-                                }}
-                                component="div"
-                              >
-                                <ClockIcon sx={{ fontSize: 12 }} />
-                                {item.time}
-                              </Typography>
-                            </Box>
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeActivity(item.id);
-                              }}
-                              sx={{
-                                color: 'hsl(240 3.8% 46.1%)',
-                                opacity: 0.7,
-                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                '&:hover': {
-                                  color: 'hsl(0 84.2% 60.2%)',
-                                  opacity: 1,
-                                  background: 'hsl(0 84.2% 60.2% / 0.1)',
-                                },
-                              }}
-                            >
-                              <DeleteIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                          </ListItem>
-                        ))}
-                      </List>
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
                     </AccordionDetails>
                   </Accordion>
                 ))
@@ -1397,6 +1663,7 @@ export default function Home() {
           </Button>
         </DialogActions>
       </Dialog>
+      </DragDropContext>
     </ThemeProvider>
   );
 }

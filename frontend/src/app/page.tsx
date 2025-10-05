@@ -34,11 +34,11 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { GoogleMap, InfoWindow, LoadScript, Marker } from '@react-google-maps/api';
 import React, { useCallback, useEffect, useState } from 'react';
-import ChatBot from '../src/components/ChatBot';
-import LoginModal from '../src/components/LoginModal';
-import TripSelector from '../src/components/TripSelector';
-import { api } from '../src/lib/api';
-import { supabase } from '../src/lib/supabase';
+import ChatBot from '@/components/ChatBot';
+import LoginModal from '@/components/LoginModal';
+import TripSelector from '@/components/TripSelector';
+import { api } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 
 const theme = createTheme({
   palette: {

@@ -10,6 +10,7 @@ import {
   Close as CloseIcon,
   Delete as DeleteIcon,
   Directions as DirectionsIcon,
+  Edit as EditIcon,
   ExpandMore as ExpandMoreIcon,
   KeyboardArrowDown as ChevronDownIcon,
   Login as LoginIcon,
@@ -58,14 +59,15 @@ import {
 } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { GoogleMap, InfoWindow, LoadScript, Marker } from '@react-google-maps/api';
-import React, { useCallback, useEffect, useState } from 'react';
+import { GoogleMap, InfoWindow, Marker, useLoadScript } from '@react-google-maps/api';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ChatBot from '@/components/ChatBot';
 import LandingPage from '@/components/LandingPage';
 import LoginModal from '@/components/LoginModal';
 import TripSelector from '@/components/TripSelector';
 import { api } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
+import { formatLocalDate, formatLocalDateSimple } from '@/lib/utils';
 
 const theme = createTheme({
   palette: {
@@ -111,74 +113,15 @@ const theme = createTheme({
   },
 });
 
-// Sample itinerary data
-const _sampleItinerary = [
-  {
-    id: 1,
-    date: '2024-01-15',
-    time: '09:00',
-    location: 'Central Park',
-    address: 'New York, NY 10024',
-    activity: 'Morning Walk & Photography',
-    duration: '2 hours',
-    type: 'activity',
-    rating: 4.8,
-    coordinates: [40.7829, -73.9654],
-  },
-  {
-    id: 2,
-    date: '2024-01-15',
-    time: '12:00',
-    location: 'The Metropolitan Museum of Art',
-    address: '1000 5th Ave, New York, NY 10028',
-    activity: 'Museum Visit',
-    duration: '3 hours',
-    type: 'museum',
-    rating: 4.7,
-    coordinates: [40.7794, -73.9632],
-  },
-  {
-    id: 3,
-    date: '2024-01-15',
-    time: '16:00',
-    location: 'Times Square',
-    address: 'Times Square, New York, NY 10036',
-    activity: 'Shopping & Sightseeing',
-    duration: '2 hours',
-    type: 'shopping',
-    rating: 4.2,
-    coordinates: [40.758, -73.9855],
-  },
-  {
-    id: 4,
-    date: '2024-01-16',
-    time: '10:00',
-    location: 'Statue of Liberty',
-    address: 'Liberty Island, New York, NY 10004',
-    activity: 'Ferry Tour & Monument Visit',
-    duration: '4 hours',
-    type: 'landmark',
-    rating: 4.9,
-    coordinates: [40.6892, -74.0445],
-  },
-  {
-    id: 5,
-    date: '2024-01-16',
-    time: '15:00',
-    location: 'Brooklyn Bridge',
-    address: 'Brooklyn Bridge, New York, NY 10038',
-    activity: 'Bridge Walk & Photography',
-    duration: '1.5 hours',
-    type: 'activity',
-    rating: 4.6,
-    coordinates: [40.7061, -73.9969],
-  },
-];
-
 export default function Home() {
+  // Load Google Maps script (prevents duplicate loading on hot reload)
+  const { isLoaded: isGoogleMapsLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+    libraries: ['places'] as any,
+  });
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedItem, setSelectedItem] = useState<any>(null);
-  const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false);
   const [itinerary, setItinerary] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
@@ -188,6 +131,8 @@ export default function Home() {
   const [tripSelectorOpen, setTripSelectorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<any>(null);
   const [newActivity, setNewActivity] = useState<any>({
     location: '',
     address: '',
@@ -203,6 +148,9 @@ export default function Home() {
   const [activitySuggestions, setActivitySuggestions] = useState<any[]>([]);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTripTitle, setEditedTripTitle] = useState('');
+  const hasLoadedDataRef = useRef(false);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   const loadTripItinerary = useCallback(async (trip: any) => {
     try {
@@ -212,8 +160,19 @@ export default function Home() {
       // Fetch itinerary items for the selected trip
       const itineraryResponse = await api.get(`/api/itinerary?trip_id=${trip.id}`);
       const items = itineraryResponse.data.items;
-
+      
       setItinerary(items || []);
+
+      // Calculate map center from itinerary items
+      if (items && items.length > 0) {
+        // Calculate average coordinates from all items
+        const avgLat = items.reduce((sum: number, item: any) => sum + item.coordinates[0], 0) / items.length;
+        const avgLng = items.reduce((sum: number, item: any) => sum + item.coordinates[1], 0) / items.length;
+        setMapCenter({ lat: avgLat, lng: avgLng });
+      } else {
+        // No items, reset map center
+        setMapCenter(null);
+      }
     } catch (error) {
       console.error('Failed to fetch itinerary:', error);
       setItinerary([]);
@@ -227,7 +186,6 @@ export default function Home() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log('Auth state changed:', _event, session?.user?.email);
       if (session?.user) {
         setUser(session.user);
       } else {
@@ -242,7 +200,6 @@ export default function Home() {
     // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        console.log('Initial session found for user:', session.user.email);
         setUser(session.user);
       }
       setLoading(false);
@@ -262,6 +219,12 @@ export default function Home() {
         setItinerary([]);
         setCurrentTrip(null);
         setLoading(false);
+        hasLoadedDataRef.current = false;
+        return;
+      }
+
+      // Only fetch if we haven't loaded data yet for this user
+      if (hasLoadedDataRef.current) {
         return;
       }
 
@@ -280,6 +243,9 @@ export default function Home() {
           setItinerary([]);
           setCurrentTrip(null);
         }
+        
+        // Mark data as loaded
+        hasLoadedDataRef.current = true;
       } catch (error) {
         console.error('Failed to fetch trips:', error);
         setTrips([]);
@@ -296,28 +262,31 @@ export default function Home() {
     loadTripItinerary(trip);
   };
 
-  const handleTripCreated = async () => {
+  const handleTripCreated = async (newTrip?: any) => {
     // Refresh trips list
     try {
       const tripsResponse = await api.get('/api/trips');
       const fetchedTrips = tripsResponse.data.trips;
       setTrips(fetchedTrips || []);
 
-      // Load the newly created trip (first in list after refresh)
-      if (fetchedTrips && fetchedTrips.length > 0) {
+      // If we have the new trip, load it directly
+      // Otherwise load the first trip in the refreshed list
+      if (newTrip) {
+        console.log('🎯 Auto-selecting newly created trip:', newTrip.title);
+        await loadTripItinerary(newTrip);
+      } else if (fetchedTrips && fetchedTrips.length > 0) {
         await loadTripItinerary(fetchedTrips[0]);
       }
+      
+      // Keep the loaded flag as true since we just loaded data
+      hasLoadedDataRef.current = true;
     } catch (error) {
       console.error('Failed to refresh trips:', error);
     }
   };
-
+  
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
-  };
-
-  const handleGoogleMapsLoad = () => {
-    setIsGoogleMapsLoaded(true);
   };
 
   // Handle drag and drop
@@ -500,7 +469,7 @@ export default function Home() {
       );
 
       // Try Google Places API if available
-      if (window.google && window.google.maps && window.google.maps.places) {
+      if (typeof window !== 'undefined' && window.google?.maps?.places) {
         try {
           const service = new window.google.maps.places.AutocompleteService();
           service.getPlacePredictions(
@@ -510,7 +479,7 @@ export default function Home() {
               componentRestrictions: { country: 'us' },
             },
             (predictions, status) => {
-              if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+              if (window.google?.maps?.places && status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
                 const googleSuggestions = predictions.map((prediction) => ({
                   label: prediction.description,
                   value: prediction.description,
@@ -529,7 +498,7 @@ export default function Home() {
             }
           );
         } catch (error) {
-          console.log('Google Places API not ready yet:', error);
+          console.error('Google Places API not ready yet:', error);
         }
       }
     } else {
@@ -546,34 +515,42 @@ export default function Home() {
         address: selectedAddress.value,
         coordinates: selectedAddress.coordinates,
       });
-    } else if (selectedAddress && selectedAddress.placeId && window.google && window.google.maps) {
+    } else if (selectedAddress && selectedAddress.placeId && typeof window !== 'undefined' && window.google?.maps) {
       // Geocode the selected address to get coordinates
-      const geocoder = new window.google.maps.Geocoder();
-      geocoder.geocode({ placeId: selectedAddress.placeId }, (results, status) => {
-        if (status === 'OK' && results && results[0]) {
-          const location = results[0].geometry.location;
-          const coords = [location.lat(), location.lng()];
-          setNewActivity({
-            ...newActivity,
-            address: selectedAddress.value,
-            coordinates: coords,
-          });
-        }
-      });
-    } else if (selectedAddress && window.google && window.google.maps) {
+      try {
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode({ placeId: selectedAddress.placeId }, (results, status) => {
+          if (status === 'OK' && results && results[0]) {
+            const location = results[0].geometry.location;
+            const coords = [location.lat(), location.lng()];
+            setNewActivity({
+              ...newActivity,
+              address: selectedAddress.value,
+              coordinates: coords,
+            });
+          }
+        });
+      } catch (error) {
+        console.error('Geocoding failed:', error);
+      }
+    } else if (selectedAddress && typeof window !== 'undefined' && window.google?.maps) {
       // Fallback: geocode by address string
-      const geocoder = new window.google.maps.Geocoder();
-      geocoder.geocode({ address: selectedAddress.value }, (results, status) => {
-        if (status === 'OK' && results && results[0]) {
-          const location = results[0].geometry.location;
-          const coords = [location.lat(), location.lng()];
-          setNewActivity({
-            ...newActivity,
-            address: selectedAddress.value,
-            coordinates: coords,
-          });
-        }
-      });
+      try {
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode({ address: selectedAddress.value }, (results, status) => {
+          if (status === 'OK' && results && results[0]) {
+            const location = results[0].geometry.location;
+            const coords = [location.lat(), location.lng()];
+            setNewActivity({
+              ...newActivity,
+              address: selectedAddress.value,
+              coordinates: coords,
+            });
+          }
+        });
+      } catch (error) {
+        console.error('Geocoding failed:', error);
+      }
     }
   };
 
@@ -594,6 +571,59 @@ export default function Home() {
       );
     } else {
       setActivitySuggestions([]);
+    }
+  };
+
+  const openEditDialog = (item: any) => {
+    setEditingActivity({
+      ...item,
+      // Convert time from HH:MM:SS to HH:MM for the time input
+      time: item.time?.substring(0, 5) || '09:00',
+    });
+    setEditDialogOpen(true);
+  };
+
+  const updateActivity = async () => {
+    if (!editingActivity || !editingActivity.location || !editingActivity.activity) {
+      alert('Please fill in location and activity name');
+      return;
+    }
+
+    if (!currentTrip) {
+      alert('Please select a trip first');
+      return;
+    }
+
+    try {
+      // Update in backend
+      await api.put(`/api/itinerary/${editingActivity.id}`, {
+        location: editingActivity.location,
+        address: editingActivity.address,
+        activity: editingActivity.activity,
+        type: editingActivity.type,
+        date: editingActivity.date,
+        time: editingActivity.time,
+        duration: editingActivity.duration,
+        rating: editingActivity.rating,
+        coordinates: editingActivity.coordinates,
+      });
+
+      // Update local state
+      const updatedItinerary = itinerary.map((item) =>
+        item.id === editingActivity.id
+          ? {
+              ...item,
+              ...editingActivity,
+              time: editingActivity.time + ':00', // Add seconds back
+            }
+          : item
+      );
+      setItinerary(updatedItinerary);
+      setEditDialogOpen(false);
+      setEditingActivity(null);
+    } catch (error) {
+      console.error('Failed to update activity:', error);
+      alert('Failed to update activity. Please try again.');
     }
   };
 
@@ -823,96 +853,6 @@ export default function Home() {
       </AppBar>
 
       <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', pt: '64px' }}>
-        {/* Google Map Background */}
-        <Box sx={{ flexGrow: 1, position: 'relative' }}>
-          <LoadScript
-            googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}
-            onLoad={handleGoogleMapsLoad}
-            onError={(error) => {
-              console.error('Google Maps failed to load:', error);
-            }}
-          >
-            <GoogleMap
-              mapContainerStyle={{ width: '100%', height: '100vh' }}
-              center={{ lat: 40.7128, lng: -74.006 }} // New York City center
-              zoom={12}
-              options={{
-                styles: [
-                  {
-                    featureType: 'all',
-                    elementType: 'geometry',
-                    stylers: [{ color: '#f5f5f5' }],
-                  },
-                  {
-                    featureType: 'water',
-                    elementType: 'geometry',
-                    stylers: [{ color: '#c9c9c9' }],
-                  },
-                  {
-                    featureType: 'poi',
-                    elementType: 'labels.text.fill',
-                    stylers: [{ color: '#757575' }],
-                  },
-                ],
-              }}
-            >
-              {/* Map Markers for each itinerary item */}
-              {itinerary.map((item) => (
-                <Marker
-                  key={item.id}
-                  position={{ lat: item.coordinates[0], lng: item.coordinates[1] }}
-                  onClick={() => setSelectedItem(item)}
-                  icon={
-                    isGoogleMapsLoaded
-                      ? {
-                          url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-                      <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="20" cy="20" r="18" fill="${getActivityColor(item.type)}" stroke="white" stroke-width="3"/>
-                        <text x="20" y="26" text-anchor="middle" fill="white" font-size="16" font-weight="bold">
-                          ${getActivityIcon(item.type)}
-                        </text>
-                      </svg>
-                    `)}`,
-                          scaledSize: new window.google.maps.Size(40, 40),
-                          anchor: new window.google.maps.Point(20, 20),
-                        }
-                      : undefined
-                  }
-                />
-              ))}
-
-              {/* Info Window for selected item */}
-              {selectedItem && (
-                <InfoWindow
-                  position={{ lat: selectedItem.coordinates[0], lng: selectedItem.coordinates[1] }}
-                  onCloseClick={() => setSelectedItem(null)}
-                >
-                  <Box sx={{ p: 1, minWidth: 250 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
-                      {selectedItem.location}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                      📅 {selectedItem.date} • 🕐 {selectedItem.time}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                      📍 {selectedItem.address}
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
-                      {selectedItem.activity} • {selectedItem.duration}
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <StarIcon sx={{ fontSize: 16, color: '#ffc107', mr: 0.5 }} />
-                      <Typography variant="body2" color="text.secondary">
-                        {selectedItem.rating}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </InfoWindow>
-              )}
-            </GoogleMap>
-          </LoadScript>
-        </Box>
-
         {/* Apple-Style Sidebar */}
         <Drawer
           variant="persistent"
@@ -1008,7 +948,7 @@ export default function Home() {
                   component="div"
                 >
                   {currentTrip
-                    ? `${currentTrip.destination || 'Destination'} • ${new Date(currentTrip.start_date).toLocaleDateString()} - ${new Date(currentTrip.end_date).toLocaleDateString()}`
+                    ? `${currentTrip.destination || 'Destination'} • ${formatLocalDateSimple(currentTrip.start_date)} - ${formatLocalDateSimple(currentTrip.end_date)}`
                     : user
                       ? 'No trip selected'
                       : 'Sign in to get started'}
@@ -1058,7 +998,7 @@ export default function Home() {
                   },
                 }}
               >
-                {trips.length === 0 ? 'Create Your First Trip' : `Switch Trip (${trips.length})`}
+                {trips.length === 0 ? 'Create Your First Trip' : `Select Trip (${trips.length})`}
               </Button>
             )}
           </Box>
@@ -1149,11 +1089,7 @@ export default function Home() {
                             letterSpacing: '0.01em',
                           }}
                         >
-                          {new Date(day).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
+                          {formatLocalDate(day)}
                         </Typography>
                         <Chip
                           label={`${activities.length} activities`}
@@ -1395,28 +1331,48 @@ export default function Home() {
                                             </Box>
                                           </Box>
                                         </Box>
-                                        <IconButton
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            removeActivity(item.id);
-                                          }}
-                                          size="small"
-                                          sx={{
-                                            color: '#8E8E93',
-                                            borderRadius: 2,
-                                            transition: 'all 0.2s ease',
-                                            alignSelf: 'center',
-                                            mt: 0,
-                                            flexShrink: 0,
-                                            '&:hover': {
-                                              color: '#FF3B30',
-                                              backgroundColor: 'rgba(255, 59, 48, 0.08)',
-                                              transform: 'scale(1.05)',
-                                            },
-                                          }}
-                                        >
-                                          <DeleteIcon fontSize="small" />
-                                        </IconButton>
+                                        <Box sx={{ display: 'flex', gap: 0.5, alignSelf: 'center' }}>
+                                          <IconButton
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              openEditDialog(item);
+                                            }}
+                                            size="small"
+                                            sx={{
+                                              color: '#8E8E93',
+                                              borderRadius: 2,
+                                              transition: 'all 0.2s ease',
+                                              flexShrink: 0,
+                                              '&:hover': {
+                                                color: '#007AFF',
+                                                backgroundColor: 'rgba(0, 122, 255, 0.08)',
+                                                transform: 'scale(1.05)',
+                                              },
+                                            }}
+                                          >
+                                            <EditIcon fontSize="small" />
+                                          </IconButton>
+                                          <IconButton
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              removeActivity(item.id);
+                                            }}
+                                            size="small"
+                                            sx={{
+                                              color: '#8E8E93',
+                                              borderRadius: 2,
+                                              transition: 'all 0.2s ease',
+                                              flexShrink: 0,
+                                              '&:hover': {
+                                                color: '#FF3B30',
+                                                backgroundColor: 'rgba(255, 59, 48, 0.08)',
+                                                transform: 'scale(1.05)',
+                                              },
+                                            }}
+                                          >
+                                            <DeleteIcon fontSize="small" />
+                                          </IconButton>
+                                        </Box>
                                       </Box>
                                     </Box>
                                   );
@@ -1478,6 +1434,122 @@ export default function Home() {
           </Box>
         </Drawer>
 
+        {/* Google Map Background */}
+        <Box sx={{ flexGrow: 1, position: 'relative' }}>
+          {loadError && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <Typography color="error">Error loading Google Maps</Typography>
+            </Box>
+          )}
+          {!isGoogleMapsLoaded && !loadError && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <CircularProgress />
+            </Box>
+          )}
+          {isGoogleMapsLoaded && !loadError && !mapCenter && (
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              height: '100%',
+              backgroundColor: '#f5f5f5'
+            }}>
+              <Typography variant="h6" color="text.secondary">
+                Select or create a trip to view on the map
+              </Typography>
+            </Box>
+          )}
+          {isGoogleMapsLoaded && !loadError && mapCenter && (
+            <GoogleMap
+              mapContainerStyle={{ width: '100%', height: '100vh' }}
+              center={mapCenter}
+              zoom={12}
+              options={{
+                styles: [
+                  {
+                    featureType: 'all',
+                    elementType: 'geometry',
+                    stylers: [{ color: '#f5f5f5' }],
+                  },
+                  {
+                    featureType: 'water',
+                    elementType: 'geometry',
+                    stylers: [{ color: '#c9c9c9' }],
+                  },
+                  {
+                    featureType: 'poi',
+                    elementType: 'labels.text.fill',
+                    stylers: [{ color: '#757575' }],
+                  },
+                ],
+              }}
+              onLoad={() => setMapReady(true)}
+            >
+              {/* Map Markers for each itinerary item */}
+              {mapReady && itinerary.map((item) => {
+                // Create custom icon only if Google Maps is fully loaded
+                let customIcon = undefined;
+                try {
+                  if (isGoogleMapsLoaded && typeof window !== 'undefined' && window.google?.maps?.Size && window.google?.maps?.Point) {
+                    customIcon = {
+                      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+                    <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="20" cy="20" r="18" fill="${getActivityColor(item.type)}" stroke="white" stroke-width="3"/>
+                      <text x="20" y="26" text-anchor="middle" fill="white" font-size="16" font-weight="bold">
+                        ${getActivityIcon(item.type)}
+                      </text>
+                    </svg>
+                  `)}`,
+                      scaledSize: new window.google.maps.Size(40, 40),
+                      anchor: new window.google.maps.Point(20, 20),
+                    };
+                  }
+                } catch (error) {
+                  console.warn('Failed to create custom marker icon:', error);
+                }
+                
+                return (
+                  <Marker
+                    key={item.id}
+                    position={{ lat: item.coordinates[0], lng: item.coordinates[1] }}
+                    onClick={() => setSelectedItem(item)}
+                    icon={customIcon}
+                  />
+                );
+              })}
+
+              {/* Info Window for selected item */}
+              {mapReady && selectedItem && (
+                <InfoWindow
+                  position={{ lat: selectedItem.coordinates[0], lng: selectedItem.coordinates[1] }}
+                  onCloseClick={() => setSelectedItem(null)}
+                >
+                  <Box sx={{ p: 1, minWidth: 250 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
+                      {selectedItem.location}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                      📅 {selectedItem.date} • 🕐 {selectedItem.time}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                      📍 {selectedItem.address}
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      {selectedItem.activity} • {selectedItem.duration}
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <StarIcon sx={{ fontSize: 16, color: '#ffc107', mr: 0.5 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        {selectedItem.rating}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </InfoWindow>
+              )}
+            </GoogleMap>
+          )}
+        </Box>
+
         {/* Sidebar Trigger */}
         <Box
           sx={{
@@ -1533,10 +1605,10 @@ export default function Home() {
         >
           <MenuIcon />
         </Fab>
-
-        {/* AI Chat Bot */}
-        <ChatBot itinerary={itinerary} onItineraryUpdate={handleItineraryUpdate} />
       </Box>
+
+      {/* AI Chat Bot - Overlaid on top of everything */}
+      <ChatBot itinerary={itinerary} onItineraryUpdate={handleItineraryUpdate} currentTrip={currentTrip} />
 
       {/* Login Modal */}
       <LoginModal
@@ -1676,6 +1748,103 @@ export default function Home() {
           <Button onClick={() => setAddDialogOpen(false)}>Cancel</Button>
           <Button onClick={addActivity} variant="contained">
             Add Activity
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Activity Dialog */}
+      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit Activity</DialogTitle>
+        <DialogContent>
+          {editingActivity && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <TextField
+                label="Location Name"
+                value={editingActivity.location}
+                onChange={(e) => setEditingActivity({ ...editingActivity, location: e.target.value })}
+                fullWidth
+                required
+              />
+              <TextField
+                label="Address"
+                value={editingActivity.address}
+                onChange={(e) => setEditingActivity({ ...editingActivity, address: e.target.value })}
+                fullWidth
+              />
+              <TextField
+                label="Activity Description"
+                value={editingActivity.activity}
+                onChange={(e) => setEditingActivity({ ...editingActivity, activity: e.target.value })}
+                fullWidth
+                required
+              />
+              <FormControl fullWidth>
+                <InputLabel>Activity Type</InputLabel>
+                <Select
+                  value={editingActivity.type}
+                  onChange={(e) => setEditingActivity({ ...editingActivity, type: e.target.value })}
+                  label="Activity Type"
+                >
+                  <MenuItem value="activity">Activity</MenuItem>
+                  <MenuItem value="museum">Museum</MenuItem>
+                  <MenuItem value="shopping">Shopping</MenuItem>
+                  <MenuItem value="landmark">Landmark</MenuItem>
+                  <MenuItem value="restaurant">Restaurant</MenuItem>
+                  <MenuItem value="outdoor">Outdoor</MenuItem>
+                </Select>
+              </FormControl>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  label="Date"
+                  type="date"
+                  value={editingActivity.date}
+                  onChange={(e) => setEditingActivity({ ...editingActivity, date: e.target.value })}
+                  sx={{ flex: 1 }}
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                />
+                <TextField
+                  label="Time"
+                  type="time"
+                  value={editingActivity.time}
+                  onChange={(e) => setEditingActivity({ ...editingActivity, time: e.target.value })}
+                  sx={{ flex: 1 }}
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                />
+              </Box>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  label="Duration"
+                  value={editingActivity.duration}
+                  onChange={(e) => setEditingActivity({ ...editingActivity, duration: e.target.value })}
+                  sx={{ flex: 1 }}
+                />
+                <TextField
+                  label="Rating"
+                  type="number"
+                  value={editingActivity.rating}
+                  onChange={(e) =>
+                    setEditingActivity({ ...editingActivity, rating: parseFloat(e.target.value) })
+                  }
+                  inputProps={{ min: 1, max: 5, step: 0.1 }}
+                  sx={{ flex: 1 }}
+                />
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setEditDialogOpen(false);
+            setEditingActivity(null);
+          }}>
+            Cancel
+          </Button>
+          <Button onClick={updateActivity} variant="contained">
+            Update Activity
           </Button>
         </DialogActions>
       </Dialog>

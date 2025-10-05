@@ -18,6 +18,8 @@ import {
   Slide,
   TextField,
   Typography,
+  Chip,
+  CircularProgress
 } from '@mui/material';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -73,7 +75,6 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
     setIsLoading(true);
 
     try {
-      // Get AI response from Gemini service with itinerary context
       const response = await getGeminiResponse(inputText, itinerary);
 
       const botMessage: Message = {
@@ -87,7 +88,6 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
         setMessages((prev) => [...prev, botMessage]);
         setIsLoading(false);
 
-        // If the response includes itinerary updates, apply them
         if (response.itineraryUpdate && onItineraryUpdate) {
           onItineraryUpdate(response.itineraryUpdate);
         }
@@ -113,66 +113,127 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
 
   return (
     <>
-      {/* Chat Icon */}
+      {/* Square Chat Toggle Button */}
       <Fab
-        color="secondary"
+        color="primary"
         aria-label="open chat"
         onClick={() => setIsOpen(true)}
         sx={{
           position: 'fixed',
-          bottom: 16,
-          right: 16,
+          bottom: 24,
+          right: 24,
           display: isOpen ? 'none' : 'flex',
           zIndex: 1000,
+          background: 'linear-gradient(135deg, #007AFF 0%, #0051D5 100%)',
+          boxShadow: '0 8px 20px rgba(0, 122, 255, 0.3)',
+          borderRadius: 12,
+          width: 56,
+          height: 56,
+          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+          '&:hover': {
+            background: 'linear-gradient(135deg, #0051D5 0%, #003D99 100%)',
+            boxShadow: '0 12px 24px rgba(0, 122, 255, 0.4)',
+            transform: 'translateY(-2px) scale(1.05)',
+          },
+          '&:active': {
+            transform: 'translateY(0) scale(0.95)',
+          },
         }}
       >
-        <BotIcon />
+        <BotIcon sx={{ fontSize: 24 }} />
       </Fab>
 
-      {/* Chat Window */}
+      {/* Sharp Chat Window */}
       <Slide direction="left" in={isOpen} mountOnEnter unmountOnExit>
         <Paper
           sx={{
             position: 'fixed',
-            bottom: 16,
-            right: 16,
-            width: 350,
-            height: 500,
+            bottom: 24,
+            right: 24,
+            width: 400,
+            height: 650,
             display: 'flex',
             flexDirection: 'column',
             zIndex: 1000,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+            borderRadius: 2,
+            boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            overflow: 'hidden',
           }}
         >
-          {/* Chat Header */}
+          {/* Sharp Chat Header */}
           <Box
             sx={{
-              p: 2,
-              backgroundColor: '#1976d2',
+              p: 3,
+              background: 'linear-gradient(135deg, #007AFF 0%, #0051D5 100%)',
               color: 'white',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
+              borderRadius: '2px 2px 0 0',
+              position: 'relative',
+              '&::after': {
+                content: '""',
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: '1px',
+                background: 'rgba(255, 255, 255, 0.2)',
+              },
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)' }}>
-                <BotIcon />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Avatar
+                sx={{
+                  bgcolor: 'rgba(255,255,255,0.2)',
+                  width: 40,
+                  height: 40,
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                }}
+              >
+                <BotIcon sx={{ fontSize: 20 }} />
               </Avatar>
               <Box>
-                <Typography variant="h6" component="div">AI Assistant</Typography>
-                <Typography variant="caption" component="div" sx={{ opacity: 0.8 }}>
+                <Typography variant="h6" sx={{
+                  fontWeight: 600,
+                  fontSize: '1rem',
+                  letterSpacing: '0',
+                }}>
+                  AI Assistant
+                </Typography>
+                <Typography variant="caption" sx={{
+                  opacity: 0.8,
+                  fontSize: '0.75rem',
+                  fontWeight: 400,
+                  letterSpacing: '0.01em',
+                }}>
                   Powered by Gemini
                 </Typography>
               </Box>
             </Box>
-            <IconButton color="inherit" onClick={() => setIsOpen(false)} size="small">
-              <CloseIcon />
+            <IconButton
+              color="inherit"
+              onClick={() => setIsOpen(false)}
+              size="small"
+              sx={{
+                borderRadius: 2,
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                  transform: 'scale(1.05)',
+                },
+              }}
+            >
+              <CloseIcon sx={{ fontSize: 20 }} />
             </IconButton>
           </Box>
 
           {/* Messages */}
-          <Box sx={{ flexGrow: 1, overflow: 'auto', p: 1 }}>
+          <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
             <List sx={{ p: 0 }}>
               {messages.map((message) => (
                 <ListItem
@@ -180,39 +241,56 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
                   sx={{
                     flexDirection: message.sender === 'user' ? 'row-reverse' : 'row',
                     alignItems: 'flex-start',
-                    mb: 1,
+                    mb: 2,
+                    px: 0,
                   }}
                 >
                   <Avatar
                     sx={{
-                      bgcolor: message.sender === 'user' ? '#1976d2' : '#4caf50',
+                      bgcolor: message.sender === 'user' ? '#007AFF' : '#F2F2F7',
+                      color: message.sender === 'user' ? 'white' : '#8E8E93',
                       width: 32,
                       height: 32,
                       mr: message.sender === 'user' ? 0 : 1,
                       ml: message.sender === 'user' ? 1 : 0,
+                      fontSize: '0.875rem',
                     }}
                   >
-                    {message.sender === 'user' ? <PersonIcon /> : <BotIcon />}
+                    {message.sender === 'user' ? <PersonIcon fontSize="small" /> : <BotIcon fontSize="small" />}
                   </Avatar>
                   <Box
                     sx={{
                       maxWidth: '80%',
-                      backgroundColor: message.sender === 'user' ? '#1976d2' : '#f5f5f5',
-                      color: message.sender === 'user' ? 'white' : 'black',
-                      borderRadius: 2,
-                      p: 1.5,
+                      backgroundColor: message.sender === 'user'
+                        ? 'linear-gradient(135deg, #007AFF 0%, #0051D5 100%)'
+                        : 'rgba(242, 242, 247, 0.9)',
+                      backdropFilter: message.sender === 'user' ? 'none' : 'blur(10px)',
+                      color: message.sender === 'user' ? 'white' : '#1D1D1F',
+                      borderRadius: message.sender === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
+                      p: 2,
                       wordBreak: 'break-word',
+                      boxShadow: message.sender === 'user'
+                        ? '0 2px 8px rgba(0, 122, 255, 0.3)'
+                        : '0 2px 8px rgba(0,0,0,0.08)',
+                      border: message.sender === 'user'
+                        ? 'none'
+                        : '1px solid rgba(255, 255, 255, 0.3)',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        transform: 'scale(1.02)',
+                      },
                     }}
                   >
-                    <Typography variant="body2">{message.text}</Typography>
+                    <Typography variant="body2" sx={{ lineHeight: 1.4, fontSize: '0.875rem' }}>
+                      {message.text}
+                    </Typography>
                     <Typography
                       variant="caption"
-                      component="div"
                       sx={{
                         display: 'block',
                         mt: 0.5,
                         opacity: 0.7,
-                        fontSize: '0.7rem',
+                        fontSize: '0.75rem',
                       }}
                     >
                       {message.timestamp.toLocaleTimeString([], {
@@ -224,21 +302,42 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
                 </ListItem>
               ))}
               {isLoading && (
-                <ListItem sx={{ justifyContent: 'center' }}>
-                  <Typography variant="body2" color="text.secondary" component="div">
-                    AI is typing...
-                  </Typography>
+                <ListItem sx={{ justifyContent: 'flex-start', px: 0 }}>
+                  <Avatar sx={{ bgcolor: '#F2F2F7', color: '#8E8E93', width: 32, height: 32, mr: 1 }}>
+                    <BotIcon fontSize="small" />
+                  </Avatar>
+                  <Box
+                    sx={{
+                      backgroundColor: '#F2F2F7',
+                      borderRadius: '16px 16px 16px 4px',
+                      p: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                    }}
+                  >
+                    <CircularProgress size={16} sx={{ color: '#8E8E93' }} />
+                    <Typography variant="body2" sx={{ color: '#8E8E93', fontSize: '0.875rem' }}>
+                      AI is typing...
+                    </Typography>
+                  </Box>
                 </ListItem>
               )}
             </List>
             <div ref={messagesEndRef} />
           </Box>
 
-          <Divider />
+          <Divider sx={{ borderColor: 'rgba(0,0,0,0.05)' }} />
 
-          {/* Input */}
-          <Box sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', gap: 1 }}>
+          {/* Sharp Input Area */}
+          <Box sx={{
+            p: 2,
+            background: 'rgba(255, 255, 255, 0.6)',
+            backdropFilter: 'blur(10px)',
+            borderTop: '1px solid rgba(0, 0, 0, 0.05)',
+            borderRadius: '0 0 2px 2px',
+          }}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
               <TextField
                 fullWidth
                 placeholder="Ask me about your trip..."
@@ -246,16 +345,66 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyPress={handleKeyPress}
                 disabled={isLoading}
-                size="small"
                 multiline
                 maxRows={3}
+                variant="outlined"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    transition: 'all 0.2s ease',
+                    '& fieldset': {
+                      border: 'none',
+                    },
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    },
+                    '&.Mui-focused': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                      boxShadow: '0 0 0 2px rgba(0, 122, 255, 0.2)',
+                    },
+                  },
+                }}
               />
               <IconButton
                 color="primary"
                 onClick={handleSendMessage}
                 disabled={!inputText.trim() || isLoading}
+                sx={{
+                  backgroundColor: inputText.trim() && !isLoading
+                    ? 'linear-gradient(135deg, #007AFF 0%, #0051D5 100%)'
+                    : '#C7C7CC',
+                  color: 'white',
+                  borderRadius: 2,
+                  width: 40,
+                  height: 40,
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: inputText.trim() && !isLoading
+                    ? '0 2px 8px rgba(0, 122, 255, 0.3)'
+                    : 'none',
+                  '&:hover': {
+                    backgroundColor: inputText.trim() && !isLoading
+                      ? 'linear-gradient(135deg, #0051D5 0%, #003D99 100%)'
+                      : '#C7C7CC',
+                    transform: 'scale(1.05)',
+                    boxShadow: inputText.trim() && !isLoading
+                      ? '0 4px 12px rgba(0, 122, 255, 0.4)'
+                      : 'none',
+                  },
+                  '&:active': {
+                    transform: 'scale(0.95)',
+                  },
+                  '&:disabled': {
+                    backgroundColor: '#C7C7CC',
+                    color: 'white',
+                    transform: 'none',
+                    boxShadow: 'none',
+                  },
+                }}
               >
-                <SendIcon />
+                <SendIcon fontSize="small" />
               </IconButton>
             </Box>
           </Box>

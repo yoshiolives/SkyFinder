@@ -8,70 +8,82 @@
             height: 500px;
             width: 100%;
         }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
     </style>
 </head>
 
 <body>
     <h1>Google Maps Marker Test</h1>
+    <p>This should show 5 markers at the same locations as your itinerary:</p>
+    <ul>
+        <li>Marker 1: Central Park (40.7829, -73.9654)</li>
+        <li>Marker 2: Metropolitan Museum (40.7794, -73.9632)</li>
+        <li>Marker 3: Times Square (40.758, -73.9855)</li>
+        <li>Marker 4: Statue of Liberty (40.6892, -74.0445)</li>
+        <li>Marker 5: Brooklyn Bridge (40.7061, -73.9969)</li>
+    </ul>
     <div id="map"></div>
 
     <script>
         function initMap() {
             console.log('Initializing map...');
 
-            // Create map
             const map = new google.maps.Map(document.getElementById("map"), {
-                zoom: 13,
+                zoom: 10,
                 center: { lat: 40.758, lng: -73.9855 },
             });
 
-            console.log('Map created:', map);
-
-            // Test markers
             const locations = [
-                { lat: 40.7829, lng: -73.9654, title: "Central Park" },
-                { lat: 40.7794, lng: -73.9632, title: "Metropolitan Museum" },
-                { lat: 40.758, lng: -73.9855, title: "Times Square" },
-                { lat: 40.6892, lng: -74.0445, title: "Statue of Liberty" },
-                { lat: 40.7061, lng: -73.9969, title: "Brooklyn Bridge" }
+                { lat: 40.7829, lng: -73.9654, title: "Central Park", id: 1 },
+                { lat: 40.7794, lng: -73.9632, title: "Metropolitan Museum", id: 2 },
+                { lat: 40.758, lng: -73.9855, title: "Times Square", id: 3 },
+                { lat: 40.6892, lng: -74.0445, title: "Statue of Liberty", id: 4 },
+                { lat: 40.7061, lng: -73.9969, title: "Brooklyn Bridge", id: 5 }
             ];
 
+            console.log('Creating markers...');
             locations.forEach((location, index) => {
-                console.log(`Creating marker ${index + 1}:`, location);
-
                 const marker = new google.maps.Marker({
                     position: location,
                     map: map,
                     title: location.title,
-                    zIndex: 100 + index
+                    label: {
+                        text: location.id.toString(),
+                        color: 'white',
+                        fontWeight: 'bold',
+                        fontSize: '16px'
+                    },
+                    animation: google.maps.Animation.DROP
                 });
 
-                console.log(`Marker ${index + 1} created:`, marker);
-                console.log(`Marker ${index + 1} visible:`, marker.getVisible());
-                console.log(`Marker ${index + 1} position:`, marker.getPosition());
+                console.log(`Marker ${location.id} created: ${location.title}`);
+
+                // Add click listener
+                marker.addListener('click', () => {
+                    console.log(`Marker clicked: ${location.title}`);
+                    alert(`You clicked on ${location.title}!`);
+                });
             });
+
+            console.log('All markers created successfully!');
+
+            // Fit bounds to show all markers
+            const bounds = new google.maps.LatLngBounds();
+            locations.forEach(location => {
+                bounds.extend(location);
+            });
+            map.fitBounds(bounds);
+            console.log('Map bounds fitted to show all markers');
         }
-
-        // Check for API key
-        const apiKey = 'AIzaSyA-qFSlw40Jx0m-iFWyzVSuMDCXOeBbWRY';
-        console.log('API Key:', apiKey);
-
-        // Load Google Maps API
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initMap`;
-        script.async = true;
-        script.defer = true;
-
-        script.onerror = function () {
-            console.error('Failed to load Google Maps API');
-        };
-
-        script.onload = function () {
-            console.log('Google Maps API loaded successfully');
-        };
-
-        document.head.appendChild(script);
     </script>
+
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA-qFSlw40Jx0m-iFWyzVSuMDCXOeBbWRY&callback=initMap">
+        </script>
 </body>
 
 </html>

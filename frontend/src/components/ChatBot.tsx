@@ -19,11 +19,14 @@ import {
   TextField,
   Typography,
   Chip,
-  CircularProgress
+  CircularProgress,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getGeminiResponse } from '../services/geminiService';
+import { getGeminiResponse, GeminiAPIError } from '../services/geminiService';
+import { api } from '../lib/api';
 
 interface Message {
   id: number;
@@ -35,9 +38,10 @@ interface Message {
 interface ChatBotProps {
   itinerary?: any[];
   onItineraryUpdate?: (itinerary: any) => void;
+  currentTrip?: any;
 }
 
-const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = null }) => {
+const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = null, currentTrip = null }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -49,6 +53,8 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
   ]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
@@ -76,7 +82,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
 
     try {
       // Get AI response from Gemini service with itinerary context
-      const response = await getGeminiResponse(inputText, itinerary);
+      const response = await getGeminiResponse(inputText, itinerary, {}, messages);
 
       const botMessage: Message = {
         id: Date.now() + 1,
@@ -85,24 +91,127 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
         timestamp: new Date(),
       };
 
-      setTimeout(() => {
+      setTimeout(async () => {
         setMessages((prev) => [...prev, botMessage]);
         setIsLoading(false);
 
-        // If the response includes itinerary updates, apply them
+        // Handle database actions
+        if (response.action && response.actionData && currentTrip) {
+          try {
+            switch (response.action) {
+              case 'create_item': {
+                // Create new itinerary item via API
+                const createResponse = await api.post('/api/itinerary', {
+                  trip_id: currentTrip.id,
+                  location: response.actionData.location,
+                  address: response.actionData.address,
+                  activity: response.actionData.activity,
+                  type: response.actionData.type,
+                  date: response.actionData.date,
+                  time: response.actionData.time,
+                  duration: response.actionData.duration,
+                  rating: response.actionData.rating,
+                  coordinates: response.actionData.coordinates,
+                });
+
+                // Format the response to match frontend format
+                const formattedItem = {
+                  id: createResponse.data.item.id,
+                  date: createResponse.data.item.date,
+                  time: createResponse.data.item.time,
+                  location: createResponse.data.item.location,
+                  address: createResponse.data.item.address,
+                  activity: createResponse.data.item.activity,
+                  duration: createResponse.data.item.duration,
+                  type: createResponse.data.item.type,
+                  rating: createResponse.data.item.rating,
+                  coordinates: [createResponse.data.item.latitude, createResponse.data.item.longitude],
+                };
+
+                // Update local state
+                if (onItineraryUpdate) {
+                  onItineraryUpdate([...itinerary, formattedItem]);
+                }
+                
+                setSnackbarMessage('Successfully added to your itinerary!');
+                setSnackbarOpen(true);
+                break;
+              }
+
+              case 'update_item': {
+                // Update existing itinerary item via API
+                await api.put(`/api/itinerary/${response.actionData.id}`, {
+                  location: response.actionData.location,
+                  address: response.actionData.address,
+                  activity: response.actionData.activity,
+                  type: response.actionData.type,
+                  date: response.actionData.date,
+                  time: response.actionData.time,
+                  duration: response.actionData.duration,
+                  rating: response.actionData.rating,
+                  coordinates: response.actionData.coordinates,
+                });
+
+                // Update local state
+                if (onItineraryUpdate) {
+                  const updatedItinerary = itinerary.map(item =>
+                    item.id === response.actionData.id ? response.actionData : item
+                  );
+                  onItineraryUpdate(updatedItinerary);
+                }
+                
+                setSnackbarMessage('Successfully updated your itinerary!');
+                setSnackbarOpen(true);
+                break;
+              }
+
+              case 'delete_item': {
+                // Delete itinerary item via API
+                await api.delete(`/api/itinerary/${response.actionData.id}`);
+
+                // Update local state
+                if (onItineraryUpdate) {
+                  const updatedItinerary = itinerary.filter(item => item.id !== response.actionData.id);
+                  onItineraryUpdate(updatedItinerary);
+                }
+                
+                setSnackbarMessage('Successfully removed from your itinerary!');
+                setSnackbarOpen(true);
+                break;
+              }
+            }
+          } catch (apiError: any) {
+            console.error('Failed to perform API action:', apiError);
+            setSnackbarMessage(`Failed to ${response.action.replace('_', ' ')}: ${apiError.message}`);
+            setSnackbarOpen(true);
+          }
+        }
+
+        // If the response includes bulk itinerary updates, apply them
         if (response.itineraryUpdate && onItineraryUpdate) {
           onItineraryUpdate(response.itineraryUpdate);
         }
       }, 1000);
-    } catch (_error) {
+    } catch (error) {
+      setIsLoading(false);
+      
+      // Handle Gemini API errors
+      if (error instanceof GeminiAPIError) {
+        setSnackbarMessage(error.message);
+        setSnackbarOpen(true);
+      } else {
+        setSnackbarMessage('An unexpected error occurred. Please contact an administrator.');
+        setSnackbarOpen(true);
+      }
+      
+      // Also show error in chat
       const errorMessage: Message = {
         id: Date.now() + 1,
-        text: "Sorry, I'm having trouble connecting right now. Please try again later.",
+        text: "Sorry, I encountered an error. Please see the notification for details.",
         sender: 'bot',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
-      setIsLoading(false);
     }
   };
 
@@ -111,6 +220,10 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
       event.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const handleSnackbarClose = () => {
+    setSnackbarOpen(false);
   };
 
   return (
@@ -412,6 +525,23 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
           </Box>
         </Paper>
       </Slide>
+
+      {/* Error Snackbar */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity="error"
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </>
   );
 };

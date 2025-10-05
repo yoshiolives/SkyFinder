@@ -10,6 +10,7 @@ import {
   Close as CloseIcon,
   Delete as DeleteIcon,
   Directions as DirectionsIcon,
+  Edit as EditIcon,
   ExpandMore as ExpandMoreIcon,
   KeyboardArrowDown as ChevronDownIcon,
   Login as LoginIcon,
@@ -66,6 +67,7 @@ import LoginModal from '@/components/LoginModal';
 import TripSelector from '@/components/TripSelector';
 import { api } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
+import { formatLocalDate, formatLocalDateSimple } from '@/lib/utils';
 
 const theme = createTheme({
   palette: {
@@ -111,70 +113,6 @@ const theme = createTheme({
   },
 });
 
-// Sample itinerary data
-const _sampleItinerary = [
-  {
-    id: 1,
-    date: '2024-01-15',
-    time: '09:00',
-    location: 'Central Park',
-    address: 'New York, NY 10024',
-    activity: 'Morning Walk & Photography',
-    duration: '2 hours',
-    type: 'activity',
-    rating: 4.8,
-    coordinates: [40.7829, -73.9654],
-  },
-  {
-    id: 2,
-    date: '2024-01-15',
-    time: '12:00',
-    location: 'The Metropolitan Museum of Art',
-    address: '1000 5th Ave, New York, NY 10028',
-    activity: 'Museum Visit',
-    duration: '3 hours',
-    type: 'museum',
-    rating: 4.7,
-    coordinates: [40.7794, -73.9632],
-  },
-  {
-    id: 3,
-    date: '2024-01-15',
-    time: '16:00',
-    location: 'Times Square',
-    address: 'Times Square, New York, NY 10036',
-    activity: 'Shopping & Sightseeing',
-    duration: '2 hours',
-    type: 'shopping',
-    rating: 4.2,
-    coordinates: [40.758, -73.9855],
-  },
-  {
-    id: 4,
-    date: '2024-01-16',
-    time: '10:00',
-    location: 'Statue of Liberty',
-    address: 'Liberty Island, New York, NY 10004',
-    activity: 'Ferry Tour & Monument Visit',
-    duration: '4 hours',
-    type: 'landmark',
-    rating: 4.9,
-    coordinates: [40.6892, -74.0445],
-  },
-  {
-    id: 5,
-    date: '2024-01-16',
-    time: '15:00',
-    location: 'Brooklyn Bridge',
-    address: 'Brooklyn Bridge, New York, NY 10038',
-    activity: 'Bridge Walk & Photography',
-    duration: '1.5 hours',
-    type: 'activity',
-    rating: 4.6,
-    coordinates: [40.7061, -73.9969],
-  },
-];
-
 export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedItem, setSelectedItem] = useState<any>(null);
@@ -188,6 +126,8 @@ export default function Home() {
   const [tripSelectorOpen, setTripSelectorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<any>(null);
   const [newActivity, setNewActivity] = useState<any>({
     location: '',
     address: '',
@@ -213,7 +153,7 @@ export default function Home() {
       // Fetch itinerary items for the selected trip
       const itineraryResponse = await api.get(`/api/itinerary?trip_id=${trip.id}`);
       const items = itineraryResponse.data.items;
-
+      
       setItinerary(items || []);
     } catch (error) {
       console.error('Failed to fetch itinerary:', error);
@@ -228,7 +168,6 @@ export default function Home() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log('Auth state changed:', _event, session?.user?.email);
       if (session?.user) {
         setUser(session.user);
       } else {
@@ -243,7 +182,6 @@ export default function Home() {
     // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        console.log('Initial session found for user:', session.user.email);
         setUser(session.user);
       }
       setLoading(false);
@@ -324,7 +262,7 @@ export default function Home() {
       console.error('Failed to refresh trips:', error);
     }
   };
-
+  
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
@@ -542,7 +480,7 @@ export default function Home() {
             }
           );
         } catch (error) {
-          console.log('Google Places API not ready yet:', error);
+          console.error('Google Places API not ready yet:', error);
         }
       }
     } else {
@@ -615,6 +553,59 @@ export default function Home() {
       );
     } else {
       setActivitySuggestions([]);
+    }
+  };
+
+  const openEditDialog = (item: any) => {
+    setEditingActivity({
+      ...item,
+      // Convert time from HH:MM:SS to HH:MM for the time input
+      time: item.time?.substring(0, 5) || '09:00',
+    });
+    setEditDialogOpen(true);
+  };
+
+  const updateActivity = async () => {
+    if (!editingActivity || !editingActivity.location || !editingActivity.activity) {
+      alert('Please fill in location and activity name');
+      return;
+    }
+
+    if (!currentTrip) {
+      alert('Please select a trip first');
+      return;
+    }
+
+    try {
+      // Update in backend
+      await api.put(`/api/itinerary/${editingActivity.id}`, {
+        location: editingActivity.location,
+        address: editingActivity.address,
+        activity: editingActivity.activity,
+        type: editingActivity.type,
+        date: editingActivity.date,
+        time: editingActivity.time,
+        duration: editingActivity.duration,
+        rating: editingActivity.rating,
+        coordinates: editingActivity.coordinates,
+      });
+
+      // Update local state
+      const updatedItinerary = itinerary.map((item) =>
+        item.id === editingActivity.id
+          ? {
+              ...item,
+              ...editingActivity,
+              time: editingActivity.time + ':00', // Add seconds back
+            }
+          : item
+      );
+      setItinerary(updatedItinerary);
+      setEditDialogOpen(false);
+      setEditingActivity(null);
+    } catch (error) {
+      console.error('Failed to update activity:', error);
+      alert('Failed to update activity. Please try again.');
     }
   };
 
@@ -939,7 +930,7 @@ export default function Home() {
                   component="div"
                 >
                   {currentTrip
-                    ? `${currentTrip.destination || 'Destination'} • ${new Date(currentTrip.start_date).toLocaleDateString()} - ${new Date(currentTrip.end_date).toLocaleDateString()}`
+                    ? `${currentTrip.destination || 'Destination'} • ${formatLocalDateSimple(currentTrip.start_date)} - ${formatLocalDateSimple(currentTrip.end_date)}`
                     : user
                       ? 'No trip selected'
                       : 'Sign in to get started'}
@@ -1080,11 +1071,7 @@ export default function Home() {
                             letterSpacing: '0.01em',
                           }}
                         >
-                          {new Date(day).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
+                          {formatLocalDate(day)}
                         </Typography>
                         <Chip
                           label={`${activities.length} activities`}
@@ -1326,28 +1313,48 @@ export default function Home() {
                                             </Box>
                                           </Box>
                                         </Box>
-                                        <IconButton
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            removeActivity(item.id);
-                                          }}
-                                          size="small"
-                                          sx={{
-                                            color: '#8E8E93',
-                                            borderRadius: 2,
-                                            transition: 'all 0.2s ease',
-                                            alignSelf: 'center',
-                                            mt: 0,
-                                            flexShrink: 0,
-                                            '&:hover': {
-                                              color: '#FF3B30',
-                                              backgroundColor: 'rgba(255, 59, 48, 0.08)',
-                                              transform: 'scale(1.05)',
-                                            },
-                                          }}
-                                        >
-                                          <DeleteIcon fontSize="small" />
-                                        </IconButton>
+                                        <Box sx={{ display: 'flex', gap: 0.5, alignSelf: 'center' }}>
+                                          <IconButton
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              openEditDialog(item);
+                                            }}
+                                            size="small"
+                                            sx={{
+                                              color: '#8E8E93',
+                                              borderRadius: 2,
+                                              transition: 'all 0.2s ease',
+                                              flexShrink: 0,
+                                              '&:hover': {
+                                                color: '#007AFF',
+                                                backgroundColor: 'rgba(0, 122, 255, 0.08)',
+                                                transform: 'scale(1.05)',
+                                              },
+                                            }}
+                                          >
+                                            <EditIcon fontSize="small" />
+                                          </IconButton>
+                                          <IconButton
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              removeActivity(item.id);
+                                            }}
+                                            size="small"
+                                            sx={{
+                                              color: '#8E8E93',
+                                              borderRadius: 2,
+                                              transition: 'all 0.2s ease',
+                                              flexShrink: 0,
+                                              '&:hover': {
+                                                color: '#FF3B30',
+                                                backgroundColor: 'rgba(255, 59, 48, 0.08)',
+                                                transform: 'scale(1.05)',
+                                              },
+                                            }}
+                                          >
+                                            <DeleteIcon fontSize="small" />
+                                          </IconButton>
+                                        </Box>
                                       </Box>
                                     </Box>
                                   );
@@ -1565,7 +1572,7 @@ export default function Home() {
       </Box>
 
       {/* AI Chat Bot - Overlaid on top of everything */}
-      <ChatBot itinerary={itinerary} onItineraryUpdate={handleItineraryUpdate} />
+      <ChatBot itinerary={itinerary} onItineraryUpdate={handleItineraryUpdate} currentTrip={currentTrip} />
 
       {/* Login Modal */}
       <LoginModal
@@ -1705,6 +1712,103 @@ export default function Home() {
           <Button onClick={() => setAddDialogOpen(false)}>Cancel</Button>
           <Button onClick={addActivity} variant="contained">
             Add Activity
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Activity Dialog */}
+      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit Activity</DialogTitle>
+        <DialogContent>
+          {editingActivity && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <TextField
+                label="Location Name"
+                value={editingActivity.location}
+                onChange={(e) => setEditingActivity({ ...editingActivity, location: e.target.value })}
+                fullWidth
+                required
+              />
+              <TextField
+                label="Address"
+                value={editingActivity.address}
+                onChange={(e) => setEditingActivity({ ...editingActivity, address: e.target.value })}
+                fullWidth
+              />
+              <TextField
+                label="Activity Description"
+                value={editingActivity.activity}
+                onChange={(e) => setEditingActivity({ ...editingActivity, activity: e.target.value })}
+                fullWidth
+                required
+              />
+              <FormControl fullWidth>
+                <InputLabel>Activity Type</InputLabel>
+                <Select
+                  value={editingActivity.type}
+                  onChange={(e) => setEditingActivity({ ...editingActivity, type: e.target.value })}
+                  label="Activity Type"
+                >
+                  <MenuItem value="activity">Activity</MenuItem>
+                  <MenuItem value="museum">Museum</MenuItem>
+                  <MenuItem value="shopping">Shopping</MenuItem>
+                  <MenuItem value="landmark">Landmark</MenuItem>
+                  <MenuItem value="restaurant">Restaurant</MenuItem>
+                  <MenuItem value="outdoor">Outdoor</MenuItem>
+                </Select>
+              </FormControl>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  label="Date"
+                  type="date"
+                  value={editingActivity.date}
+                  onChange={(e) => setEditingActivity({ ...editingActivity, date: e.target.value })}
+                  sx={{ flex: 1 }}
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                />
+                <TextField
+                  label="Time"
+                  type="time"
+                  value={editingActivity.time}
+                  onChange={(e) => setEditingActivity({ ...editingActivity, time: e.target.value })}
+                  sx={{ flex: 1 }}
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                />
+              </Box>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  label="Duration"
+                  value={editingActivity.duration}
+                  onChange={(e) => setEditingActivity({ ...editingActivity, duration: e.target.value })}
+                  sx={{ flex: 1 }}
+                />
+                <TextField
+                  label="Rating"
+                  type="number"
+                  value={editingActivity.rating}
+                  onChange={(e) =>
+                    setEditingActivity({ ...editingActivity, rating: parseFloat(e.target.value) })
+                  }
+                  inputProps={{ min: 1, max: 5, step: 0.1 }}
+                  sx={{ flex: 1 }}
+                />
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setEditDialogOpen(false);
+            setEditingActivity(null);
+          }}>
+            Cancel
+          </Button>
+          <Button onClick={updateActivity} variant="contained">
+            Update Activity
           </Button>
         </DialogActions>
       </Dialog>

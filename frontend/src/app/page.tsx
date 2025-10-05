@@ -271,6 +271,27 @@ export default function Home() {
   const [hoveredDay, setHoveredDay] = useState<string | null>(null);
   const [bookNowSnackbarOpen, setBookNowSnackbarOpen] = useState(false);
 
+  // Detect if device is mobile/touch device
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      // Check if device has touch capability and is actually a mobile device
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      const isMobileUserAgent = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      // Use pointer media query to detect coarse pointer (typically touch devices)
+      const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
+      
+      // Only disable drag on actual mobile/touch devices, not just narrow desktop windows
+      const mobile = isMobileUserAgent || (isTouchDevice && hasCoarsePointer);
+      setIsMobile(mobile);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // Handle Book Now button click
   const handleBookNow = () => {
     setBookNowSnackbarOpen(true);
@@ -508,6 +529,10 @@ export default function Home() {
 
   // Handle drag start
   const handleDragStart = (result: any) => {
+    // Disable drag on mobile devices
+    if (isMobile) {
+      return;
+    }
     console.log('Drag start result:', result);
     setIsDragging(true);
   };
@@ -569,6 +594,11 @@ export default function Home() {
     console.log('Drag end result:', result);
     setIsDragging(false);
     setDraggedOverDay(null);
+
+    // Disable drag on mobile devices
+    if (isMobile) {
+      return;
+    }
 
     // Clear any pending hover timeout
     if (hoverTimeout) {
@@ -1804,21 +1834,21 @@ export default function Home() {
                                   }}
                                 >
                                   {activities.map((item: any, index: number) => (
-                                    <Draggable key={item.id} draggableId={item.id.toString()} index={index}>
+                                    <Draggable key={item.id} draggableId={item.id.toString()} index={index} isDragDisabled={isMobile}>
                                       {(provided, snapshot) => {
                                         const child = (
                                           <Box
                                             ref={provided.innerRef}
                                             {...provided.draggableProps}
-                                            {...provided.dragHandleProps}
+                                            {...(!isMobile ? provided.dragHandleProps : {})}
                                             onClick={() => setSelectedItem(item)}
                                             sx={{
                                               p: { xs: 1.5, sm: 2 },
                                               mx: 0.5,
                                               mb: 0.5,
                                               borderRadius: 2,
-                                              cursor: snapshot.isDragging ? 'grabbing' : 'grab',
-                                              touchAction: 'none', // Prevent scrolling during drag on mobile
+                                              cursor: isMobile ? 'pointer' : (snapshot.isDragging ? 'grabbing' : 'grab'),
+                                              touchAction: isMobile ? 'auto' : 'none', // Allow scrolling on mobile, prevent during drag on desktop
                                               backgroundColor:
                                                 selectedItem?.id === item.id
                                                   ? 'rgba(0, 122, 255, 0.1)'

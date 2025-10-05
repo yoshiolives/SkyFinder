@@ -2445,16 +2445,15 @@ export default function Home() {
           <Box
             sx={{
               position: 'fixed',
-              top: '50%',
+              top: { xs: 'calc(56px + 8px)', sm: 'calc(64px + 8px)', md: 'calc(50% - 250px)' },
               left: 0,
-              transform: 'translateY(-50%)',
+              transform: { xs: 'none', sm: 'none', md: 'translateY(-50%)' },
               zIndex: 1001,
               opacity: sidebarOpen ? 0 : 1,
               visibility: sidebarOpen ? 'hidden' : 'visible',
               transition: sidebarOpen
                 ? 'opacity 0.1s ease-out, visibility 0.1s ease-out'
                 : 'opacity 0.3s ease-in 0.3s, visibility 0.3s ease-in 0.3s',
-              marginTop: '32px',
             }}
           >
             <Tooltip title="Open Sidebar (Ctrl+B)" placement="right" arrow>
@@ -2462,10 +2461,7 @@ export default function Home() {
                 onClick={toggleSidebar}
                 aria-label="Open sidebar"
                 sx={{
-                  position: 'fixed',
-                  top: 'calc(50% - 300px)',
                   left: sidebarOpen ? -100 : { xs: 0, sm: 0 },
-                  transform: 'translateY(-50%)',
                   width: 32,
                   height: 80,
                   background: 'rgba(0, 122, 255, 0.9)',

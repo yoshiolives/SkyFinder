@@ -61,6 +61,7 @@ import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { GoogleMap, InfoWindow, LoadScript, Marker } from '@react-google-maps/api';
 import React, { useCallback, useEffect, useState } from 'react';
 import ChatBot from '@/components/ChatBot';
+import LandingPage from '@/components/LandingPage';
 import LoginModal from '@/components/LoginModal';
 import TripSelector from '@/components/TripSelector';
 import { api } from '@/lib/api';
@@ -751,6 +752,21 @@ export default function Home() {
     }
   };
 
+  // Show landing page if not logged in and not loading
+  if (!user && !loading) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <LandingPage onGetStarted={() => setLoginModalOpen(true)} />
+        <LoginModal
+          open={loginModalOpen}
+          onClose={() => setLoginModalOpen(false)}
+          onLoginSuccess={handleLoginSuccess}
+        />
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -766,7 +782,7 @@ export default function Home() {
       >
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
-            🗺️ Travel Itinerary Planner
+            ✈️ Places.ai
           </Typography>
 
           {user ? (

@@ -35,9 +35,11 @@ Each item needs these exact fields:
 - address: Complete street address
 - activity: What to do (1-2 sentences)${description ? ` - MUST align with: ${description}` : ''}
 - duration: "X hours"
-- type: activity, museum, shopping, landmark, restaurant, outdoor
+- type: accommodation (for hotels), activity, museum, shopping, landmark, restaurant, outdoor
 - rating: 0-5 number
 - coordinates: [lat, lng]
+
+IMPORTANT: Use type "accommodation" for ALL hotel check-ins and stays.
 
 ${description ? `CRITICAL: Every activity must directly address the user's request: "${description}". Include specific venues that match these preferences.` : ''}
 

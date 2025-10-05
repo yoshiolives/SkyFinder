@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { createPortal } from 'react-dom';
 import {
   AccountCircle,
@@ -1859,113 +1859,102 @@ export default function Home() {
                                             <Box
                                               sx={{
                                                 display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
+                                                alignItems: 'flex-start',
+                                                gap: 1,
                                                 minHeight: 64,
                                                 py: 1,
                                               }}
                                             >
-                                              <Box
-                                                sx={{
-                                                  display: 'flex',
-                                                  alignItems: 'center',
-                                                  gap: 2,
-                                                  flex: 1,
-                                                  minWidth: 0,
-                                                }}
-                                              >
                                                 <Box
                                                   sx={{
-                                                    width: 36,
-                                                    height: 36,
-                                                    borderRadius: 2,
-                                                    backgroundColor:
-                                                      selectedItem?.id === item.id ? '#007AFF' : '#F2F2F7',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    mt: 0,
-                                                    flexShrink: 0,
-                                                    transition: 'all 0.2s ease',
-                                                    boxShadow:
-                                                      selectedItem?.id === item.id
-                                                        ? '0 2px 8px rgba(0, 122, 255, 0.3)'
-                                                        : '0 1px 3px rgba(0,0,0,0.1)',
-                                                    '&:hover': {
-                                                      transform: 'scale(1.05)',
-                                                    },
-                                                  }}
-                                                >
-                                                  {item.type === 'museum' ? (
-                                                    <MuseumIcon
-                                                      sx={{
-                                                        fontSize: 16,
-                                                        color:
-                                                          selectedItem?.id === item.id ? 'white' : '#8E8E93',
-                                                      }}
-                                                    />
-                                                  ) : item.type === 'shopping' ? (
-                                                    <ShoppingIcon
-                                                      sx={{
-                                                        fontSize: 16,
-                                                        color:
-                                                          selectedItem?.id === item.id ? 'white' : '#8E8E93',
-                                                      }}
-                                                    />
-                                                  ) : item.type === 'landmark' ? (
-                                                    <PlaceIcon
-                                                      sx={{
-                                                        fontSize: 16,
-                                                        color:
-                                                          selectedItem?.id === item.id ? 'white' : '#8E8E93',
-                                                      }}
-                                                    />
-                                                  ) : item.type === 'accommodation' ? (
-                                                    <EventIcon
-                                                      sx={{
-                                                        fontSize: 16,
-                                                        color:
-                                                          selectedItem?.id === item.id ? 'white' : '#8E8E93',
-                                                      }}
-                                                    />
-                                                  ) : item.type === 'restaurant' ? (
-                                                    <StarIcon
-                                                      sx={{
-                                                        fontSize: 16,
-                                                        color:
-                                                          selectedItem?.id === item.id ? 'white' : '#8E8E93',
-                                                      }}
-                                                    />
-                                                  ) : item.type === 'outdoor' ? (
-                                                    <AttractionsIcon
-                                                      sx={{
-                                                        fontSize: 16,
-                                                        color:
-                                                          selectedItem?.id === item.id ? 'white' : '#8E8E93',
-                                                      }}
-                                                    />
-                                                  ) : (
-                                                    <AttractionsIcon
-                                                      sx={{
-                                                        fontSize: 16,
-                                                        color:
-                                                          selectedItem?.id === item.id ? 'white' : '#8E8E93',
-                                                      }}
-                                                    />
-                                                  )}
-                                                </Box>
-                                                <Box
-                                                  sx={{
-                                                    flex: 1,
-                                                    minWidth: 0,
                                                     display: 'flex',
                                                     flexDirection: 'column',
-                                                    justifyContent: 'center',
-                                                    minHeight: 48,
-                                                    py: 0.5,
+                                                    gap: 0.5,
+                                                    flex: 1,
+                                                    minWidth: 0,
                                                   }}
                                                 >
-                                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                                  {/* First line: Icon + Title */}
+                                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                    <Box
+                                                      sx={{
+                                                        width: 36,
+                                                        height: 36,
+                                                        borderRadius: 2,
+                                                        backgroundColor:
+                                                          selectedItem?.id === item.id ? '#007AFF' : '#F2F2F7',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        flexShrink: 0,
+                                                        transition: 'all 0.2s ease',
+                                                        boxShadow:
+                                                          selectedItem?.id === item.id
+                                                            ? '0 2px 8px rgba(0, 122, 255, 0.3)'
+                                                            : '0 1px 3px rgba(0,0,0,0.1)',
+                                                        '&:hover': {
+                                                          transform: 'scale(1.05)',
+                                                        },
+                                                      }}
+                                                    >
+                                                      {item.type === 'museum' ? (
+                                                        <MuseumIcon
+                                                          sx={{
+                                                            fontSize: 16,
+                                                            color:
+                                                              selectedItem?.id === item.id ? 'white' : '#8E8E93',
+                                                          }}
+                                                        />
+                                                      ) : item.type === 'shopping' ? (
+                                                        <ShoppingIcon
+                                                          sx={{
+                                                            fontSize: 16,
+                                                            color:
+                                                              selectedItem?.id === item.id ? 'white' : '#8E8E93',
+                                                          }}
+                                                        />
+                                                      ) : item.type === 'landmark' ? (
+                                                        <PlaceIcon
+                                                          sx={{
+                                                            fontSize: 16,
+                                                            color:
+                                                              selectedItem?.id === item.id ? 'white' : '#8E8E93',
+                                                          }}
+                                                        />
+                                                      ) : item.type === 'accommodation' ? (
+                                                        <EventIcon
+                                                          sx={{
+                                                            fontSize: 16,
+                                                            color:
+                                                              selectedItem?.id === item.id ? 'white' : '#8E8E93',
+                                                          }}
+                                                        />
+                                                      ) : item.type === 'restaurant' ? (
+                                                        <StarIcon
+                                                          sx={{
+                                                            fontSize: 16,
+                                                            color:
+                                                              selectedItem?.id === item.id ? 'white' : '#8E8E93',
+                                                          }}
+                                                        />
+                                                      ) : item.type === 'outdoor' ? (
+                                                        <AttractionsIcon
+                                                          sx={{
+                                                            fontSize: 16,
+                                                            color:
+                                                              selectedItem?.id === item.id ? 'white' : '#8E8E93',
+                                                          }}
+                                                        />
+                                                      ) : (
+                                                        <AttractionsIcon
+                                                          sx={{
+                                                            fontSize: 16,
+                                                            color:
+                                                              selectedItem?.id === item.id ? 'white' : '#8E8E93',
+                                                          }}
+                                                        />
+                                                      )}
+                                                    </Box>
                                                     <Typography
                                                       variant="subtitle2"
                                                       sx={{
@@ -1973,10 +1962,49 @@ export default function Home() {
                                                         color: '#1D1D1F',
                                                         fontSize: '0.875rem',
                                                         lineHeight: 1.4,
+                                                        flex: 1,
+                                                        minWidth: 0,
+                                                        wordBreak: 'break-word',
                                                       }}
                                                     >
                                                       {item.location}
                                                     </Typography>
+                                                  </Box>
+
+                                                  {/* Second line: Time + Location */}
+                                                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flexWrap: 'wrap' }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                                                      <ScheduleIcon sx={{ fontSize: 14, color: '#8E8E93' }} />
+                                                      <Typography
+                                                        variant="caption"
+                                                        sx={{
+                                                          color: '#8E8E93',
+                                                          fontSize: '0.75rem',
+                                                          fontWeight: 400,
+                                                        }}
+                                                      >
+                                                        {item.time}
+                                                      </Typography>
+                                                    </Box>
+                                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: '1 1 auto', minWidth: 0 }}>
+                                                      <LocationIcon sx={{ fontSize: 14, color: '#8E8E93', flexShrink: 0, mt: 0.5 }} />
+                                                      <Typography
+                                                        variant="caption"
+                                                        sx={{
+                                                          color: '#8E8E93',
+                                                          fontSize: '0.75rem',
+                                                          fontWeight: 400,
+                                                          wordBreak: 'break-word',
+                                                          lineHeight: 1.4,
+                                                        }}
+                                                      >
+                                                        {item.address}
+                                                      </Typography>
+                                                    </Box>
+                                                  </Box>
+
+                                                  {/* Third line: Tags */}
+                                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                                                     {item.migrated && (
                                                       <Chip
                                                         label="Moved"
@@ -1988,7 +2016,7 @@ export default function Home() {
                                                           fontSize: '0.7rem',
                                                           height: 18,
                                                           borderRadius: 2,
-                                                          ml: 0.5,
+                                                          flexShrink: 0,
                                                         }}
                                                       />
                                                     )}
@@ -2002,6 +2030,7 @@ export default function Home() {
                                                         fontSize: '0.75rem',
                                                         height: 20,
                                                         borderRadius: 2,
+                                                        flexShrink: 0,
                                                         transition: 'all 0.2s ease',
                                                         '&:hover': {
                                                           transform: 'scale(1.05)',
@@ -2010,41 +2039,8 @@ export default function Home() {
                                                       }}
                                                     />
                                                   </Box>
-                                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                      <ScheduleIcon sx={{ fontSize: 14, color: '#8E8E93' }} />
-                                                      <Typography
-                                                        variant="caption"
-                                                        sx={{
-                                                          color: '#8E8E93',
-                                                          fontSize: '0.75rem',
-                                                          fontWeight: 400,
-                                                        }}
-                                                      >
-                                                        {item.time}
-                                                      </Typography>
-                                                    </Box>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                      <LocationIcon sx={{ fontSize: 14, color: '#8E8E93' }} />
-                                                      <Typography
-                                                        variant="caption"
-                                                        sx={{
-                                                          color: '#8E8E93',
-                                                          fontSize: '0.75rem',
-                                                          fontWeight: 400,
-                                                          maxWidth: 120,
-                                                          overflow: 'hidden',
-                                                          textOverflow: 'ellipsis',
-                                                          whiteSpace: 'nowrap',
-                                                        }}
-                                                      >
-                                                        {item.address}
-                                                      </Typography>
-                                                    </Box>
-                                                  </Box>
                                                 </Box>
-                                              </Box>
-                                              <Box sx={{ display: 'flex', gap: 0.5, alignSelf: 'center' }}>
+                                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignSelf: 'flex-start', pt: 0.5 }}>
                                                 <IconButton
                                                   onClick={(e) => {
                                                     e.stopPropagation();

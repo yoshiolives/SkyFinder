@@ -149,6 +149,7 @@ export default function Home() {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTripTitle, setEditedTripTitle] = useState('');
   const hasLoadedDataRef = useRef(false);
+  const [mapReady, setMapReady] = useState(false);
 
   const loadTripItinerary = useCallback(async (trip: any) => {
     try {
@@ -1453,9 +1454,10 @@ export default function Home() {
                   },
                 ],
               }}
+              onLoad={() => setMapReady(true)}
             >
               {/* Map Markers for each itinerary item */}
-              {itinerary.map((item) => {
+              {mapReady && itinerary.map((item) => {
                 // Create custom icon only if Google Maps is fully loaded
                 let customIcon = undefined;
                 try {
@@ -1488,7 +1490,7 @@ export default function Home() {
               })}
 
               {/* Info Window for selected item */}
-              {selectedItem && (
+              {mapReady && selectedItem && (
                 <InfoWindow
                   position={{ lat: selectedItem.coordinates[0], lng: selectedItem.coordinates[1] }}
                   onCloseClick={() => setSelectedItem(null)}

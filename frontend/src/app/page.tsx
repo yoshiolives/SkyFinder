@@ -2485,12 +2485,11 @@ export default function Home() {
                   },
                   '&:hover': {
                     background: 'rgba(0, 122, 255, 1)',
-                    transform: 'translateY(-50%) translateX(2px)',
                     boxShadow: '0 4px 12px rgba(0, 122, 255, 0.3)',
                     animation: 'none',
                   },
                   '&:active': {
-                    transform: 'translateY(-50%) translateX(1px) scale(0.98)',
+                    transform: 'scale(0.98)',
                   },
                 }}
               >

@@ -51,6 +51,10 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
         sx={{
           backgroundColor: 'rgba(25, 118, 210, 0.95)',
           backdropFilter: 'blur(10px)',
+          borderRadius: 0,
+          '&.MuiAppBar-root': {
+            borderRadius: 0,
+          },
         }}
       >
         <Toolbar>

@@ -59,6 +59,8 @@ import {
   Menu,
   MenuItem,
   Select,
+  Snackbar,
+  Alert,
   TextField,
   Toolbar,
   Typography,
@@ -267,6 +269,17 @@ export default function Home() {
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
   const [isDragging, setIsDragging] = useState(false);
   const [hoveredDay, setHoveredDay] = useState<string | null>(null);
+  const [bookNowSnackbarOpen, setBookNowSnackbarOpen] = useState(false);
+
+  // Handle Book Now button click
+  const handleBookNow = () => {
+    setBookNowSnackbarOpen(true);
+  };
+
+  // Handle Book Now snackbar close
+  const handleBookNowSnackbarClose = () => {
+    setBookNowSnackbarOpen(false);
+  };
 
   // Handle date editing
   const handleDateEdit = () => {
@@ -1641,22 +1654,22 @@ export default function Home() {
                         <AccordionSummary
                           expandIcon={<ExpandMoreIcon sx={{ color: 'white', fontSize: 20 }} />}
                           sx={{
-                            backgroundColor: '#007AFF !important',
+                            backgroundColor: `${getDayColor(day)} !important`,
                             borderRadius: 2,
                             color: 'white',
                             minHeight: 48,
                             border: '1px solid rgba(255, 255, 255, 0.2)',
                             '&.MuiAccordionSummary-root': {
-                              backgroundColor: '#007AFF !important',
+                              backgroundColor: `${getDayColor(day)} !important`,
                             },
                             '&:hover': {
                               transform: 'translateY(-1px)',
-                              boxShadow: '0 4px 12px rgba(0, 122, 255, 0.3)',
+                              boxShadow: `0 4px 12px ${getDayColor(day)}40`,
                               filter: 'brightness(1.05)',
                             },
                             '&.Mui-expanded': {
                               borderRadius: '8px 8px 0 0',
-                              boxShadow: '0 2px 8px rgba(0, 122, 255, 0.2)',
+                              boxShadow: `0 2px 8px ${getDayColor(day)}40`,
                             },
                             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                           }}
@@ -2378,12 +2391,32 @@ export default function Home() {
                       <Typography variant="body2" sx={{ mb: 0.5 }}>
                         {selectedItem.activity} • {selectedItem.duration}
                       </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                         <StarIcon sx={{ fontSize: 16, color: '#ffc107', mr: 0.5 }} />
                         <Typography variant="body2" color="text.secondary">
                           {selectedItem.rating}
                         </Typography>
                       </Box>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        onClick={handleBookNow}
+                        sx={{
+                          backgroundColor: '#007AFF',
+                          color: 'white',
+                          borderRadius: 2,
+                          textTransform: 'none',
+                          fontWeight: 500,
+                          px: 2,
+                          py: 0.5,
+                          '&:hover': {
+                            backgroundColor: '#0056CC',
+                            boxShadow: '0 2px 8px rgba(0, 122, 255, 0.3)',
+                          },
+                        }}
+                      >
+                        Book Now
+                      </Button>
                     </Box>
                   </InfoWindow>
                 )}
@@ -2699,6 +2732,23 @@ export default function Home() {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Book Now Snackbar */}
+        <Snackbar
+          open={bookNowSnackbarOpen}
+          autoHideDuration={3000}
+          onClose={handleBookNowSnackbarClose}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+          <Alert
+            onClose={handleBookNowSnackbarClose}
+            severity="info"
+            variant="filled"
+            sx={{ width: '100%' }}
+          >
+            Coming Soon! Booking feature will be available soon.
+          </Alert>
+        </Snackbar>
       </DragDropContext>
     </ThemeProvider>
   );

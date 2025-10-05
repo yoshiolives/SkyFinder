@@ -250,15 +250,19 @@ export default function Home() {
     loadTripItinerary(trip);
   };
 
-  const handleTripCreated = async () => {
+  const handleTripCreated = async (newTrip?: any) => {
     // Refresh trips list
     try {
       const tripsResponse = await api.get('/api/trips');
       const fetchedTrips = tripsResponse.data.trips;
       setTrips(fetchedTrips || []);
 
-      // Load the newly created trip (first in list after refresh)
-      if (fetchedTrips && fetchedTrips.length > 0) {
+      // If we have the new trip, load it directly
+      // Otherwise load the first trip in the refreshed list
+      if (newTrip) {
+        console.log('🎯 Auto-selecting newly created trip:', newTrip.title);
+        await loadTripItinerary(newTrip);
+      } else if (fetchedTrips && fetchedTrips.length > 0) {
         await loadTripItinerary(fetchedTrips[0]);
       }
       
@@ -982,7 +986,7 @@ export default function Home() {
                   },
                 }}
               >
-                {trips.length === 0 ? 'Create Your First Trip' : `Switch Trip (${trips.length})`}
+                {trips.length === 0 ? 'Create Your First Trip' : `Select Trip (${trips.length})`}
               </Button>
             )}
           </Box>

@@ -176,6 +176,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                     opacity: 0.95,
                     lineHeight: 1.6,
                     fontSize: { xs: '1.1rem', md: '1.5rem' },
+                    display: { xs: 'none', md: 'block' }, // Hide on mobile, show on desktop
                   }}
                 >
                   Let AI handle the details while you focus on what matters—making memories with the

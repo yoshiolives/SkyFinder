@@ -4,11 +4,7 @@ module.exports = {
   moduleNameMapping: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
-  collectCoverageFrom: [
-    'src/**/*.{js,jsx}',
-    '!src/index.js',
-    '!src/setupTests.js',
-  ],
+  collectCoverageFrom: ['src/**/*.{js,jsx}', '!src/index.js', '!src/setupTests.js'],
   coverageThreshold: {
     global: {
       branches: 80,
@@ -25,10 +21,7 @@ module.exports = {
     '^.+\\.(js|jsx)$': 'babel-jest',
   },
   moduleFileExtensions: ['js', 'jsx', 'json'],
-  testPathIgnorePatterns: [
-    '<rootDir>/node_modules/',
-    '<rootDir>/build/',
-  ],
+  testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/build/'],
   moduleNameMapper: {
     '^@google/genai$': '<rootDir>/src/__mocks__/@google/genai.js',
   },

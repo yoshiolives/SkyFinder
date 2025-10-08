@@ -7,8 +7,11 @@ import {
   Send as SendIcon,
 } from '@mui/icons-material';
 import {
+  Alert,
   Avatar,
   Box,
+  Chip,
+  CircularProgress,
   Divider,
   Fab,
   IconButton,
@@ -16,12 +19,9 @@ import {
   ListItem,
   Paper,
   Slide,
+  Snackbar,
   TextField,
   Typography,
-  Chip,
-  CircularProgress,
-  Snackbar,
-  Alert
 } from '@mui/material';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -40,7 +40,11 @@ interface ChatBotProps {
   currentTrip?: any;
 }
 
-const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = null, currentTrip = null }) => {
+const ChatBot: React.FC<ChatBotProps> = ({
+  itinerary = [],
+  onItineraryUpdate = null,
+  currentTrip = null,
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -132,7 +136,10 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
                   duration: createResponse.data.item.duration,
                   type: createResponse.data.item.type,
                   rating: createResponse.data.item.rating,
-                  coordinates: [createResponse.data.item.latitude, createResponse.data.item.longitude],
+                  coordinates: [
+                    createResponse.data.item.latitude,
+                    createResponse.data.item.longitude,
+                  ],
                 };
 
                 // Update local state
@@ -162,7 +169,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
 
                 // Update local state
                 if (onItineraryUpdate) {
-                  const updatedItinerary = itinerary.map(item =>
+                  const updatedItinerary = itinerary.map((item) =>
                     item.id === response.actionData.id ? response.actionData : item
                   );
                   onItineraryUpdate(updatedItinerary);
@@ -180,7 +187,9 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
 
                 // Update local state
                 if (onItineraryUpdate) {
-                  const updatedItinerary = itinerary.filter(item => item.id !== response.actionData.id);
+                  const updatedItinerary = itinerary.filter(
+                    (item) => item.id !== response.actionData.id
+                  );
                   onItineraryUpdate(updatedItinerary);
                 }
 
@@ -192,7 +201,9 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
             }
           } catch (apiError: any) {
             console.error('Failed to perform API action:', apiError);
-            setSnackbarMessage(`Failed to ${response.action.replace('_', ' ')}: ${apiError.message}`);
+            setSnackbarMessage(
+              `Failed to ${response.action.replace('_', ' ')}: ${apiError.message}`
+            );
             setSnackbarSeverity('error');
             setSnackbarOpen(true);
           }
@@ -207,7 +218,10 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
       setIsLoading(false);
 
       // Handle API errors
-      const errorMsg = error.response?.data?.error || error.message || 'An unexpected error occurred. Please contact an administrator.';
+      const errorMsg =
+        error.response?.data?.error ||
+        error.message ||
+        'An unexpected error occurred. Please contact an administrator.';
       setSnackbarMessage(errorMsg);
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
@@ -215,7 +229,7 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
       // Also show error in chat
       const errorMessage: Message = {
         id: Date.now() + 1,
-        text: "Sorry, I encountered an error. Please see the notification for details.",
+        text: 'Sorry, I encountered an error. Please see the notification for details.',
         sender: 'bot',
         timestamp: new Date(),
       };
@@ -324,19 +338,25 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
                 <BotIcon sx={{ fontSize: 20 }} />
               </Avatar>
               <Box>
-                <Typography variant="h6" sx={{
-                  fontWeight: 600,
-                  fontSize: '1rem',
-                  letterSpacing: '0',
-                }}>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: 600,
+                    fontSize: '1rem',
+                    letterSpacing: '0',
+                  }}
+                >
                   AI Assistant
                 </Typography>
-                <Typography variant="caption" sx={{
-                  opacity: 0.8,
-                  fontSize: '0.75rem',
-                  fontWeight: 400,
-                  letterSpacing: '0.01em',
-                }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    opacity: 0.8,
+                    fontSize: '0.75rem',
+                    fontWeight: 400,
+                    letterSpacing: '0.01em',
+                  }}
+                >
                   Powered by Gemini
                 </Typography>
               </Box>
@@ -359,12 +379,14 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
           </Box>
 
           {/* Messages */}
-          <Box sx={{
-            flexGrow: 1,
-            overflow: 'auto',
-            p: { xs: 1.5, sm: 2 },
-            minHeight: 0, // Ensures proper scrolling on mobile
-          }}>
+          <Box
+            sx={{
+              flexGrow: 1,
+              overflow: 'auto',
+              p: { xs: 1.5, sm: 2 },
+              minHeight: 0, // Ensures proper scrolling on mobile
+            }}
+          >
             <List sx={{ p: 0 }}>
               {messages.map((message) => (
                 <ListItem
@@ -387,25 +409,33 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
                       fontSize: '0.875rem',
                     }}
                   >
-                    {message.sender === 'user' ? <PersonIcon fontSize="small" /> : <BotIcon fontSize="small" />}
+                    {message.sender === 'user' ? (
+                      <PersonIcon fontSize="small" />
+                    ) : (
+                      <BotIcon fontSize="small" />
+                    )}
                   </Avatar>
                   <Box
                     sx={{
                       maxWidth: '80%',
-                      backgroundColor: message.sender === 'user'
-                        ? 'rgba(0, 122, 255, 0.1)'
-                        : 'rgba(242, 242, 247, 0.9)',
+                      backgroundColor:
+                        message.sender === 'user'
+                          ? 'rgba(0, 122, 255, 0.1)'
+                          : 'rgba(242, 242, 247, 0.9)',
                       backdropFilter: message.sender === 'user' ? 'none' : 'blur(10px)',
                       color: message.sender === 'user' ? '#1D1D1F' : '#1D1D1F',
-                      borderRadius: message.sender === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
+                      borderRadius:
+                        message.sender === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
                       p: 2,
                       wordBreak: 'break-word',
-                      boxShadow: message.sender === 'user'
-                        ? '0 2px 8px rgba(0, 122, 255, 0.3)'
-                        : '0 2px 8px rgba(0,0,0,0.08)',
-                      border: message.sender === 'user'
-                        ? '1px solid rgba(0, 122, 255, 0.2)'
-                        : '1px solid rgba(255, 255, 255, 0.3)',
+                      boxShadow:
+                        message.sender === 'user'
+                          ? '0 2px 8px rgba(0, 122, 255, 0.3)'
+                          : '0 2px 8px rgba(0,0,0,0.08)',
+                      border:
+                        message.sender === 'user'
+                          ? '1px solid rgba(0, 122, 255, 0.2)'
+                          : '1px solid rgba(255, 255, 255, 0.3)',
                       transition: 'all 0.2s ease',
                       '&:hover': {
                         transform: 'scale(1.02)',
@@ -434,7 +464,9 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
               ))}
               {isLoading && (
                 <ListItem sx={{ justifyContent: 'flex-start', px: 0 }}>
-                  <Avatar sx={{ bgcolor: '#F2F2F7', color: '#8E8E93', width: 32, height: 32, mr: 1 }}>
+                  <Avatar
+                    sx={{ bgcolor: '#F2F2F7', color: '#8E8E93', width: 32, height: 32, mr: 1 }}
+                  >
                     <BotIcon fontSize="small" />
                   </Avatar>
                   <Box
@@ -461,13 +493,15 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
           <Divider sx={{ borderColor: 'rgba(0,0,0,0.05)' }} />
 
           {/* Sharp Input Area */}
-          <Box sx={{
-            p: 2,
-            background: 'rgba(255, 255, 255, 0.6)',
-            backdropFilter: 'blur(10px)',
-            borderTop: '1px solid rgba(0, 0, 0, 0.05)',
-            borderRadius: '0 0 2px 2px',
-          }}>
+          <Box
+            sx={{
+              p: 2,
+              background: 'rgba(255, 255, 255, 0.6)',
+              backdropFilter: 'blur(10px)',
+              borderTop: '1px solid rgba(0, 0, 0, 0.05)',
+              borderRadius: '0 0 2px 2px',
+            }}
+          >
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
               <TextField
                 fullWidth
@@ -504,25 +538,25 @@ const ChatBot: React.FC<ChatBotProps> = ({ itinerary = [], onItineraryUpdate = n
                 onClick={handleSendMessage}
                 disabled={!inputText.trim() || isLoading}
                 sx={{
-                  backgroundColor: inputText.trim() && !isLoading
-                    ? 'linear-gradient(135deg, #007AFF 0%, #0051D5 100%)'
-                    : '#C7C7CC',
+                  backgroundColor:
+                    inputText.trim() && !isLoading
+                      ? 'linear-gradient(135deg, #007AFF 0%, #0051D5 100%)'
+                      : '#C7C7CC',
                   color: 'white',
                   borderRadius: 2,
                   width: 40,
                   height: 40,
                   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  boxShadow: inputText.trim() && !isLoading
-                    ? '0 2px 8px rgba(0, 122, 255, 0.3)'
-                    : 'none',
+                  boxShadow:
+                    inputText.trim() && !isLoading ? '0 2px 8px rgba(0, 122, 255, 0.3)' : 'none',
                   '&:hover': {
-                    backgroundColor: inputText.trim() && !isLoading
-                      ? 'linear-gradient(135deg, #0051D5 0%, #003D99 100%)'
-                      : '#C7C7CC',
+                    backgroundColor:
+                      inputText.trim() && !isLoading
+                        ? 'linear-gradient(135deg, #0051D5 0%, #003D99 100%)'
+                        : '#C7C7CC',
                     transform: 'scale(1.05)',
-                    boxShadow: inputText.trim() && !isLoading
-                      ? '0 4px 12px rgba(0, 122, 255, 0.4)'
-                      : 'none',
+                    boxShadow:
+                      inputText.trim() && !isLoading ? '0 4px 12px rgba(0, 122, 255, 0.4)' : 'none',
                   },
                   '&:active': {
                     transform: 'scale(0.95)',

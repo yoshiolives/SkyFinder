@@ -1,6 +1,6 @@
+import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
 import { generateItineraryPrompt } from '@/services/templates/itineraryGeneration';
 
 // Custom error class for Gemini API errors
@@ -20,7 +20,11 @@ export async function POST(request: NextRequest) {
     const geminiModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
     // Validate Gemini API key
-    if (!geminiApiKey || geminiApiKey === 'test-api-key' || geminiApiKey === 'your_gemini_api_key') {
+    if (
+      !geminiApiKey ||
+      geminiApiKey === 'test-api-key' ||
+      geminiApiKey === 'your_gemini_api_key'
+    ) {
       return NextResponse.json(
         { error: 'Gemini API key is not configured. Please contact an administrator.' },
         { status: 503 }
@@ -87,7 +91,7 @@ export async function POST(request: NextRequest) {
       try {
         // Initialize Google GenAI
         const ai = new GoogleGenAI({ apiKey: geminiApiKey });
-        
+
         // Generate prompt using template
         const prompt = generateItineraryPrompt({
           destination,
@@ -98,7 +102,7 @@ export async function POST(request: NextRequest) {
         });
 
         // Call Gemini API with timeout (90 seconds for complex prompts)
-        const timeoutPromise = new Promise((_, reject) => 
+        const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Gemini API timeout after 90 seconds')), 90000)
         );
 
@@ -107,8 +111,8 @@ export async function POST(request: NextRequest) {
           contents: prompt,
         });
 
-        const response = await Promise.race([apiPromise, timeoutPromise]) as any;
-        
+        const response = (await Promise.race([apiPromise, timeoutPromise])) as any;
+
         // Access response text - it might be a property or method
         let responseText;
         if (typeof response.text === 'function') {
@@ -121,19 +125,22 @@ export async function POST(request: NextRequest) {
         } else {
           throw new GeminiAPIError('Unexpected response format from Gemini API');
         }
-        
+
         // Remove markdown code block formatting if present
-        responseText = responseText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/g, '');
-        
+        responseText = responseText
+          .replace(/^```json\s*/i, '')
+          .replace(/^```\s*/i, '')
+          .replace(/\s*```$/g, '');
+
         const parsedResponse = JSON.parse(responseText);
-        
+
         console.log('🤖 AI Response parsed:', JSON.stringify(parsedResponse, null, 2));
-        
+
         if (!parsedResponse.items || !Array.isArray(parsedResponse.items)) {
           console.error('❌ Invalid AI response format:', parsedResponse);
           throw new GeminiAPIError('Invalid response format from AI');
         }
-        
+
         console.log(`✅ AI generated ${parsedResponse.items.length} itinerary items`);
 
         // Step 3: Bulk insert itinerary items
@@ -153,7 +160,7 @@ export async function POST(request: NextRequest) {
         }));
 
         console.log(`💾 Inserting ${itemsToInsert.length} items into database...`);
-        
+
         const { data: insertedItems, error: itemsError } = await supabase
           .from('itinerary_items')
           .insert(itemsToInsert)
@@ -208,4 +215,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-

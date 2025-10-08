@@ -7,7 +7,7 @@
  * When you use `new Date('2024-01-15')`, JavaScript interprets it as UTC midnight,
  * which can shift the date by a day depending on your timezone.
  * This function ensures the date is interpreted in the local timezone.
- * 
+ *
  * @param dateString - Date string in YYYY-MM-DD format
  * @returns Date object in local timezone
  */
@@ -18,7 +18,7 @@ export function parseLocalDate(dateString: string): Date {
 
 /**
  * Format a date string in YYYY-MM-DD format to a localized string.
- * 
+ *
  * @param dateString - Date string in YYYY-MM-DD format
  * @param options - Intl.DateTimeFormat options
  * @returns Formatted date string
@@ -38,7 +38,7 @@ export function formatLocalDate(
 /**
  * Format a date string in YYYY-MM-DD format to a simple localized string.
  * Uses default browser locale.
- * 
+ *
  * @param dateString - Date string in YYYY-MM-DD format
  * @returns Formatted date string
  */
@@ -46,4 +46,3 @@ export function formatLocalDateSimple(dateString: string): string {
   const date = parseLocalDate(dateString);
   return date.toLocaleDateString();
 }
-

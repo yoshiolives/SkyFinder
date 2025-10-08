@@ -1,13 +1,13 @@
 // Mock Gemini Service Tests
 // Tests for the mock Gemini service functionality
 
-import { getGeminiResponse, generateAIItinerary } from '../services/geminiService';
+import { generateAIItinerary, getGeminiResponse } from '../services/geminiService';
 
 describe('Mock Gemini Service Tests', () => {
   describe('Basic Functionality', () => {
     test('should respond to hello messages', async () => {
       const response = await getGeminiResponse('hello', []);
-      
+
       expect(response).toHaveProperty('text');
       expect(response.text).toContain('AI travel assistant');
       expect(response.itineraryUpdate).toBeNull();
@@ -15,7 +15,7 @@ describe('Mock Gemini Service Tests', () => {
 
     test('should add activities to itinerary', async () => {
       const response = await getGeminiResponse('add stanley park to my itinerary', []);
-      
+
       expect(response).toHaveProperty('text');
       expect(response).toHaveProperty('itineraryUpdate');
       expect(response.text).toContain('Stanley Park');
@@ -25,7 +25,7 @@ describe('Mock Gemini Service Tests', () => {
 
     test('should provide information about locations', async () => {
       const response = await getGeminiResponse('tell me about stanley park', []);
-      
+
       expect(response).toHaveProperty('text');
       expect(response.text).toContain('Stanley Park');
       expect(response.itineraryUpdate).toBeNull();
@@ -43,12 +43,12 @@ describe('Mock Gemini Service Tests', () => {
           duration: '2 hours',
           type: 'activity',
           rating: 4.0,
-          coordinates: [49.3043, -123.1443]
-        }
+          coordinates: [49.3043, -123.1443],
+        },
       ];
-      
+
       const response = await getGeminiResponse('remove stanley park', testItinerary);
-      
+
       expect(response).toHaveProperty('text');
       expect(response.text).toContain('removed');
       expect(response.itineraryUpdate).toEqual([]);
@@ -56,7 +56,7 @@ describe('Mock Gemini Service Tests', () => {
 
     test('should generate AI-powered itineraries', async () => {
       const response = await getGeminiResponse('create a 2 week itinerary for Vancouver', []);
-      
+
       expect(response).toHaveProperty('text');
       expect(response).toHaveProperty('itineraryUpdate');
       expect(response.text).toContain('comprehensive');
@@ -68,7 +68,7 @@ describe('Mock Gemini Service Tests', () => {
   describe('Response Structure Validation', () => {
     test('should return valid response structure', async () => {
       const response = await getGeminiResponse('hello', []);
-      
+
       expect(response).toHaveProperty('text');
       expect(response).toHaveProperty('itineraryUpdate');
       expect(typeof response.text).toBe('string');
@@ -77,13 +77,24 @@ describe('Mock Gemini Service Tests', () => {
 
     test('should return valid itinerary items when adding activities', async () => {
       const response = await getGeminiResponse('add museum to my itinerary', []);
-      
+
       if (response.itineraryUpdate && response.itineraryUpdate.length > 0) {
         const item = response.itineraryUpdate[0];
-        
+
         // Validate all required fields exist
-        const requiredFields = ['id', 'date', 'time', 'location', 'address', 'activity', 'duration', 'type', 'rating', 'coordinates'];
-        requiredFields.forEach(field => {
+        const requiredFields = [
+          'id',
+          'date',
+          'time',
+          'location',
+          'address',
+          'activity',
+          'duration',
+          'type',
+          'rating',
+          'coordinates',
+        ];
+        requiredFields.forEach((field) => {
           expect(item).toHaveProperty(field);
           expect(item[field]).toBeDefined();
         });
@@ -106,15 +117,26 @@ describe('Mock Gemini Service Tests', () => {
 
   describe('AI Itinerary Generation', () => {
     test('should generate AI itinerary with correct structure', async () => {
-      const aiItinerary = await generateAIItinerary("Vancouver, BC", "2 weeks");
-      
+      const aiItinerary = await generateAIItinerary('Vancouver, BC', '2 weeks');
+
       expect(Array.isArray(aiItinerary)).toBe(true);
       expect(aiItinerary.length).toBeGreaterThanOrEqual(3);
-      
+
       aiItinerary.forEach((item, index) => {
         // Validate all required fields exist
-        const requiredFields = ['id', 'date', 'time', 'location', 'address', 'activity', 'duration', 'type', 'rating', 'coordinates'];
-        requiredFields.forEach(field => {
+        const requiredFields = [
+          'id',
+          'date',
+          'time',
+          'location',
+          'address',
+          'activity',
+          'duration',
+          'type',
+          'rating',
+          'coordinates',
+        ];
+        requiredFields.forEach((field) => {
           expect(item).toHaveProperty(field);
           expect(item[field]).toBeDefined();
         });
@@ -135,9 +157,9 @@ describe('Mock Gemini Service Tests', () => {
     });
 
     test('should handle different durations and locations', async () => {
-      const oneWeek = await generateAIItinerary("Toronto, ON", "1 week");
-      const threeWeeks = await generateAIItinerary("Montreal, QC", "3 weeks");
-      
+      const oneWeek = await generateAIItinerary('Toronto, ON', '1 week');
+      const threeWeeks = await generateAIItinerary('Montreal, QC', '3 weeks');
+
       expect(Array.isArray(oneWeek)).toBe(true);
       expect(Array.isArray(threeWeeks)).toBe(true);
       expect(oneWeek.length).toBeGreaterThanOrEqual(3);

@@ -1,7 +1,7 @@
 // Gemini Service with Google GenAI Integration
 // This service requires a valid Gemini API key
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from '@google/genai';
 
 // Custom error class for Gemini API errors
 class GeminiAPIError extends Error {
@@ -46,22 +46,29 @@ let ai: any;
 try {
   ai = new GoogleGenAI({ apiKey });
 } catch (error: any) {
-  throw new GeminiAPIError(`Failed to initialize Gemini API: ${error.message}. Please contact an administrator.`);
+  throw new GeminiAPIError(
+    `Failed to initialize Gemini API: ${error.message}. Please contact an administrator.`
+  );
 }
 
-
 // Gemini API function
-const getGeminiResponse = async (userMessage: string, itinerary: any[] = [], questionnaireData: QuestionnaireData = {}, messages: any[] = []) => {
+const getGeminiResponse = async (
+  userMessage: string,
+  itinerary: any[] = [],
+  questionnaireData: QuestionnaireData = {},
+  messages: any[] = []
+) => {
   if (!ai) {
     throw new GeminiAPIError('Gemini AI is not initialized. Please contact an administrator.');
   }
 
   try {
     // Build chat history context
-    const chatHistory = messages.slice(-10).map(msg => 
-      `${msg.sender === 'user' ? 'User' : 'Assistant'}: ${msg.text}`
-    ).join('\n');
-    
+    const chatHistory = messages
+      .slice(-10)
+      .map((msg) => `${msg.sender === 'user' ? 'User' : 'Assistant'}: ${msg.text}`)
+      .join('\n');
+
     const prompt = `You are an AI travel assistant with access to the conversation history and database operations.
 
 CONVERSATION HISTORY:
@@ -142,17 +149,21 @@ ALWAYS respond with valid JSON only. NO markdown, NO extra text, JUST JSON.`;
     });
 
     let responseText = response.text;
-    
+
     // Remove markdown code block formatting if present (```json ... ```)
-    responseText = responseText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/g, '');
-    
+    responseText = responseText
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/\s*```$/g, '');
+
     const parsedResponse = JSON.parse(responseText);
-    
+
     return parsedResponse;
-    
   } catch (error: any) {
     console.error('Error calling Gemini API:', error);
-    throw new GeminiAPIError(`Failed to get AI response: ${error.message}. Please contact an administrator.`);
+    throw new GeminiAPIError(
+      `Failed to get AI response: ${error.message}. Please contact an administrator.`
+    );
   }
 };
 

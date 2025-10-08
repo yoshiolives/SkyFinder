@@ -1,33 +1,31 @@
 'use client';
 
-import Image from 'next/image';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { createPortal } from 'react-dom';
+import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import {
   AccountCircle,
   Add as AddIcon,
-  AccessTime as ClockIcon,
+  Attractions as AttractionsIcon,
+  Build as BuildIcon,
   CalendarToday as CalendarIcon,
+  KeyboardArrowDown as ChevronDownIcon,
+  ChevronLeft as ChevronLeftIcon,
+  AccessTime as ClockIcon,
   Close as CloseIcon,
   Delete as DeleteIcon,
   Directions as DirectionsIcon,
   Edit as EditIcon,
+  Event as EventIcon,
   ExpandMore as ExpandMoreIcon,
-  KeyboardArrowDown as ChevronDownIcon,
-  ChevronLeft as ChevronLeftIcon,
+  LocationOn as LocationIcon,
   Login as LoginIcon,
   Logout as LogoutIcon,
   Menu as MenuIcon,
-  Star as StarIcon,
-  Schedule as ScheduleIcon,
-  LocationOn as LocationIcon,
-  Attractions as AttractionsIcon,
   Museum as MuseumIcon,
-  ShoppingBag as ShoppingIcon,
   Place as PlaceIcon,
-  Event as EventIcon,
+  Schedule as ScheduleIcon,
+  ShoppingBag as ShoppingIcon,
+  Star as StarIcon,
   Support as SupportIcon,
-  Build as BuildIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
 } from '@mui/icons-material';
@@ -35,9 +33,11 @@ import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
+  Alert,
   AppBar,
   Autocomplete,
   Avatar,
+  Backdrop,
   Box,
   Button,
   Chip,
@@ -60,17 +60,18 @@ import {
   MenuItem,
   Select,
   Snackbar,
-  Alert,
   TextField,
   Toolbar,
-  Typography,
   Tooltip,
-  Backdrop,
+  Typography,
 } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { GoogleMap, InfoWindow, Marker, useLoadScript } from '@react-google-maps/api';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import ChatBot from '@/components/ChatBot';
 import LandingPage from '@/components/LandingPage';
 import LoginModal from '@/components/LoginModal';
@@ -124,53 +125,62 @@ const theme = createTheme({
       'sans-serif',
     ].join(','),
     h1: {
-      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif',
+      fontFamily:
+        '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif',
       fontWeight: 700,
       fontSize: '2.5rem',
       lineHeight: 1.2,
     },
     h2: {
-      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif',
+      fontFamily:
+        '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif',
       fontWeight: 600,
       fontSize: '2rem',
       lineHeight: 1.3,
     },
     h3: {
-      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif',
+      fontFamily:
+        '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif',
       fontWeight: 600,
       fontSize: '1.5rem',
       lineHeight: 1.4,
     },
     h4: {
-      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif',
+      fontFamily:
+        '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif',
       fontWeight: 600,
       fontSize: '1.25rem',
       lineHeight: 1.4,
     },
     h5: {
-      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif',
+      fontFamily:
+        '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif',
       fontWeight: 600,
       fontSize: '1.125rem',
       lineHeight: 1.4,
     },
     h6: {
-      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif',
+      fontFamily:
+        '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif',
       fontWeight: 600,
       fontSize: '1rem',
       lineHeight: 1.4,
     },
     body1: {
-      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif',
+      fontFamily:
+        '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif',
       fontSize: '1rem',
       lineHeight: 1.5,
     },
     body2: {
-      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif',
+      fontFamily:
+        '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif',
       fontSize: '0.875rem',
       lineHeight: 1.5,
     },
     button: {
-      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif',
+      fontFamily:
+        '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif',
       fontWeight: 500,
       textTransform: 'none',
     },
@@ -278,15 +288,16 @@ export default function Home() {
     const checkMobile = () => {
       // Check if device has touch capability and is actually a mobile device
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-      const isMobileUserAgent = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const isMobileUserAgent =
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       // Use pointer media query to detect coarse pointer (typically touch devices)
       const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
-      
+
       // Only disable drag on actual mobile/touch devices, not just narrow desktop windows
       const mobile = isMobileUserAgent || (isTouchDevice && hasCoarsePointer);
       setIsMobile(mobile);
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
@@ -341,7 +352,6 @@ export default function Home() {
     }
   };
 
-
   const loadTripItinerary = useCallback(async (trip: any) => {
     try {
       setLoading(true);
@@ -357,7 +367,7 @@ export default function Home() {
       console.log(`🔍 Fetching itinerary for trip ${trip.id}...`);
       const itineraryResponse = await api.get(`/api/itinerary?trip_id=${trip.id}`);
       const items = itineraryResponse.data.items;
-      
+
       console.log(`📋 Loaded ${items?.length || 0} itinerary items:`, items);
 
       setItinerary(items || []);
@@ -365,8 +375,10 @@ export default function Home() {
       // Calculate map center from itinerary items or geocode destination
       if (items && items.length > 0) {
         // Calculate average coordinates from all items
-        const avgLat = items.reduce((sum: number, item: any) => sum + item.coordinates[0], 0) / items.length;
-        const avgLng = items.reduce((sum: number, item: any) => sum + item.coordinates[1], 0) / items.length;
+        const avgLat =
+          items.reduce((sum: number, item: any) => sum + item.coordinates[0], 0) / items.length;
+        const avgLng =
+          items.reduce((sum: number, item: any) => sum + item.coordinates[1], 0) / items.length;
         setMapCenter({ lat: avgLat, lng: avgLng });
       } else if (trip.destination && typeof window !== 'undefined' && window.google?.maps) {
         // No items yet, geocode the destination to center the map
@@ -547,18 +559,20 @@ export default function Home() {
   useEffect(() => {
     if (isDragging && draggedOverDay) {
       // Get the activities for this day
-      const dayActivities = itinerary.filter(item => item.date === draggedOverDay);
+      const dayActivities = itinerary.filter((item) => item.date === draggedOverDay);
       if (dayActivities.length === 0) {
-        setExpandedDays(prev => new Set([...Array.from(prev), draggedOverDay]));
+        setExpandedDays((prev) => new Set([...Array.from(prev), draggedOverDay]));
       }
     } else if (isDragging && !draggedOverDay) {
       // Close all empty day boxes when not hovering over any
       const activitiesByDay = getActivitiesByDay();
-      const emptyDays = Object.keys(activitiesByDay).filter(day => activitiesByDay[day].length === 0);
+      const emptyDays = Object.keys(activitiesByDay).filter(
+        (day) => activitiesByDay[day].length === 0
+      );
 
-      setExpandedDays(prev => {
+      setExpandedDays((prev) => {
         const newSet = new Set(Array.from(prev));
-        emptyDays.forEach(day => {
+        emptyDays.forEach((day) => {
           newSet.delete(day);
         });
         return newSet;
@@ -578,11 +592,13 @@ export default function Home() {
   // Auto-close empty day boxes when they become empty
   useEffect(() => {
     const activitiesByDay = getActivitiesByDay();
-    const emptyDays = Object.keys(activitiesByDay).filter(day => activitiesByDay[day].length === 0);
+    const emptyDays = Object.keys(activitiesByDay).filter(
+      (day) => activitiesByDay[day].length === 0
+    );
 
-    setExpandedDays(prev => {
+    setExpandedDays((prev) => {
       const newSet = new Set(Array.from(prev));
-      emptyDays.forEach(day => {
+      emptyDays.forEach((day) => {
         newSet.delete(day);
       });
       return newSet;
@@ -641,10 +657,10 @@ export default function Home() {
       // Update times based on new order
       const updatedDayActivities = dayActivities.map((item, index) => {
         const baseTime = new Date(`${sourceDay}T09:00:00`);
-        const newTime = new Date(baseTime.getTime() + (index * 60 * 60 * 1000)); // Add 1 hour per activity
+        const newTime = new Date(baseTime.getTime() + index * 60 * 60 * 1000); // Add 1 hour per activity
         return {
           ...item,
-          time: newTime.toISOString()
+          time: newTime.toISOString(),
         };
       });
 
@@ -653,11 +669,13 @@ export default function Home() {
 
       // Update backend for all reordered activities
       try {
-        await Promise.all(updatedDayActivities.map(async (item) => {
-          await api.put(`/api/itinerary/${item.id}`, {
-            time: item.time
-          });
-        }));
+        await Promise.all(
+          updatedDayActivities.map(async (item) => {
+            await api.put(`/api/itinerary/${item.id}`, {
+              time: item.time,
+            });
+          })
+        );
         console.log('Successfully updated activity times');
       } catch (error) {
         console.error('Failed to update activity times:', error);
@@ -666,7 +684,9 @@ export default function Home() {
     } else {
       // Different day - move to new day
       const sourceActivities = itinerary.filter((item) => item && item.date === sourceDay);
-      const destinationActivities = itinerary.filter((item) => item && item.date === destinationDay);
+      const destinationActivities = itinerary.filter(
+        (item) => item && item.date === destinationDay
+      );
       const otherActivities = itinerary.filter(
         (item) => item && item.date !== sourceDay && item.date !== destinationDay
       );
@@ -686,11 +706,11 @@ export default function Home() {
       setItinerary(newItinerary);
 
       // Expand the destination day when activity is moved to it
-      setExpandedDays(prev => new Set([...Array.from(prev), destinationDay]));
+      setExpandedDays((prev) => new Set([...Array.from(prev), destinationDay]));
 
       // Close source day if it becomes empty
       if (sourceActivities.length === 0) {
-        setExpandedDays(prev => {
+        setExpandedDays((prev) => {
           const newSet = new Set(Array.from(prev));
           newSet.delete(sourceDay);
           return newSet;
@@ -776,34 +796,36 @@ export default function Home() {
     console.log('Generated vacation days:', vacationDays);
 
     // Initialize all vacation days with empty arrays
-    vacationDays.forEach(day => {
+    vacationDays.forEach((day) => {
       grouped[day] = [];
     });
 
     // Add activities to their respective days
-    itinerary.filter(activity => activity != null).forEach((activity) => {
-      // Skip activities without a date
-      if (!activity || !activity.date) {
-        return;
-      }
-
-      const day = activity.date;
-
-      if (grouped[day]) {
-        grouped[day].push(activity);
-      } else {
-        // If activity is outside vacation range, add to the last day
-        const lastDay = vacationDays[vacationDays.length - 1];
-        if (lastDay) {
-          const migratedActivity = {
-            ...activity,
-            date: lastDay,
-            migrated: true,
-          };
-          grouped[lastDay].push(migratedActivity);
+    itinerary
+      .filter((activity) => activity != null)
+      .forEach((activity) => {
+        // Skip activities without a date
+        if (!activity || !activity.date) {
+          return;
         }
-      }
-    });
+
+        const day = activity.date;
+
+        if (grouped[day]) {
+          grouped[day].push(activity);
+        } else {
+          // If activity is outside vacation range, add to the last day
+          const lastDay = vacationDays[vacationDays.length - 1];
+          if (lastDay) {
+            const migratedActivity = {
+              ...activity,
+              date: lastDay,
+              migrated: true,
+            };
+            grouped[lastDay].push(migratedActivity);
+          }
+        }
+      });
 
     console.log('Final grouped activities:', grouped);
     return grouped;
@@ -903,7 +925,11 @@ export default function Home() {
               componentRestrictions: { country: 'us' },
             },
             (predictions, status) => {
-              if (window.google?.maps?.places && status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+              if (
+                window.google?.maps?.places &&
+                status === window.google.maps.places.PlacesServiceStatus.OK &&
+                predictions
+              ) {
                 const googleSuggestions = predictions.map((prediction) => ({
                   label: prediction.description,
                   value: prediction.description,
@@ -939,7 +965,12 @@ export default function Home() {
         address: selectedAddress.value,
         coordinates: selectedAddress.coordinates,
       });
-    } else if (selectedAddress && selectedAddress.placeId && typeof window !== 'undefined' && window.google?.maps) {
+    } else if (
+      selectedAddress &&
+      selectedAddress.placeId &&
+      typeof window !== 'undefined' &&
+      window.google?.maps
+    ) {
       // Geocode the selected address to get coordinates
       try {
         const geocoder = new window.google.maps.Geocoder();
@@ -1036,10 +1067,10 @@ export default function Home() {
       const updatedItinerary = itinerary.map((item) =>
         item.id === editingActivity.id
           ? {
-            ...item,
-            ...editingActivity,
-            time: editingActivity.time + ':00', // Add seconds back
-          }
+              ...item,
+              ...editingActivity,
+              time: editingActivity.time + ':00', // Add seconds back
+            }
           : item
       );
       setItinerary(updatedItinerary);
@@ -1246,7 +1277,7 @@ export default function Home() {
     if (!item || !item.date) return 1;
 
     const dayItems = itinerary
-      .filter(dayItem => dayItem && dayItem.date === item.date)
+      .filter((dayItem) => dayItem && dayItem.date === item.date)
       .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
     return dayItems.indexOf(item) + 1;
@@ -1305,18 +1336,26 @@ export default function Home() {
                   {user.email}
                 </Button>
                 <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-                  <MenuItem onClick={() => {
-                    window.open('https://discord.gg/btd7PUjYkW', '_blank');
-                    handleMenuClose();
-                  }}>
+                  <MenuItem
+                    onClick={() => {
+                      window.open('https://discord.gg/btd7PUjYkW', '_blank');
+                      handleMenuClose();
+                    }}
+                  >
                     <SupportIcon sx={{ mr: 1 }} />
                     Discord Support
                   </MenuItem>
-                  <MenuItem onClick={() => {
-                    setShowMapControls(!showMapControls);
-                    handleMenuClose();
-                  }}>
-                    {showMapControls ? <VisibilityOffIcon sx={{ mr: 1 }} /> : <VisibilityIcon sx={{ mr: 1 }} />}
+                  <MenuItem
+                    onClick={() => {
+                      setShowMapControls(!showMapControls);
+                      handleMenuClose();
+                    }}
+                  >
+                    {showMapControls ? (
+                      <VisibilityOffIcon sx={{ mr: 1 }} />
+                    ) : (
+                      <VisibilityIcon sx={{ mr: 1 }} />
+                    )}
                     {showMapControls ? 'Hide Map Controls' : 'Show Map Controls'}
                   </MenuItem>
                   <MenuItem onClick={handleLogout}>
@@ -1345,12 +1384,14 @@ export default function Home() {
           </Toolbar>
         </AppBar>
 
-        <Box sx={{
-          display: 'flex',
-          height: '100vh',
-          overflow: 'hidden',
-          pt: { xs: '56px', sm: '64px' } // Smaller top padding on mobile
-        }}>
+        <Box
+          sx={{
+            display: 'flex',
+            height: '100vh',
+            overflow: 'hidden',
+            pt: { xs: '56px', sm: '64px' }, // Smaller top padding on mobile
+          }}
+        >
           {/* Apple-Style Sidebar */}
           <Drawer
             variant="persistent"
@@ -1362,7 +1403,8 @@ export default function Home() {
               '& .MuiDrawer-paper': {
                 width: { xs: '100vw', sm: 320 },
                 boxSizing: 'border-box',
-                background: 'linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(240 4.8% 95.9%) 50%, hsl(240 4.8% 98%) 100%)',
+                background:
+                  'linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(240 4.8% 95.9%) 50%, hsl(240 4.8% 98%) 100%)',
                 backdropFilter: 'blur(20px)',
                 border: '1px solid hsl(220 13% 91%)',
                 borderLeft: 'none',
@@ -1403,7 +1445,9 @@ export default function Home() {
                           fontWeight: 600,
                           '&:before': { borderBottomColor: 'hsl(220 13% 91%)' },
                           '&:after': { borderBottomColor: 'hsl(217.2 91.2% 59.8%)' },
-                          '&:hover:not(.Mui-disabled):before': { borderBottomColor: 'hsl(220 13% 91%)' },
+                          '&:hover:not(.Mui-disabled):before': {
+                            borderBottomColor: 'hsl(220 13% 91%)',
+                          },
                         },
                         '& .MuiInput-input': {
                           color: 'hsl(240 5.9% 10%)',
@@ -1428,8 +1472,8 @@ export default function Home() {
                         py: 0.5,
                         '&:hover': currentTrip
                           ? {
-                            backgroundColor: 'hsl(240 4.8% 95.9%)',
-                          }
+                              backgroundColor: 'hsl(240 4.8% 95.9%)',
+                            }
                           : {},
                       }}
                     >
@@ -1448,7 +1492,9 @@ export default function Home() {
                   >
                     {currentTrip ? (
                       isEditingDates ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        <Box
+                          sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
+                        >
                           <Typography variant="body2" sx={{ color: 'inherit' }}>
                             {currentTrip.destination || 'Destination'} •
                           </Typography>
@@ -1532,7 +1578,9 @@ export default function Home() {
                           onClick={() => handleDateEdit()}
                         >
                           <Typography variant="body2" sx={{ color: 'inherit' }}>
-                            {currentTrip.destination || 'Destination'} • {formatLocalDateSimple(currentTrip.start_date)} - {formatLocalDateSimple(currentTrip.end_date)}
+                            {currentTrip.destination || 'Destination'} •{' '}
+                            {formatLocalDateSimple(currentTrip.start_date)} -{' '}
+                            {formatLocalDateSimple(currentTrip.end_date)}
                           </Typography>
                           <EditIcon sx={{ fontSize: 14, color: '#8E8E93' }} />
                         </Box>
@@ -1600,13 +1648,15 @@ export default function Home() {
             </Box>
 
             {/* Sidebar Content */}
-            <Box sx={{
-              flexGrow: 1,
-              overflow: 'auto',
-              p: { xs: 1.5, sm: 2 },
-              position: 'relative',
-              zIndex: 1, // Ensure content is above background but below drag elements
-            }}>
+            <Box
+              sx={{
+                flexGrow: 1,
+                overflow: 'auto',
+                p: { xs: 1.5, sm: 2 },
+                position: 'relative',
+                zIndex: 1, // Ensure content is above background but below drag elements
+              }}
+            >
               {loading ? (
                 <Box
                   sx={{
@@ -1642,14 +1692,16 @@ export default function Home() {
                     return (
                       <Accordion
                         key={day}
-                        expanded={expandedDays.has(day) || (activities.length > 0 && expandedDays.has(day))}
+                        expanded={
+                          expandedDays.has(day) || (activities.length > 0 && expandedDays.has(day))
+                        }
                         onChange={(event, isExpanded) => {
                           // Only allow expansion/collapse if there are activities
                           if (activities.length > 0) {
                             if (isExpanded) {
-                              setExpandedDays(prev => new Set([...Array.from(prev), day]));
+                              setExpandedDays((prev) => new Set([...Array.from(prev), day]));
                             } else {
-                              setExpandedDays(prev => {
+                              setExpandedDays((prev) => {
                                 const newSet = new Set(Array.from(prev));
                                 newSet.delete(day);
                                 return newSet;
@@ -1658,9 +1710,16 @@ export default function Home() {
                           }
                         }}
                         sx={{
-                          boxShadow: (activities.length > 0 && expandedDays.has(day)) ? '0 2px 8px rgba(0, 0, 0, 0.1)' : 'none',
+                          boxShadow:
+                            activities.length > 0 && expandedDays.has(day)
+                              ? '0 2px 8px rgba(0, 0, 0, 0.1)'
+                              : 'none',
                           borderRadius: 2,
-                          mb: isLastDay ? 12 : ((activities.length > 0 && expandedDays.has(day)) ? 1 : 0),
+                          mb: isLastDay
+                            ? 12
+                            : activities.length > 0 && expandedDays.has(day)
+                              ? 1
+                              : 0,
                           '&:before': { display: 'none' },
                           '&.Mui-expanded': {
                             margin: '0 0 8px 0',
@@ -1767,7 +1826,11 @@ export default function Home() {
                           <Droppable droppableId={day.toString()}>
                             {(provided, snapshot) => {
                               // Handle hover-to-expand for empty day boxes
-                              if (isDragging && snapshot.isDraggingOver && activities.length === 0) {
+                              if (
+                                isDragging &&
+                                snapshot.isDraggingOver &&
+                                activities.length === 0
+                              ) {
                                 setDraggedOverDay(day);
                               }
 
@@ -1795,7 +1858,7 @@ export default function Home() {
                                       // Set a small delay before closing to prevent flickering
                                       const timeout = setTimeout(() => {
                                         setDraggedOverDay(null);
-                                        setExpandedDays(prev => {
+                                        setExpandedDays((prev) => {
                                           const newSet = new Set(prev);
                                           newSet.delete(day);
                                           return newSet;
@@ -1834,7 +1897,12 @@ export default function Home() {
                                   }}
                                 >
                                   {activities.map((item: any, index: number) => (
-                                    <Draggable key={item.id} draggableId={item.id.toString()} index={index} isDragDisabled={isMobile}>
+                                    <Draggable
+                                      key={item.id}
+                                      draggableId={item.id.toString()}
+                                      index={index}
+                                      isDragDisabled={isMobile}
+                                    >
                                       {(provided, snapshot) => {
                                         const child = (
                                           <Box
@@ -1847,7 +1915,11 @@ export default function Home() {
                                               mx: 0.5,
                                               mb: 0.5,
                                               borderRadius: 2,
-                                              cursor: isMobile ? 'pointer' : (snapshot.isDragging ? 'grabbing' : 'grab'),
+                                              cursor: isMobile
+                                                ? 'pointer'
+                                                : snapshot.isDragging
+                                                  ? 'grabbing'
+                                                  : 'grab',
                                               touchAction: isMobile ? 'auto' : 'none', // Allow scrolling on mobile, prevent during drag on desktop
                                               backgroundColor:
                                                 selectedItem?.id === item.id
@@ -1861,7 +1933,8 @@ export default function Home() {
                                                   : snapshot.isDragging
                                                     ? '1px solid rgba(0, 122, 255, 0.5)'
                                                     : '1px solid rgba(0, 0, 0, 0.05)',
-                                              transition: 'all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                                              transition:
+                                                'all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
                                               position: 'relative',
                                               transform: snapshot.isDragging
                                                 ? 'rotate(1deg) scale(1.03) translateY(-4px)'
@@ -1895,182 +1968,250 @@ export default function Home() {
                                                 py: 1,
                                               }}
                                             >
+                                              <Box
+                                                sx={{
+                                                  display: 'flex',
+                                                  flexDirection: 'column',
+                                                  gap: 0.5,
+                                                  flex: 1,
+                                                  minWidth: 0,
+                                                }}
+                                              >
+                                                {/* First line: Icon + Title */}
                                                 <Box
                                                   sx={{
                                                     display: 'flex',
-                                                    flexDirection: 'column',
-                                                    gap: 0.5,
-                                                    flex: 1,
-                                                    minWidth: 0,
+                                                    alignItems: 'center',
+                                                    gap: 1.5,
                                                   }}
                                                 >
-                                                  {/* First line: Icon + Title */}
-                                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                    <Box
-                                                      sx={{
-                                                        width: 36,
-                                                        height: 36,
-                                                        borderRadius: 2,
-                                                        backgroundColor:
-                                                          selectedItem?.id === item.id ? '#007AFF' : '#F2F2F7',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        flexShrink: 0,
-                                                        transition: 'all 0.2s ease',
-                                                        boxShadow:
-                                                          selectedItem?.id === item.id
-                                                            ? '0 2px 8px rgba(0, 122, 255, 0.3)'
-                                                            : '0 1px 3px rgba(0,0,0,0.1)',
-                                                        '&:hover': {
-                                                          transform: 'scale(1.05)',
-                                                        },
-                                                      }}
-                                                    >
-                                                      {item.type === 'museum' ? (
-                                                        <MuseumIcon
-                                                          sx={{
-                                                            fontSize: 16,
-                                                            color:
-                                                              selectedItem?.id === item.id ? 'white' : '#8E8E93',
-                                                          }}
-                                                        />
-                                                      ) : item.type === 'shopping' ? (
-                                                        <ShoppingIcon
-                                                          sx={{
-                                                            fontSize: 16,
-                                                            color:
-                                                              selectedItem?.id === item.id ? 'white' : '#8E8E93',
-                                                          }}
-                                                        />
-                                                      ) : item.type === 'landmark' ? (
-                                                        <PlaceIcon
-                                                          sx={{
-                                                            fontSize: 16,
-                                                            color:
-                                                              selectedItem?.id === item.id ? 'white' : '#8E8E93',
-                                                          }}
-                                                        />
-                                                      ) : item.type === 'accommodation' ? (
-                                                        <EventIcon
-                                                          sx={{
-                                                            fontSize: 16,
-                                                            color:
-                                                              selectedItem?.id === item.id ? 'white' : '#8E8E93',
-                                                          }}
-                                                        />
-                                                      ) : item.type === 'restaurant' ? (
-                                                        <StarIcon
-                                                          sx={{
-                                                            fontSize: 16,
-                                                            color:
-                                                              selectedItem?.id === item.id ? 'white' : '#8E8E93',
-                                                          }}
-                                                        />
-                                                      ) : item.type === 'outdoor' ? (
-                                                        <AttractionsIcon
-                                                          sx={{
-                                                            fontSize: 16,
-                                                            color:
-                                                              selectedItem?.id === item.id ? 'white' : '#8E8E93',
-                                                          }}
-                                                        />
-                                                      ) : (
-                                                        <AttractionsIcon
-                                                          sx={{
-                                                            fontSize: 16,
-                                                            color:
-                                                              selectedItem?.id === item.id ? 'white' : '#8E8E93',
-                                                          }}
-                                                        />
-                                                      )}
-                                                    </Box>
-                                                    <Typography
-                                                      variant="subtitle2"
-                                                      sx={{
-                                                        fontWeight: 500,
-                                                        color: '#1D1D1F',
-                                                        fontSize: '0.875rem',
-                                                        lineHeight: 1.4,
-                                                        flex: 1,
-                                                        minWidth: 0,
-                                                        wordBreak: 'break-word',
-                                                      }}
-                                                    >
-                                                      {item.location}
-                                                    </Typography>
-                                                  </Box>
-
-                                                  {/* Second line: Time + Location */}
-                                                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flexWrap: 'wrap' }}>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-                                                      <ScheduleIcon sx={{ fontSize: 14, color: '#8E8E93' }} />
-                                                      <Typography
-                                                        variant="caption"
+                                                  <Box
+                                                    sx={{
+                                                      width: 36,
+                                                      height: 36,
+                                                      borderRadius: 2,
+                                                      backgroundColor:
+                                                        selectedItem?.id === item.id
+                                                          ? '#007AFF'
+                                                          : '#F2F2F7',
+                                                      display: 'flex',
+                                                      alignItems: 'center',
+                                                      justifyContent: 'center',
+                                                      flexShrink: 0,
+                                                      transition: 'all 0.2s ease',
+                                                      boxShadow:
+                                                        selectedItem?.id === item.id
+                                                          ? '0 2px 8px rgba(0, 122, 255, 0.3)'
+                                                          : '0 1px 3px rgba(0,0,0,0.1)',
+                                                      '&:hover': {
+                                                        transform: 'scale(1.05)',
+                                                      },
+                                                    }}
+                                                  >
+                                                    {item.type === 'museum' ? (
+                                                      <MuseumIcon
                                                         sx={{
-                                                          color: '#8E8E93',
-                                                          fontSize: '0.75rem',
-                                                          fontWeight: 400,
+                                                          fontSize: 16,
+                                                          color:
+                                                            selectedItem?.id === item.id
+                                                              ? 'white'
+                                                              : '#8E8E93',
                                                         }}
-                                                      >
-                                                        {item.time}
-                                                      </Typography>
-                                                    </Box>
-                                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: '1 1 auto', minWidth: 0 }}>
-                                                      <LocationIcon sx={{ fontSize: 14, color: '#8E8E93', flexShrink: 0, mt: 0.5 }} />
-                                                      <Typography
-                                                        variant="caption"
+                                                      />
+                                                    ) : item.type === 'shopping' ? (
+                                                      <ShoppingIcon
                                                         sx={{
-                                                          color: '#8E8E93',
-                                                          fontSize: '0.75rem',
-                                                          fontWeight: 400,
-                                                          wordBreak: 'break-word',
-                                                          lineHeight: 1.4,
+                                                          fontSize: 16,
+                                                          color:
+                                                            selectedItem?.id === item.id
+                                                              ? 'white'
+                                                              : '#8E8E93',
                                                         }}
-                                                      >
-                                                        {item.address}
-                                                      </Typography>
-                                                    </Box>
-                                                  </Box>
-
-                                                  {/* Third line: Tags */}
-                                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                                    {item.migrated && (
-                                                      <Chip
-                                                        label="Moved"
-                                                        size="small"
+                                                      />
+                                                    ) : item.type === 'landmark' ? (
+                                                      <PlaceIcon
                                                         sx={{
-                                                          backgroundColor: '#FF950020',
-                                                          color: '#FF9500',
-                                                          fontWeight: 500,
-                                                          fontSize: '0.7rem',
-                                                          height: 18,
-                                                          borderRadius: 2,
-                                                          flexShrink: 0,
+                                                          fontSize: 16,
+                                                          color:
+                                                            selectedItem?.id === item.id
+                                                              ? 'white'
+                                                              : '#8E8E93',
+                                                        }}
+                                                      />
+                                                    ) : item.type === 'accommodation' ? (
+                                                      <EventIcon
+                                                        sx={{
+                                                          fontSize: 16,
+                                                          color:
+                                                            selectedItem?.id === item.id
+                                                              ? 'white'
+                                                              : '#8E8E93',
+                                                        }}
+                                                      />
+                                                    ) : item.type === 'restaurant' ? (
+                                                      <StarIcon
+                                                        sx={{
+                                                          fontSize: 16,
+                                                          color:
+                                                            selectedItem?.id === item.id
+                                                              ? 'white'
+                                                              : '#8E8E93',
+                                                        }}
+                                                      />
+                                                    ) : item.type === 'outdoor' ? (
+                                                      <AttractionsIcon
+                                                        sx={{
+                                                          fontSize: 16,
+                                                          color:
+                                                            selectedItem?.id === item.id
+                                                              ? 'white'
+                                                              : '#8E8E93',
+                                                        }}
+                                                      />
+                                                    ) : (
+                                                      <AttractionsIcon
+                                                        sx={{
+                                                          fontSize: 16,
+                                                          color:
+                                                            selectedItem?.id === item.id
+                                                              ? 'white'
+                                                              : '#8E8E93',
                                                         }}
                                                       />
                                                     )}
-                                                    <Chip
-                                                      label={item.type}
-                                                      size="small"
+                                                  </Box>
+                                                  <Typography
+                                                    variant="subtitle2"
+                                                    sx={{
+                                                      fontWeight: 500,
+                                                      color: '#1D1D1F',
+                                                      fontSize: '0.875rem',
+                                                      lineHeight: 1.4,
+                                                      flex: 1,
+                                                      minWidth: 0,
+                                                      wordBreak: 'break-word',
+                                                    }}
+                                                  >
+                                                    {item.location}
+                                                  </Typography>
+                                                </Box>
+
+                                                {/* Second line: Time + Location */}
+                                                <Box
+                                                  sx={{
+                                                    display: 'flex',
+                                                    alignItems: 'flex-start',
+                                                    gap: 1.5,
+                                                    flexWrap: 'wrap',
+                                                  }}
+                                                >
+                                                  <Box
+                                                    sx={{
+                                                      display: 'flex',
+                                                      alignItems: 'center',
+                                                      gap: 0.5,
+                                                      flexShrink: 0,
+                                                    }}
+                                                  >
+                                                    <ScheduleIcon
+                                                      sx={{ fontSize: 14, color: '#8E8E93' }}
+                                                    />
+                                                    <Typography
+                                                      variant="caption"
                                                       sx={{
-                                                        backgroundColor: `${getActivityColor(item.type)}20`,
-                                                        color: getActivityColor(item.type),
-                                                        fontWeight: 500,
+                                                        color: '#8E8E93',
                                                         fontSize: '0.75rem',
-                                                        height: 20,
-                                                        borderRadius: 2,
+                                                        fontWeight: 400,
+                                                      }}
+                                                    >
+                                                      {item.time}
+                                                    </Typography>
+                                                  </Box>
+                                                  <Box
+                                                    sx={{
+                                                      display: 'flex',
+                                                      alignItems: 'flex-start',
+                                                      gap: 0.5,
+                                                      flex: '1 1 auto',
+                                                      minWidth: 0,
+                                                    }}
+                                                  >
+                                                    <LocationIcon
+                                                      sx={{
+                                                        fontSize: 14,
+                                                        color: '#8E8E93',
                                                         flexShrink: 0,
-                                                        transition: 'all 0.2s ease',
-                                                        '&:hover': {
-                                                          transform: 'scale(1.05)',
-                                                          backgroundColor: `${getActivityColor(item.type)}30`,
-                                                        },
+                                                        mt: 0.5,
                                                       }}
                                                     />
+                                                    <Typography
+                                                      variant="caption"
+                                                      sx={{
+                                                        color: '#8E8E93',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: 400,
+                                                        wordBreak: 'break-word',
+                                                        lineHeight: 1.4,
+                                                      }}
+                                                    >
+                                                      {item.address}
+                                                    </Typography>
                                                   </Box>
                                                 </Box>
-                                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignSelf: 'flex-start', pt: 0.5 }}>
+
+                                                {/* Third line: Tags */}
+                                                <Box
+                                                  sx={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 1,
+                                                    flexWrap: 'wrap',
+                                                  }}
+                                                >
+                                                  {item.migrated && (
+                                                    <Chip
+                                                      label="Moved"
+                                                      size="small"
+                                                      sx={{
+                                                        backgroundColor: '#FF950020',
+                                                        color: '#FF9500',
+                                                        fontWeight: 500,
+                                                        fontSize: '0.7rem',
+                                                        height: 18,
+                                                        borderRadius: 2,
+                                                        flexShrink: 0,
+                                                      }}
+                                                    />
+                                                  )}
+                                                  <Chip
+                                                    label={item.type}
+                                                    size="small"
+                                                    sx={{
+                                                      backgroundColor: `${getActivityColor(item.type)}20`,
+                                                      color: getActivityColor(item.type),
+                                                      fontWeight: 500,
+                                                      fontSize: '0.75rem',
+                                                      height: 20,
+                                                      borderRadius: 2,
+                                                      flexShrink: 0,
+                                                      transition: 'all 0.2s ease',
+                                                      '&:hover': {
+                                                        transform: 'scale(1.05)',
+                                                        backgroundColor: `${getActivityColor(item.type)}30`,
+                                                      },
+                                                    }}
+                                                  />
+                                                </Box>
+                                              </Box>
+                                              <Box
+                                                sx={{
+                                                  display: 'flex',
+                                                  flexDirection: 'column',
+                                                  gap: 0.5,
+                                                  alignSelf: 'flex-start',
+                                                  pt: 0.5,
+                                                }}
+                                              >
                                                 <IconButton
                                                   onClick={(e) => {
                                                     e.stopPropagation();
@@ -2116,7 +2257,9 @@ export default function Home() {
                                           </Box>
                                         );
 
-                                        return snapshot.isDragging ? createPortal(child, document.body) : child;
+                                        return snapshot.isDragging
+                                          ? createPortal(child, document.body)
+                                          : child;
                                       }}
                                     </Draggable>
                                   ))}
@@ -2153,7 +2296,9 @@ export default function Home() {
                                         },
                                       }}
                                     >
-                                      {isDragging ? 'Drop here to add activity' : 'Drop activities here'}
+                                      {isDragging
+                                        ? 'Drop here to add activity'
+                                        : 'Drop activities here'}
                                     </Box>
                                   )}
                                   {provided.placeholder}
@@ -2184,7 +2329,8 @@ export default function Home() {
                 sx={{
                   width: { xs: 'calc(100% - 80px)', sm: '100%' }, // Shorter on mobile to avoid AI button overlap
                   mr: { xs: 0, sm: 0 }, // Remove margin since we're using calc width
-                  background: 'linear-gradient(135deg, hsl(240 5.9% 10%) 0%, hsl(240 5.9% 10%) 100%)',
+                  background:
+                    'linear-gradient(135deg, hsl(240 5.9% 10%) 0%, hsl(240 5.9% 10%) 100%)',
                   color: 'hsl(0 0% 98%)',
                   borderRadius: '8px',
                   py: 1.5,
@@ -2194,7 +2340,8 @@ export default function Home() {
                   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                   '&:hover': {
-                    background: 'linear-gradient(135deg, hsl(240 5.9% 10%) 0%, hsl(240 5.9% 10%) 100%)',
+                    background:
+                      'linear-gradient(135deg, hsl(240 5.9% 10%) 0%, hsl(240 5.9% 10%) 100%)',
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
                     transform: 'translateY(-1px)',
                   },
@@ -2215,34 +2362,50 @@ export default function Home() {
           {/* Google Map Background */}
           <Box sx={{ flexGrow: 1, position: 'relative' }}>
             {loadError && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  height: '100%',
+                }}
+              >
                 <Typography color="error">Error loading Google Maps</Typography>
               </Box>
             )}
             {!isGoogleMapsLoaded && !loadError && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  height: '100%',
+                }}
+              >
                 <CircularProgress />
               </Box>
             )}
             {isGoogleMapsLoaded && !loadError && !mapCenter && (
-              <Box sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: '100%',
-                backgroundColor: '#f5f5f5'
-              }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  height: '100%',
+                  backgroundColor: '#f5f5f5',
+                }}
+              >
                 <Typography variant="h6" color="text.secondary">
                   Select or create a trip to view on the map
                 </Typography>
               </Box>
             )}
             {isGoogleMapsLoaded && !loadError && mapCenter && (
-                <GoogleMap
-                  mapContainerStyle={{
-                    width: '100%',
-                    height: '100vh'
-                  }}
+              <GoogleMap
+                mapContainerStyle={{
+                  width: '100%',
+                  height: '100vh',
+                }}
                 center={mapCenter}
                 zoom={13}
                 options={{
@@ -2369,16 +2532,24 @@ export default function Home() {
                 onLoad={() => setMapReady(true)}
               >
                 {/* Map Markers for each itinerary item */}
-                {mapReady && itinerary.filter(item => item != null).map((item) => {
-                  // Create numbered pin with day-based color
-                  let customIcon = undefined;
-                  try {
-                    if (isGoogleMapsLoaded && typeof window !== 'undefined' && window.google?.maps?.Size && window.google?.maps?.Point) {
-                      const dayColor = getDayColor(item.date);
-                      const dayNumber = getDayNumber(item);
+                {mapReady &&
+                  itinerary
+                    .filter((item) => item != null)
+                    .map((item) => {
+                      // Create numbered pin with day-based color
+                      let customIcon;
+                      try {
+                        if (
+                          isGoogleMapsLoaded &&
+                          typeof window !== 'undefined' &&
+                          window.google?.maps?.Size &&
+                          window.google?.maps?.Point
+                        ) {
+                          const dayColor = getDayColor(item.date);
+                          const dayNumber = getDayNumber(item);
 
-                      customIcon = {
-                        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+                          customIcon = {
+                            url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
                     <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
                       <defs>
                         <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
@@ -2392,33 +2563,41 @@ export default function Home() {
                       </text>
                     </svg>
                   `)}`,
-                        scaledSize: new window.google.maps.Size(32, 32),
-                        anchor: new window.google.maps.Point(16, 16),
-                      };
-                    }
-                  } catch (error) {
-                    console.warn('Failed to create custom marker icon:', error);
-                  }
+                            scaledSize: new window.google.maps.Size(32, 32),
+                            anchor: new window.google.maps.Point(16, 16),
+                          };
+                        }
+                      } catch (error) {
+                        console.warn('Failed to create custom marker icon:', error);
+                      }
 
-                  // Skip items without coordinates
-                  if (!item || !item.coordinates || !Array.isArray(item.coordinates) || item.coordinates.length < 2) {
-                    return null;
-                  }
+                      // Skip items without coordinates
+                      if (
+                        !item ||
+                        !item.coordinates ||
+                        !Array.isArray(item.coordinates) ||
+                        item.coordinates.length < 2
+                      ) {
+                        return null;
+                      }
 
-                  return (
-                    <Marker
-                      key={item.id}
-                      position={{ lat: item.coordinates[0], lng: item.coordinates[1] }}
-                      onClick={() => setSelectedItem(item)}
-                      icon={customIcon}
-                    />
-                  );
-                })}
+                      return (
+                        <Marker
+                          key={item.id}
+                          position={{ lat: item.coordinates[0], lng: item.coordinates[1] }}
+                          onClick={() => setSelectedItem(item)}
+                          icon={customIcon}
+                        />
+                      );
+                    })}
 
                 {/* Info Window for selected item */}
                 {mapReady && selectedItem && (
                   <InfoWindow
-                    position={{ lat: selectedItem.coordinates[0], lng: selectedItem.coordinates[1] }}
+                    position={{
+                      lat: selectedItem.coordinates[0],
+                      lng: selectedItem.coordinates[1],
+                    }}
                     onCloseClick={() => setSelectedItem(null)}
                   >
                     <Box sx={{ p: 1, minWidth: 250 }}>
@@ -2503,7 +2682,8 @@ export default function Home() {
                       boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
                     },
                     '50%': {
-                      boxShadow: '0 4px 12px rgba(0, 122, 255, 0.4), 0 0 0 4px rgba(0, 122, 255, 0.1)',
+                      boxShadow:
+                        '0 4px 12px rgba(0, 122, 255, 0.4), 0 0 0 4px rgba(0, 122, 255, 0.1)',
                     },
                     '100%': {
                       boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
@@ -2526,7 +2706,11 @@ export default function Home() {
         </Box>
 
         {/* AI Chat Bot - Overlaid on top of everything */}
-        <ChatBot itinerary={itinerary} onItineraryUpdate={handleItineraryUpdate} currentTrip={currentTrip} />
+        <ChatBot
+          itinerary={itinerary}
+          onItineraryUpdate={handleItineraryUpdate}
+          currentTrip={currentTrip}
+        />
 
         {/* Login Modal */}
         <LoginModal
@@ -2546,7 +2730,12 @@ export default function Home() {
         />
 
         {/* Add Activity Dialog */}
-        <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="sm" fullWidth>
+        <Dialog
+          open={addDialogOpen}
+          onClose={() => setAddDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
           <DialogTitle>Add New Activity</DialogTitle>
           <DialogContent>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
@@ -2660,8 +2849,8 @@ export default function Home() {
                 />
               </Box>
               <Typography variant="body2" color="text.secondary">
-                Note: Coordinates will be set to Times Square by default. You can update them later by
-                using the address autocomplete.
+                Note: Coordinates will be set to Times Square by default. You can update them later
+                by using the address autocomplete.
               </Typography>
             </Box>
           </DialogContent>
@@ -2674,7 +2863,12 @@ export default function Home() {
         </Dialog>
 
         {/* Edit Activity Dialog */}
-        <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
+        <Dialog
+          open={editDialogOpen}
+          onClose={() => setEditDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
           <DialogTitle>Edit Activity</DialogTitle>
           <DialogContent>
             {editingActivity && (
@@ -2682,20 +2876,26 @@ export default function Home() {
                 <TextField
                   label="Location Name"
                   value={editingActivity.location}
-                  onChange={(e) => setEditingActivity({ ...editingActivity, location: e.target.value })}
+                  onChange={(e) =>
+                    setEditingActivity({ ...editingActivity, location: e.target.value })
+                  }
                   fullWidth
                   required
                 />
                 <TextField
                   label="Address"
                   value={editingActivity.address}
-                  onChange={(e) => setEditingActivity({ ...editingActivity, address: e.target.value })}
+                  onChange={(e) =>
+                    setEditingActivity({ ...editingActivity, address: e.target.value })
+                  }
                   fullWidth
                 />
                 <TextField
                   label="Activity Description"
                   value={editingActivity.activity}
-                  onChange={(e) => setEditingActivity({ ...editingActivity, activity: e.target.value })}
+                  onChange={(e) =>
+                    setEditingActivity({ ...editingActivity, activity: e.target.value })
+                  }
                   fullWidth
                   required
                 />
@@ -2703,7 +2903,9 @@ export default function Home() {
                   <InputLabel>Activity Type</InputLabel>
                   <Select
                     value={editingActivity.type}
-                    onChange={(e) => setEditingActivity({ ...editingActivity, type: e.target.value })}
+                    onChange={(e) =>
+                      setEditingActivity({ ...editingActivity, type: e.target.value })
+                    }
                     label="Activity Type"
                   >
                     <MenuItem value="activity">Activity</MenuItem>
@@ -2720,7 +2922,9 @@ export default function Home() {
                     label="Date"
                     type="date"
                     value={editingActivity.date}
-                    onChange={(e) => setEditingActivity({ ...editingActivity, date: e.target.value })}
+                    onChange={(e) =>
+                      setEditingActivity({ ...editingActivity, date: e.target.value })
+                    }
                     sx={{ flex: 1 }}
                     InputLabelProps={{
                       shrink: true,
@@ -2730,7 +2934,9 @@ export default function Home() {
                     label="Time"
                     type="time"
                     value={editingActivity.time}
-                    onChange={(e) => setEditingActivity({ ...editingActivity, time: e.target.value })}
+                    onChange={(e) =>
+                      setEditingActivity({ ...editingActivity, time: e.target.value })
+                    }
                     sx={{ flex: 1 }}
                     InputLabelProps={{
                       shrink: true,
@@ -2741,7 +2947,9 @@ export default function Home() {
                   <TextField
                     label="Duration"
                     value={editingActivity.duration}
-                    onChange={(e) => setEditingActivity({ ...editingActivity, duration: e.target.value })}
+                    onChange={(e) =>
+                      setEditingActivity({ ...editingActivity, duration: e.target.value })
+                    }
                     sx={{ flex: 1 }}
                   />
                   <TextField
@@ -2759,10 +2967,12 @@ export default function Home() {
             )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => {
-              setEditDialogOpen(false);
-              setEditingActivity(null);
-            }}>
+            <Button
+              onClick={() => {
+                setEditDialogOpen(false);
+                setEditingActivity(null);
+              }}
+            >
               Cancel
             </Button>
             <Button onClick={updateActivity} variant="contained">

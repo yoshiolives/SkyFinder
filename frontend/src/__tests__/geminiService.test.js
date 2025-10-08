@@ -7,18 +7,17 @@ import { getGeminiResponse, getRealGeminiResponse } from '../services/geminiServ
 jest.mock('@google/generative-ai', () => ({
   GoogleGenerativeAI: jest.fn().mockImplementation(() => ({
     getGenerativeModel: jest.fn().mockReturnValue({
-      generateContent: jest.fn()
-    })
-  }))
+      generateContent: jest.fn(),
+    }),
+  })),
 }));
 
 describe('Gemini Service Tests', () => {
-  
   // Test data structure validation
   describe('Response Structure Validation', () => {
     test('should return response with text and itineraryUpdate fields', async () => {
       const response = await getGeminiResponse('Hello');
-      
+
       expect(response).toHaveProperty('text');
       expect(response).toHaveProperty('itineraryUpdate');
       expect(typeof response.text).toBe('string');
@@ -37,12 +36,12 @@ describe('Gemini Service Tests', () => {
           duration: '2 hours',
           type: 'activity',
           rating: 4.8,
-          coordinates: [40.7829, -73.9654]
-        }
+          coordinates: [40.7829, -73.9654],
+        },
       ];
 
       const response = await getGeminiResponse('add ice cream to my itinerary', testItinerary);
-      
+
       expect(response).toHaveProperty('text');
       expect(response).toHaveProperty('itineraryUpdate');
       expect(Array.isArray(response.itineraryUpdate)).toBe(true);
@@ -53,7 +52,7 @@ describe('Gemini Service Tests', () => {
   describe('Itinerary Item Field Validation', () => {
     const requiredFields = [
       'id',
-      'date', 
+      'date',
       'time',
       'location',
       'address',
@@ -61,7 +60,7 @@ describe('Gemini Service Tests', () => {
       'duration',
       'type',
       'rating',
-      'coordinates'
+      'coordinates',
     ];
 
     test('should validate all required fields exist in itinerary items', () => {
@@ -76,12 +75,12 @@ describe('Gemini Service Tests', () => {
           duration: '2 hours',
           type: 'activity',
           rating: 4.8,
-          coordinates: [40.7829, -73.9654]
-        }
+          coordinates: [40.7829, -73.9654],
+        },
       ];
 
-      sampleItinerary.forEach(item => {
-        requiredFields.forEach(field => {
+      sampleItinerary.forEach((item) => {
+        requiredFields.forEach((field) => {
           expect(item).toHaveProperty(field);
           expect(item[field]).toBeDefined();
         });
@@ -99,7 +98,7 @@ describe('Gemini Service Tests', () => {
         duration: '2 hours',
         type: 'activity',
         rating: 4.8,
-        coordinates: [40.7829, -73.9654]
+        coordinates: [40.7829, -73.9654],
       };
 
       // Test data types
@@ -118,14 +117,14 @@ describe('Gemini Service Tests', () => {
 
     test('should validate coordinate format', () => {
       const sampleItem = {
-        coordinates: [40.7829, -73.9654]
+        coordinates: [40.7829, -73.9654],
       };
 
       expect(Array.isArray(sampleItem.coordinates)).toBe(true);
       expect(sampleItem.coordinates).toHaveLength(2);
       expect(typeof sampleItem.coordinates[0]).toBe('number'); // latitude
       expect(typeof sampleItem.coordinates[1]).toBe('number'); // longitude
-      
+
       // Validate coordinate ranges
       expect(sampleItem.coordinates[0]).toBeGreaterThanOrEqual(-90); // latitude
       expect(sampleItem.coordinates[0]).toBeLessThanOrEqual(90);
@@ -135,7 +134,7 @@ describe('Gemini Service Tests', () => {
 
     test('should validate rating range', () => {
       const sampleItem = {
-        rating: 4.8
+        rating: 4.8,
       };
 
       expect(typeof sampleItem.rating).toBe('number');
@@ -145,7 +144,7 @@ describe('Gemini Service Tests', () => {
 
     test('should validate date format', () => {
       const sampleItem = {
-        date: '2024-01-15'
+        date: '2024-01-15',
       };
 
       expect(typeof sampleItem.date).toBe('string');
@@ -154,7 +153,7 @@ describe('Gemini Service Tests', () => {
 
     test('should validate time format', () => {
       const sampleItem = {
-        time: '09:00'
+        time: '09:00',
       };
 
       expect(typeof sampleItem.time).toBe('string');
@@ -169,14 +168,14 @@ describe('Gemini Service Tests', () => {
       const mockError = new Error('API Error');
       const { GoogleGenerativeAI } = require('@google/generative-ai');
       const mockModel = {
-        generateContent: jest.fn().mockRejectedValue(mockError)
+        generateContent: jest.fn().mockRejectedValue(mockError),
       };
       GoogleGenerativeAI.mockImplementation(() => ({
-        getGenerativeModel: jest.fn().mockReturnValue(mockModel)
+        getGenerativeModel: jest.fn().mockReturnValue(mockModel),
       }));
 
       const response = await getRealGeminiResponse('test message');
-      
+
       expect(response).toHaveProperty('text');
       expect(response.text).toContain('trouble processing');
     });
@@ -184,20 +183,20 @@ describe('Gemini Service Tests', () => {
     test('should format Gemini response correctly', async () => {
       const mockGeminiResponse = {
         response: {
-          text: () => 'Test response from Gemini'
-        }
+          text: () => 'Test response from Gemini',
+        },
       };
 
       const { GoogleGenerativeAI } = require('@google/generative-ai');
       const mockModel = {
-        generateContent: jest.fn().mockResolvedValue(mockGeminiResponse)
+        generateContent: jest.fn().mockResolvedValue(mockGeminiResponse),
       };
       GoogleGenerativeAI.mockImplementation(() => ({
-        getGenerativeModel: jest.fn().mockReturnValue(mockModel)
+        getGenerativeModel: jest.fn().mockReturnValue(mockModel),
       }));
 
       const response = await getRealGeminiResponse('test message');
-      
+
       expect(response).toHaveProperty('text');
       expect(response.text).toBe('Test response from Gemini');
     });
@@ -208,16 +207,27 @@ describe('Gemini Service Tests', () => {
     test('should handle add activity requests', async () => {
       const testItinerary = [];
       const response = await getGeminiResponse('add ice cream to my itinerary', testItinerary);
-      
+
       expect(response.itineraryUpdate).toBeDefined();
       expect(Array.isArray(response.itineraryUpdate)).toBe(true);
-      
+
       if (response.itineraryUpdate && response.itineraryUpdate.length > 0) {
         const newItem = response.itineraryUpdate[response.itineraryUpdate.length - 1];
-        
+
         // Validate the new item has all required fields
-        const requiredFields = ['id', 'date', 'time', 'location', 'address', 'activity', 'duration', 'type', 'rating', 'coordinates'];
-        requiredFields.forEach(field => {
+        const requiredFields = [
+          'id',
+          'date',
+          'time',
+          'location',
+          'address',
+          'activity',
+          'duration',
+          'type',
+          'rating',
+          'coordinates',
+        ];
+        requiredFields.forEach((field) => {
           expect(newItem).toHaveProperty(field);
         });
       }
@@ -235,12 +245,15 @@ describe('Gemini Service Tests', () => {
           duration: '2 hours',
           type: 'activity',
           rating: 4.8,
-          coordinates: [40.7829, -73.9654]
-        }
+          coordinates: [40.7829, -73.9654],
+        },
       ];
 
-      const response = await getGeminiResponse('remove central park from my itinerary', testItinerary);
-      
+      const response = await getGeminiResponse(
+        'remove central park from my itinerary',
+        testItinerary
+      );
+
       expect(response.itineraryUpdate).toBeDefined();
       if (response.itineraryUpdate) {
         expect(Array.isArray(response.itineraryUpdate)).toBe(true);
@@ -254,10 +267,10 @@ describe('Gemini Service Tests', () => {
         await getGeminiResponse('what about the metropolitan museum'),
         await getGeminiResponse('times square information'),
         await getGeminiResponse('statue of liberty details'),
-        await getGeminiResponse('brooklyn bridge walk')
+        await getGeminiResponse('brooklyn bridge walk'),
       ];
 
-      responses.forEach(response => {
+      responses.forEach((response) => {
         expect(response).toHaveProperty('text');
         expect(response.text.length).toBeGreaterThan(0);
         expect(response.itineraryUpdate).toBeNull();
@@ -272,19 +285,19 @@ describe('Gemini Service Tests', () => {
         {
           id: 1,
           // Missing required fields
-          location: 'Test Location'
-        }
+          location: 'Test Location',
+        },
       ];
 
       const response = await getGeminiResponse('add something', malformedItinerary);
-      
+
       expect(response).toHaveProperty('text');
       expect(response).toHaveProperty('itineraryUpdate');
     });
 
     test('should handle empty user messages', async () => {
       const response = await getGeminiResponse('');
-      
+
       expect(response).toHaveProperty('text');
       expect(response.text.length).toBeGreaterThan(0);
     });
@@ -292,7 +305,7 @@ describe('Gemini Service Tests', () => {
     test('should handle null/undefined inputs', async () => {
       const response1 = await getGeminiResponse(null);
       const response2 = await getGeminiResponse(undefined);
-      
+
       expect(response1).toHaveProperty('text');
       expect(response2).toHaveProperty('text');
     });
@@ -301,8 +314,19 @@ describe('Gemini Service Tests', () => {
   // Test data validation helpers
   describe('Data Validation Helpers', () => {
     const validateItineraryItem = (item) => {
-      const requiredFields = ['id', 'date', 'time', 'location', 'address', 'activity', 'duration', 'type', 'rating', 'coordinates'];
-      
+      const requiredFields = [
+        'id',
+        'date',
+        'time',
+        'location',
+        'address',
+        'activity',
+        'duration',
+        'type',
+        'rating',
+        'coordinates',
+      ];
+
       for (const field of requiredFields) {
         if (!(field in item)) {
           throw new Error(`Missing required field: ${field}`);
@@ -343,7 +367,7 @@ describe('Gemini Service Tests', () => {
         duration: '2 hours',
         type: 'activity',
         rating: 4.8,
-        coordinates: [40.7829, -73.9654]
+        coordinates: [40.7829, -73.9654],
       };
 
       expect(() => validateItineraryItem(validItem)).not.toThrow();
@@ -355,7 +379,7 @@ describe('Gemini Service Tests', () => {
         { id: 'not-a-number', date: '2024-01-15' }, // Wrong type
         { id: 1, date: 'invalid-date' }, // Wrong format
         { id: 1, date: '2024-01-15', coordinates: [40.7829] }, // Wrong coordinates
-        { id: 1, date: '2024-01-15', rating: 6 } // Invalid rating
+        { id: 1, date: '2024-01-15', rating: 6 }, // Invalid rating
       ];
 
       invalidItems.forEach((item, index) => {
@@ -368,8 +392,19 @@ describe('Gemini Service Tests', () => {
 // Export test utilities for use in other test files
 export const testUtils = {
   validateItineraryItem: (item) => {
-    const requiredFields = ['id', 'date', 'time', 'location', 'address', 'activity', 'duration', 'type', 'rating', 'coordinates'];
-    
+    const requiredFields = [
+      'id',
+      'date',
+      'time',
+      'location',
+      'address',
+      'activity',
+      'duration',
+      'type',
+      'rating',
+      'coordinates',
+    ];
+
     for (const field of requiredFields) {
       if (!(field in item)) {
         throw new Error(`Missing required field: ${field}`);
@@ -409,6 +444,6 @@ export const testUtils = {
     type: 'activity',
     rating: 4.8,
     coordinates: [40.7829, -73.9654],
-    ...overrides
-  })
+    ...overrides,
+  }),
 };

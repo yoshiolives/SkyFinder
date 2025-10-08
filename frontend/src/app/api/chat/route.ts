@@ -1,5 +1,5 @@
-import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { type NextRequest, NextResponse } from 'next/server';
 import { getGeminiResponse } from '@/services/geminiService';
 
 // POST chat message to Gemini AI
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response, { status: 200 });
   } catch (error: any) {
     console.error('Error in chat API:', error);
-    
+
     // Return specific error message for Gemini API errors
     if (error.name === 'GeminiAPIError') {
       return NextResponse.json(
@@ -61,11 +61,7 @@ export async function POST(request: NextRequest) {
         { status: 503 } // Service Unavailable
       );
     }
-    
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-

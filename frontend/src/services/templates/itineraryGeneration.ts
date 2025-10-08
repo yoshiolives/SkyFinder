@@ -10,13 +10,13 @@ interface TripDetails {
 
 export const generateItineraryPrompt = (tripDetails: TripDetails): string => {
   const { destination, startDate, endDate, title, description } = tripDetails;
-  
+
   // Calculate number of days
   const start = new Date(startDate);
   const end = new Date(endDate);
   const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
   const nights = days - 1; // Number of nights staying
-  
+
   return `Generate a complete ${days}-day travel itinerary for ${destination} (${startDate} to ${endDate}).
 
 ${description ? `IMPORTANT - User Preferences (MUST address ALL of these): ${description}` : ''}
@@ -46,4 +46,3 @@ ${description ? `CRITICAL: Every activity must directly address the user's reque
 Return ONLY valid JSON:
 {"items":[{"date":"${startDate}","time":"08:00","location":"Breakfast Spot","address":"123 St","activity":"Desc","duration":"1 hour","type":"restaurant","rating":4.5,"coordinates":[40.7,-73.9]}]}`;
 };
-

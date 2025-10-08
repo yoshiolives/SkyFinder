@@ -10,13 +10,13 @@ const testCases = [
     name: 'Add Activity Test',
     message: 'add central park to my itinerary',
     itinerary: [],
-    expectedFields: ['text', 'itineraryUpdate']
+    expectedFields: ['text', 'itineraryUpdate'],
   },
   {
     name: 'Location Information Test',
     message: 'tell me about the metropolitan museum',
     itinerary: [],
-    expectedFields: ['text']
+    expectedFields: ['text'],
   },
   {
     name: 'Itinerary Planning Test',
@@ -32,16 +32,16 @@ const testCases = [
         duration: '2 hours',
         type: 'activity',
         rating: 4.8,
-        coordinates: [40.7829, -73.9654]
-      }
+        coordinates: [40.7829, -73.9654],
+      },
     ],
-    expectedFields: ['text']
+    expectedFields: ['text'],
   },
   {
     name: 'Food Recommendation Test',
     message: 'recommend a good restaurant near times square',
     itinerary: [],
-    expectedFields: ['text']
+    expectedFields: ['text'],
   },
   {
     name: 'Remove Activity Test',
@@ -57,83 +57,82 @@ const testCases = [
         duration: '2 hours',
         type: 'activity',
         rating: 4.8,
-        coordinates: [40.7829, -73.9654]
-      }
+        coordinates: [40.7829, -73.9654],
+      },
     ],
-    expectedFields: ['text', 'itineraryUpdate']
-  }
+    expectedFields: ['text', 'itineraryUpdate'],
+  },
 ];
 
 // Function to run all tests
 export const runGeminiTests = async () => {
   console.log('🧪 Running Gemini API Tests...\n');
-  
+
   const results = [];
-  
+
   for (const testCase of testCases) {
     console.log(`Testing: ${testCase.name}`);
-    
+
     try {
       const response = await getRealGeminiResponse(testCase.message, testCase.itinerary);
-      
+
       // Validate response structure
       const validationErrors = validateGeminiResponse(response);
-      
+
       if (validationErrors.length > 0) {
         console.log(`❌ ${testCase.name} - Validation Errors:`);
-        validationErrors.forEach(error => console.log(`   - ${error}`));
+        validationErrors.forEach((error) => console.log(`   - ${error}`));
         results.push({ name: testCase.name, status: 'FAILED', errors: validationErrors });
       } else {
         console.log(`✅ ${testCase.name} - Passed`);
         results.push({ name: testCase.name, status: 'PASSED', errors: [] });
       }
-      
+
       // Check expected fields
-      testCase.expectedFields.forEach(field => {
-        if (!response.hasOwnProperty(field)) {
+      testCase.expectedFields.forEach((field) => {
+        if (!Object.hasOwn(response, field)) {
           console.log(`❌ ${testCase.name} - Missing expected field: ${field}`);
         }
       });
-      
+
       // Log response for debugging
       console.log(`   Response: ${JSON.stringify(response, null, 2)}\n`);
-      
     } catch (error) {
       console.log(`❌ ${testCase.name} - Error: ${error.message}`);
       results.push({ name: testCase.name, status: 'ERROR', errors: [error.message] });
     }
   }
-  
+
   // Summary
-  const passed = results.filter(r => r.status === 'PASSED').length;
-  const failed = results.filter(r => r.status === 'FAILED').length;
-  const errors = results.filter(r => r.status === 'ERROR').length;
-  
+  const passed = results.filter((r) => r.status === 'PASSED').length;
+  const failed = results.filter((r) => r.status === 'FAILED').length;
+  const errors = results.filter((r) => r.status === 'ERROR').length;
+
   console.log('\n📊 Test Summary:');
   console.log(`✅ Passed: ${passed}`);
   console.log(`❌ Failed: ${failed}`);
   console.log(`🚨 Errors: ${errors}`);
-  
+
   return results;
 };
 
 // Function to test specific itinerary item validation
 export const testItineraryItem = async (message, itinerary = []) => {
   console.log(`\n🔍 Testing: "${message}"`);
-  
+
   try {
     const response = await getRealGeminiResponse(message, itinerary);
     const validationErrors = validateGeminiResponse(response);
-    
+
     if (validationErrors.length > 0) {
       console.log('❌ Validation Errors:');
-      validationErrors.forEach(error => console.log(`   - ${error}`));
+      validationErrors.forEach((error) => console.log(`   - ${error}`));
     } else {
       console.log('✅ Response is valid');
     }
-    
+
     console.log('Response:', JSON.stringify(response, null, 2));
-    
+
     return { response, errors: validationErrors };
   } catch (error) {
     console.log(`❌ Error: ${error.message}`);
@@ -144,12 +143,23 @@ export const testItineraryItem = async (message, itinerary = []) => {
 // Function to validate a single itinerary item
 export const validateItineraryItem = (item) => {
   const errors = [];
-  const requiredFields = ['id', 'date', 'time', 'location', 'address', 'activity', 'duration', 'type', 'rating', 'coordinates'];
+  const requiredFields = [
+    'id',
+    'date',
+    'time',
+    'location',
+    'address',
+    'activity',
+    'duration',
+    'type',
+    'rating',
+    'coordinates',
+  ];
 
   console.log(`\n🔍 Validating itinerary item: ${item.location || 'Unknown'}`);
 
   // Check required fields
-  requiredFields.forEach(field => {
+  requiredFields.forEach((field) => {
     if (!(field in item)) {
       errors.push(`Missing required field: ${field}`);
     } else if (item[field] === null || item[field] === undefined) {
@@ -195,7 +205,7 @@ export const validateItineraryItem = (item) => {
 
   if (errors.length > 0) {
     console.log('❌ Validation Errors:');
-    errors.forEach(error => console.log(`   - ${error}`));
+    errors.forEach((error) => console.log(`   - ${error}`));
   } else {
     console.log('✅ Item is valid');
   }
@@ -207,5 +217,5 @@ export const validateItineraryItem = (item) => {
 module.exports = {
   runGeminiTests,
   testItineraryItem,
-  validateItineraryItem
+  validateItineraryItem,
 };

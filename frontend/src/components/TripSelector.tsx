@@ -24,7 +24,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { getRandomMessage } from '@/lib/loadingMessages';
 
@@ -68,7 +68,7 @@ export default function TripSelector({
     try {
       // Use different endpoint based on autoGenerate flag
       const endpoint = autoGenerateItinerary ? '/api/trips/generate' : '/api/trips';
-      
+
       const response = await api.post(endpoint, {
         title,
         description,
@@ -132,20 +132,20 @@ export default function TripSelector({
 
   const handleDeleteConfirm = async () => {
     if (!tripToDelete) return;
-    
+
     setDeleting(true);
     setError('');
 
     try {
       await api.delete(`/api/trips/${tripToDelete.id}`);
-      
+
       // Close delete dialog
       setDeleteDialogOpen(false);
       setTripToDelete(null);
-      
+
       // Notify parent to refresh trips
       onTripCreated(); // This refreshes the trip list
-      
+
       console.log('✅ Trip deleted successfully');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to delete trip. Please try again.');
@@ -234,12 +234,12 @@ export default function TripSelector({
           id: Date.now(),
           text: getRandomMessage(),
         };
-        
-        setMessageQueue(prev => [...prev, newMessage]);
-        
+
+        setMessageQueue((prev) => [...prev, newMessage]);
+
         // Remove message after 8 seconds (show 3-4 messages at a time)
         setTimeout(() => {
-          setMessageQueue(prev => prev.filter(msg => msg.id !== newMessage.id));
+          setMessageQueue((prev) => prev.filter((msg) => msg.id !== newMessage.id));
         }, 8000);
       }, 2000);
 
@@ -371,12 +371,12 @@ export default function TripSelector({
                         aria-label="delete"
                         onClick={(e) => handleDeleteClick(trip, e)}
                         sx={{
-                          color: currentTrip?.id === trip.id ? 'rgba(255,255,255,0.8)' : 'error.main',
+                          color:
+                            currentTrip?.id === trip.id ? 'rgba(255,255,255,0.8)' : 'error.main',
                           '&:hover': {
                             color: 'error.dark',
-                            backgroundColor: currentTrip?.id === trip.id 
-                              ? 'rgba(255,255,255,0.1)' 
-                              : 'error.light',
+                            backgroundColor:
+                              currentTrip?.id === trip.id ? 'rgba(255,255,255,0.1)' : 'error.light',
                           },
                         }}
                       >
@@ -475,7 +475,7 @@ export default function TripSelector({
                 variant="outlined"
               />
             </Box>
-            
+
             <FormControlLabel
               control={
                 <Checkbox
@@ -496,7 +496,7 @@ export default function TripSelector({
               }
               sx={{ mt: 2, mb: 1, alignItems: 'flex-start' }}
             />
-            
+
             <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
               <Button
                 onClick={() => setShowCreateForm(false)}
@@ -507,8 +507,10 @@ export default function TripSelector({
                 Cancel
               </Button>
               <Button type="submit" fullWidth variant="contained" size="large" disabled={loading}>
-                {loading 
-                  ? (autoGenerateItinerary ? 'Creating & Generating...' : 'Creating...') 
+                {loading
+                  ? autoGenerateItinerary
+                    ? 'Creating & Generating...'
+                    : 'Creating...'
                   : 'Create Trip'}
               </Button>
             </Box>
@@ -551,7 +553,7 @@ export default function TripSelector({
             <Typography variant="body2" sx={{ opacity: 0.9, mb: 2 }}>
               AI is generating a personalized itinerary for {destination}...
             </Typography>
-            
+
             {/* Stacked messages that fade out - newest at bottom */}
             <Box
               sx={{

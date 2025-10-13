@@ -1,6 +1,6 @@
 # Documentation
 
-Welcome to the Travel Itinerary Planner documentation! This directory contains comprehensive guides for setting up and using the application.
+Welcome to the SkyFinder documentation! This directory contains comprehensive guides for setting up and using the application.
 
 ## 📚 Available Documentation
 

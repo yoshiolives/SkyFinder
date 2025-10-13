@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Places.ai - AI Travel Planner',
+  title: 'SkyFinder - AI Travel Planner',
   description: 'Plan your perfect trip in seconds with AI-powered itinerary generation',
   icons: {
     icon: '/logo.ico',

@@ -61,13 +61,13 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexGrow: 1 }}>
             <Image
               src="/logo.png"
-              alt="Places.ai Logo"
+              alt="SkyFinder Logo"
               width={40}
               height={40}
               style={{ borderRadius: '8px' }}
             />
             <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
-              Places.ai
+              SkyFinder
             </Typography>
           </Box>
           <Button
@@ -107,7 +107,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             >
               <Image
                 src="/banner.png"
-                alt="Places.ai Hero Banner"
+                alt="SkyFinder Hero Banner"
                 width={800}
                 height={400}
                 style={{
@@ -141,7 +141,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               >
                 <Image
                   src="/banner.png"
-                  alt="Places.ai Hero Banner"
+                  alt="SkyFinder Hero Banner"
                   width={500}
                   height={300}
                   style={{
@@ -667,7 +667,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
         >
           <Container maxWidth="lg">
             <Typography variant="body2" align="center" sx={{ opacity: 0.7 }}>
-              © 2025 Places.ai. Travel smarter, not harder.
+              © 2025 SkyFinder. Travel smarter, not harder.
             </Typography>
           </Container>
         </Box>

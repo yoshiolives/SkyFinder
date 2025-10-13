@@ -1315,13 +1315,13 @@ export default function Home() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexGrow: 1 }}>
               <Image
                 src="/logo.png"
-                alt="Places.ai Logo"
+                alt="SkyFinder Logo"
                 width={40}
                 height={40}
                 style={{ borderRadius: '8px' }}
               />
               <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
-                Places.ai
+                SkyFinder
               </Typography>
             </Box>
 

@@ -22,7 +22,6 @@ import {
   Menu as MenuIcon,
   Museum as MuseumIcon,
   Place as PlaceIcon,
-  Search as SearchIcon,
   Schedule as ScheduleIcon,
   ShoppingBag as ShoppingIcon,
   Star as StarIcon,
@@ -239,23 +238,12 @@ export default function Home() {
   // Load Google Maps script (prevents duplicate loading on hot reload)
   const { isLoaded: isGoogleMapsLoaded, loadError } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
-    libraries: ['places', 'geometry'] as any,
+    libraries: ['places'] as any,
   });
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [itinerary, setItinerary] = useState<any[]>([]);
-  
-  // Saved Lists state
-  const [savedLists, setSavedLists] = useState<any[]>([]);
-  const [selectedList, setSelectedList] = useState<any | null>(null);
-  const [listItems, setListItems] = useState<any[]>([]);
-  const [createListDialogOpen, setCreateListDialogOpen] = useState(false);
-  const [newListName, setNewListName] = useState('');
-  const [newListIcon, setNewListIcon] = useState('📌');
-  const [newListColor, setNewListColor] = useState('#4285F4');
-  const [sidebarView, setSidebarView] = useState<'itinerary' | 'lists'>('lists'); // Default to lists
-  
   const [user, setUser] = useState<any>(null);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -299,12 +287,6 @@ export default function Home() {
   const circlesRef = useRef<Map<number, google.maps.Circle>>(new Map());
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const selectedStationsRef = useRef<Set<number>>(new Set());
-
-  // Search functionality
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [selectedSearchResult, setSelectedSearchResult] = useState<any | null>(null);
 
   // Detect if device is mobile/touch device
   const [isMobile, setIsMobile] = useState(false);
@@ -488,274 +470,6 @@ export default function Home() {
   const handleBookNowSnackbarClose = () => {
     setBookNowSnackbarOpen(false);
   };
-
-  // Handle search functionality using Google Places API directly
-  const handleSearch = async (query: string) => {
-    console.log('🔍 Search triggered:', { query, selectedStations: selectedStations.size });
-    
-    if (!query.trim() || selectedStations.size === 0) {
-      console.log('⚠️ Search cancelled - no query or stations selected');
-      setSearchResults([]);
-      return;
-    }
-
-    if (!window.google || !window.google.maps || !window.google.maps.places) {
-      console.error('❌ Google Maps Places API not loaded');
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      // Get all selected station coordinates
-      const stationCoords = Array.from(selectedStations).map((index) => {
-        const station = transitStations[index];
-        return {
-          lat: station.geometry.coordinates[0],
-          lng: station.geometry.coordinates[1],
-        };
-      });
-
-      console.log('📍 Searching near stations:', stationCoords);
-
-      // Search for places near each selected station using Google Places API
-      const allResults: any[] = [];
-      
-      for (const coord of stationCoords) {
-        try {
-          console.log('🔎 Searching at:', coord);
-          
-          // Create a request for nearby search
-          const request: google.maps.places.PlaceSearchRequest = {
-            location: new google.maps.LatLng(coord.lat, coord.lng),
-            radius: 800, // 800 meters to match circle radius
-            keyword: query,
-            type: 'restaurant', // Focus on restaurants and food places
-          };
-
-          // Use PlacesService to search
-          const service = new google.maps.places.PlacesService(
-            mapInstanceRef.current as google.maps.Map
-          );
-
-          // Wrap the callback in a Promise
-          const results = await new Promise<any[]>((resolve, reject) => {
-            service.nearbySearch(request, (results, status) => {
-              if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-                console.log(`✅ Found ${results.length} results near this station`);
-                resolve(results);
-              } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-                console.log('⚠️ No results found for this station');
-                resolve([]);
-              } else {
-                console.error('❌ Places API error:', status);
-                reject(new Error(`Places API error: ${status}`));
-              }
-            });
-          });
-
-          // Transform the results to our format and filter by distance
-          const transformedResults = results
-            .map((place) => {
-              const placeLat = place.geometry?.location?.lat() || 0;
-              const placeLng = place.geometry?.location?.lng() || 0;
-              
-              // Calculate distance from station center to place
-              const distance = google.maps.geometry.spherical.computeDistanceBetween(
-                new google.maps.LatLng(coord.lat, coord.lng),
-                new google.maps.LatLng(placeLat, placeLng)
-              );
-              
-              return {
-                place_id: place.place_id,
-                name: place.name,
-                address: place.vicinity || place.formatted_address || '',
-                latitude: placeLat,
-                longitude: placeLng,
-                rating: place.rating || null,
-                user_ratings_total: place.user_ratings_total || 0,
-                price_level: place.price_level || null,
-                types: place.types || [],
-                photos: place.photos?.map((photo) => photo.getUrl()) || [],
-                website: null, // Would need to fetch place details for this
-                phone: null, // Would need to fetch place details for this
-                distance: distance, // Store distance for filtering
-              };
-            })
-            .filter((place) => place.distance <= 800); // Only include places within 800 meters
-
-          console.log(`📍 Filtered to ${transformedResults.length} results within 800m radius`);
-          allResults.push(...transformedResults);
-        } catch (error) {
-          console.error('❌ Error searching near station:', error);
-        }
-      }
-
-      // Remove duplicates based on place_id
-      const uniqueResults = Array.from(
-        new Map(allResults.map((item) => [item.place_id, item])).values()
-      );
-
-      console.log('🎯 Total unique results:', uniqueResults.length);
-      setSearchResults(uniqueResults);
-    } catch (error) {
-      console.error('❌ Search error:', error);
-      setSearchResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  // Handle search input change
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    if (value.trim() && selectedStations.size > 0) {
-      handleSearch(value);
-    } else {
-      setSearchResults([]);
-    }
-  };
-
-  // Clear search
-  const handleClearSearch = () => {
-    setSearchQuery('');
-    setSearchResults([]);
-    setSelectedSearchResult(null);
-  };
-
-  // Hide search results dropdown
-  const handleHideSearchResults = () => {
-    setSearchResults([]);
-  };
-
-  // Fetch saved lists
-  const fetchSavedLists = async () => {
-    try {
-      const response = await api.get('/api/lists');
-      setSavedLists(response.data.lists || []);
-    } catch (error) {
-      console.error('Error fetching saved lists:', error);
-    }
-  };
-
-  // Create a new list
-  const handleCreateList = async () => {
-    if (!newListName.trim()) return;
-    
-    try {
-      const response = await api.post('/api/lists', {
-        name: newListName,
-        icon: newListIcon,
-        color: newListColor,
-      });
-      
-      setSavedLists([...savedLists, response.data.list]);
-      setCreateListDialogOpen(false);
-      setNewListName('');
-      setNewListIcon('📌');
-      setNewListColor('#4285F4');
-    } catch (error) {
-      console.error('Error creating list:', error);
-      alert('Failed to create list. Please try again.');
-    }
-  };
-
-  // Fetch items in a list
-  const fetchListItems = async (listId: string) => {
-    try {
-      const response = await api.get(`/api/lists/${listId}/items`);
-      setListItems(response.data.items || []);
-    } catch (error) {
-      console.error('Error fetching list items:', error);
-    }
-  };
-
-  // Add place to list
-  const handleAddToList = async (listId: string, place: any) => {
-    try {
-      await api.post(`/api/lists/${listId}/items`, place);
-      // Refresh list items if this list is currently selected
-      if (selectedList && selectedList.id === listId) {
-        fetchListItems(listId);
-      }
-    } catch (error: any) {
-      if (error.response?.status === 409) {
-        alert('This place is already in the list!');
-      } else {
-        console.error('Error adding to list:', error);
-        alert('Failed to add to list. Please try again.');
-      }
-    }
-  };
-
-  // Remove from list
-  const handleRemoveFromList = async (listId: string, itemId: string) => {
-    try {
-      await api.delete(`/api/lists/${listId}/items/${itemId}`);
-      // Refresh list items
-      fetchListItems(listId);
-    } catch (error) {
-      console.error('Error removing from list:', error);
-      alert('Failed to remove from list. Please try again.');
-    }
-  };
-
-  // Delete a list
-  const handleDeleteList = async (listId: string) => {
-    if (!confirm('Are you sure you want to delete this list?')) return;
-    
-    try {
-      await api.delete(`/api/lists/${listId}`);
-      setSavedLists(savedLists.filter((list) => list.id !== listId));
-      if (selectedList?.id === listId) {
-        setSelectedList(null);
-        setListItems([]);
-      }
-    } catch (error) {
-      console.error('Error deleting list:', error);
-      alert('Failed to delete list. Please try again.');
-    }
-  };
-
-  // Handle keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Press Escape to hide search results
-      if (event.key === 'Escape' && searchResults.length > 0) {
-        handleHideSearchResults();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [searchResults]);
-
-  // Handle click outside to close search results
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      // Check if click is outside the search area
-      const searchContainer = document.querySelector('[data-search-container]');
-      if (searchContainer && !searchContainer.contains(target)) {
-        handleHideSearchResults();
-      }
-    };
-
-    if (searchResults.length > 0) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  }, [searchResults]);
-
-  // Fetch saved lists when user is logged in
-  useEffect(() => {
-    if (user) {
-      fetchSavedLists();
-    } else {
-      setSavedLists([]);
-      setSelectedList(null);
-      setListItems([]);
-    }
-  }, [user]);
 
   // Handle date editing
   const handleDateEdit = () => {
@@ -2113,209 +1827,52 @@ export default function Home() {
                 >
                   <CircularProgress />
                 </Box>
-              ) : !user ? (
+              ) : itinerary.length === 0 ? (
                 <Box sx={{ p: 4, textAlign: 'center' }}>
                   <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
-                    🗺️ Welcome!
+                    {user ? '📝 No Itinerary Yet' : '🗺️ Welcome!'}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Sign in to create and manage your saved places.
+                    {user
+                      ? 'Start planning your trip by adding activities and destinations.'
+                      : 'Sign in to create and manage your travel itineraries.'}
                   </Typography>
                 </Box>
-              ) : selectedList ? (
-                /* List Items View */
-                <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                    <IconButton size="small" onClick={() => setSelectedList(null)}>
-                      <ChevronLeftIcon />
-                    </IconButton>
-                    <Typography variant="h6" sx={{ flex: 1 }}>
-                      {selectedList.icon} {selectedList.name}
-                    </Typography>
-                    {!selectedList.is_default && (
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDeleteList(selectedList.id)}
-                        sx={{ color: 'error.main' }}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    )}
-                  </Box>
-
-                  {listItems.length === 0 ? (
-                    <Box sx={{ p: 4, textAlign: 'center' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        No places saved yet
-                      </Typography>
-                    </Box>
-                  ) : (
-                    <List>
-                      {listItems.map((item) => (
-                        <ListItem
-                          key={item.id}
-                          sx={{
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            borderRadius: 2,
-                            mb: 1,
-                            '&:hover': {
-                              backgroundColor: 'action.hover',
-                            },
-                          }}
-                        >
-                          <ListItemIcon>
-                            <PlaceIcon sx={{ color: selectedList.color }} />
-                          </ListItemIcon>
-                          <ListItemText
-                            primary={item.name}
-                            secondary={item.address}
-                          />
-                          <IconButton
-                            size="small"
-                            onClick={() => handleRemoveFromList(selectedList.id, item.id)}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </ListItem>
-                      ))}
-                    </List>
-                  )}
-                </Box>
               ) : (
-                /* Saved Lists View */
-                <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                    <Typography variant="h6">Saved Lists</Typography>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      startIcon={<AddIcon />}
-                      onClick={() => setCreateListDialogOpen(true)}
-                    >
-                      New List
-                    </Button>
-                  </Box>
-
-                  {savedLists.length === 0 ? (
-                    <Box sx={{ p: 4, textAlign: 'center' }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        No lists yet
-                      </Typography>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        onClick={() => setCreateListDialogOpen(true)}
-                      >
-                        Create Your First List
-                      </Button>
-                    </Box>
-                  ) : (
-                    <List>
-                      {savedLists.map((list) => (
-                        <ListItem
-                          key={list.id}
-                          button
-                          onClick={() => {
-                            setSelectedList(list);
-                            fetchListItems(list.id);
-                          }}
-                          sx={{
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            borderRadius: 2,
-                            mb: 1,
-                            '&:hover': {
-                              backgroundColor: 'action.hover',
-                            },
-                          }}
-                        >
-                          <ListItemIcon>
-                            <Typography sx={{ fontSize: '1.5rem' }}>{list.icon}</Typography>
-                          </ListItemIcon>
-                          <ListItemText
-                            primary={list.name}
-                            secondary={`${list.items_count || 0} places`}
-                          />
-                          {!list.is_default && (
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteList(list.id);
-                              }}
-                              sx={{ color: 'error.main' }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          )}
-                        </ListItem>
-                      ))}
-                    </List>
-                  )}
-                </Box>
-              )}
-            </Box>
-          </Drawer>
-
-          {/* Google Map Background */}
-          <Box sx={{ flexGrow: 1, position: 'relative' }}>
-            {loadError && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  height: '100%',
-                }}
-              >
-                <Typography color="error">Error loading Google Maps</Typography>
-              </Box>
-            )}
-
-            {!isGoogleMapsLoaded && !loadError && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  height: '100%',
-                }}
-              >
-                <CircularProgress />
-              </Box>
-            )}
-
-            {isGoogleMapsLoaded && !loadError && !mapCenter && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  height: '100%',
-                  backgroundColor: '#f5f5f5',
-                }}
-              >
-                <Typography variant="h6" color="text.secondary">
-                  Select or create a trip to view on the map
-                </Typography>
-              </Box>
-            )}
-            {isGoogleMapsLoaded && !loadError && mapCenter && (
-              <GoogleMap
-                mapContainerStyle={{
-                  width: '100%',
-                  height: '100vh',
-                }}
-                center={mapCenter}
-                zoom={13}
-                options={{
-                  styles: [
-                    {
-                      featureType: 'water',
-                      elementType: 'geometry',
-                      stylers: [{ color: '#a2daf2' }],
-                    },
+                Object.entries(getActivitiesByDay())
+                  .sort(([a], [b]) => {
+                    const dateA = new Date(a);
+                    const dateB = new Date(b);
+                    return dateA.getTime() - dateB.getTime();
+                  })
+                  .map(([day, activities], index, array) => {
+                    const isLastDay = index === array.length - 1;
+                    return (
+                      <Accordion
+                        key={day}
+                        expanded={
+                          expandedDays.has(day) || (activities.length > 0 && expandedDays.has(day))
+                        }
+                        onChange={(event, isExpanded) => {
+                          // Only allow expansion/collapse if there are activities
+                          if (activities.length > 0) {
+                            if (isExpanded) {
+                              setExpandedDays((prev) => new Set([...Array.from(prev), day]));
+                            } else {
+                              setExpandedDays((prev) => {
+                                const newSet = new Set(Array.from(prev));
+                                newSet.delete(day);
+                                return newSet;
+                              });
+                            }
+                          }
+                        }}
+                        sx={{
+                          boxShadow:
+                            activities.length > 0 && expandedDays.has(day)
+                              ? '0 2px 8px rgba(0, 0, 0, 0.1)'
+                              : 'none',
+                          borderRadius: 2,
                           mb: isLastDay
                             ? 12
                             : activities.length > 0 && expandedDays.has(day)
@@ -3269,97 +2826,6 @@ export default function Home() {
                   );
                 })}
 
-                {/* Search Result Markers */}
-                {searchResults.map((result, index) => (
-                  <Marker
-                    key={`search-result-${result.place_id || index}`}
-                    position={{ lat: result.latitude, lng: result.longitude }}
-                    icon={{
-                      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#FF6B6B">
-                          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                        </svg>
-                      `),
-                      scaledSize: new google.maps.Size(32, 32),
-                      anchor: new google.maps.Point(16, 32),
-                    }}
-                    title={result.name}
-                    onClick={() => setSelectedSearchResult(result)}
-                    zIndex={998}
-                  />
-                ))}
-
-                {/* Info Window for selected search result */}
-                {selectedSearchResult && (
-                  <InfoWindow
-                    position={{
-                      lat: selectedSearchResult.latitude,
-                      lng: selectedSearchResult.longitude,
-                    }}
-                    onCloseClick={() => setSelectedSearchResult(null)}
-                  >
-                    <Box sx={{ p: 1, minWidth: 250 }}>
-                      <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        {selectedSearchResult.name}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        {selectedSearchResult.address}
-                      </Typography>
-                      {selectedSearchResult.rating && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-                          <StarIcon sx={{ fontSize: 18, color: 'warning.main' }} />
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {selectedSearchResult.rating}
-                          </Typography>
-                          {selectedSearchResult.user_ratings_total > 0 && (
-                            <Typography variant="body2" color="text.secondary">
-                              ({selectedSearchResult.user_ratings_total} reviews)
-                            </Typography>
-                          )}
-                        </Box>
-                      )}
-                      {selectedSearchResult.cuisine_types && selectedSearchResult.cuisine_types.length > 0 && (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
-                          {selectedSearchResult.cuisine_types.map((cuisine: string, idx: number) => (
-                            <Chip
-                              key={idx}
-                              label={cuisine}
-                              size="small"
-                              variant="outlined"
-                            />
-                          ))}
-                        </Box>
-                      )}
-                      <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                        {selectedSearchResult.website && (
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            href={selectedSearchResult.website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            Website
-                          </Button>
-                        )}
-                        <Button
-                          size="small"
-                          variant="contained"
-                          startIcon={<DirectionsIcon />}
-                          onClick={() => {
-                            window.open(
-                              `https://www.google.com/maps/dir/?api=1&destination=${selectedSearchResult.latitude},${selectedSearchResult.longitude}`,
-                              '_blank'
-                            );
-                          }}
-                        >
-                          Directions
-                        </Button>
-                      </Box>
-                    </Box>
-                  </InfoWindow>
-                )}
-
                 {/* Info Window for selected item */}
                 {mapReady && selectedItem && (
                   <InfoWindow
@@ -3412,132 +2878,6 @@ export default function Home() {
                   </InfoWindow>
                 )}
               </GoogleMap>
-            )}
-
-            {/* Search Bar - Positioned at top left of map */}
-            {isGoogleMapsLoaded && !loadError && mapCenter && (
-              <Box
-                data-search-container
-                sx={{
-                  position: 'fixed',
-                  top: { xs: 'calc(56px + 16px)', sm: 'calc(64px + 16px)', md: 'calc(64px + 16px)' },
-                  left: { xs: '16px', sm: '16px', md: 'calc(300px + 16px)' },
-                  zIndex: 1000,
-                  width: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 32px)', md: '400px' },
-                  maxWidth: '400px',
-                }}
-              >
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    backgroundColor: 'white',
-                    borderRadius: 2,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', color: 'text.secondary' }}>
-                    <SearchIcon />
-                  </Box>
-                  <TextField
-                    fullWidth
-                    placeholder={selectedStations.size > 0 ? "Search restaurants, cafes, etc..." : "Select stations to search"}
-                    value={searchQuery}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    disabled={selectedStations.size === 0}
-                    variant="standard"
-                    InputProps={{
-                      disableUnderline: true,
-                      endAdornment: searchQuery && (
-                        <IconButton size="small" onClick={handleClearSearch}>
-                          <CloseIcon fontSize="small" />
-                        </IconButton>
-                      ),
-                    }}
-                    sx={{
-                      '& .MuiInputBase-root': {
-                        fontSize: '0.95rem',
-                      },
-                    }}
-                  />
-                  {isSearching && (
-                    <Box sx={{ p: 1.5 }}>
-                      <CircularProgress size={20} />
-                    </Box>
-                  )}
-                </Box>
-
-                {/* Search Results Dropdown */}
-                {searchResults.length > 0 && (
-                  <Box
-                    sx={{
-                      mt: 1,
-                      backgroundColor: 'white',
-                      borderRadius: 2,
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                      maxHeight: '400px',
-                      overflow: 'auto',
-                      position: 'relative',
-                    }}
-                  >
-                    {/* Close button */}
-                    <IconButton
-                      size="small"
-                      onClick={handleHideSearchResults}
-                      sx={{
-                        position: 'absolute',
-                        top: 4,
-                        right: 4,
-                        zIndex: 1,
-                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                        '&:hover': {
-                          backgroundColor: 'rgba(0, 0, 0, 0.05)',
-                        },
-                      }}
-                    >
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-
-                    {searchResults.map((result, index) => (
-                      <Box
-                        key={result.place_id || index}
-                        onClick={() => {
-                          setSelectedSearchResult(result);
-                          handleHideSearchResults(); // Hide dropdown after selection
-                        }}
-                        sx={{
-                          p: 2,
-                          cursor: 'pointer',
-                          borderBottom: index < searchResults.length - 1 ? '1px solid' : 'none',
-                          borderColor: 'divider',
-                          '&:hover': {
-                            backgroundColor: 'action.hover',
-                          },
-                        }}
-                      >
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                          {result.name}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                          {result.address}
-                        </Typography>
-                        {result.rating && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <StarIcon sx={{ fontSize: 16, color: 'warning.main' }} />
-                            <Typography variant="caption">{result.rating}</Typography>
-                            {result.user_ratings_total > 0 && (
-                              <Typography variant="caption" color="text.secondary">
-                                ({result.user_ratings_total})
-                              </Typography>
-                            )}
-                          </Box>
-                        )}
-                      </Box>
-                    ))}
-                  </Box>
-                )}
-              </Box>
             )}
           </Box>
 
@@ -3872,62 +3212,6 @@ export default function Home() {
             </Button>
             <Button onClick={updateActivity} variant="contained">
               Update Activity
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Create List Dialog */}
-        <Dialog
-          open={createListDialogOpen}
-          onClose={() => {
-            setCreateListDialogOpen(false);
-            setNewListName('');
-            setNewListIcon('📌');
-            setNewListColor('#4285F4');
-          }}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle>Create New List</DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-              <TextField
-                label="List Name"
-                value={newListName}
-                onChange={(e) => setNewListName(e.target.value)}
-                fullWidth
-                required
-                placeholder="e.g., Coffee Shops, Restaurants to Try"
-              />
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                <TextField
-                  label="Icon"
-                  value={newListIcon}
-                  onChange={(e) => setNewListIcon(e.target.value)}
-                  sx={{ width: 100 }}
-                  placeholder="📌"
-                />
-                <TextField
-                  label="Color"
-                  type="color"
-                  value={newListColor}
-                  onChange={(e) => setNewListColor(e.target.value)}
-                  sx={{ width: 100 }}
-                />
-              </Box>
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => {
-              setCreateListDialogOpen(false);
-              setNewListName('');
-              setNewListIcon('📌');
-              setNewListColor('#4285F4');
-            }}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateList} variant="contained" disabled={!newListName.trim()}>
-              Create List
             </Button>
           </DialogActions>
         </Dialog>

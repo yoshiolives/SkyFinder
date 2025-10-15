@@ -9,7 +9,17 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createServerSupabaseClient();
+    // Get token from Authorization header
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    const supabase = createServerSupabaseClient(token);
     
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -67,7 +77,17 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createServerSupabaseClient();
+    // Get token from Authorization header
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    const supabase = createServerSupabaseClient(token);
     
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();

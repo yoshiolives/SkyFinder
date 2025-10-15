@@ -22,6 +22,7 @@ import {
   Menu as MenuIcon,
   Museum as MuseumIcon,
   Place as PlaceIcon,
+  Search as SearchIcon,
   Schedule as ScheduleIcon,
   ShoppingBag as ShoppingIcon,
   Star as StarIcon,
@@ -238,14 +239,25 @@ export default function Home() {
   // Load Google Maps script (prevents duplicate loading on hot reload)
   const { isLoaded: isGoogleMapsLoaded, loadError } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
-    libraries: ['places'] as any,
+    libraries: ['places', 'geometry'] as any,
   });
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedItem, setSelectedItem] = useState<any>(null);
-  const [itinerary, setItinerary] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
+  
+  // Saved Places State
+  const [savedPlaces, setSavedPlaces] = useState<any[]>([]);
+  const [savedLists, setSavedLists] = useState<any[]>([]);
+  const [selectedList, setSelectedList] = useState<any | null>(null);
+  const [createListDialogOpen, setCreateListDialogOpen] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  const [newListIcon, setNewListIcon] = useState('📌');
+  const [newListColor, setNewListColor] = useState('#4285F4');
+  const [saveToListDialogOpen, setSaveToListDialogOpen] = useState(false);
+  const [placeToSave, setPlaceToSave] = useState<any>(null);
+  
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [currentTrip, setCurrentTrip] = useState<any>(null);
   const [trips, setTrips] = useState<any[]>([]);
@@ -272,6 +284,7 @@ export default function Home() {
   const hasLoadedDataRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapZoom, setMapZoom] = useState(13);
   const [showMapControls, setShowMapControls] = useState(false);
   const [vacationStartDate, setVacationStartDate] = useState('');
   const [vacationEndDate, setVacationEndDate] = useState('');
@@ -287,6 +300,13 @@ export default function Home() {
   const circlesRef = useRef<Map<number, google.maps.Circle>>(new Map());
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const selectedStationsRef = useRef<Set<number>>(new Set());
+  const polylinesRef = useRef<google.maps.Polyline[]>([]);
+
+  // Search functionality
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedSearchResult, setSelectedSearchResult] = useState<any | null>(null);
 
   // Detect if device is mobile/touch device
   const [isMobile, setIsMobile] = useState(false);
@@ -338,6 +358,14 @@ export default function Home() {
     }
   }, [mapCenter]);
 
+  // Helper function to convert EPSG:3857 to WGS84
+  const epsg3857ToWgs84 = (x: number, y: number) => {
+    const lon = (x / 20037508.34) * 180;
+    let lat = (y / 20037508.34) * 180;
+    lat = (180 / Math.PI) * (2 * Math.atan(Math.exp((lat * Math.PI) / 180)) - Math.PI / 2);
+    return [lon, lat];
+  };
+
   // Load transit data dynamically from all GeoJSON files
   useEffect(() => {
     const loadTransitData = async () => {
@@ -358,6 +386,8 @@ export default function Home() {
             const fileResponse = await fetch(file.url);
             const geoJson = await fileResponse.json();
             
+            // Check if coordinates are in EPSG:3857 (Web Mercator)
+            const isEpsg3857 = geoJson.crs?.properties?.name === 'EPSG:3857';
             
             // Transform and categorize features
             geoJson.features.forEach((feature: any) => {
@@ -374,9 +404,39 @@ export default function Home() {
                   },
                 });
               } else if (feature.geometry.type === 'LineString' || feature.geometry.type === 'MultiLineString') {
-                lines.push(feature);
+                // Transform line coordinates from EPSG:3857 to WGS84
+                if (isEpsg3857 && feature.geometry.coordinates) {
+                  const transformedCoords = feature.geometry.coordinates.map((coord: number[]) => {
+                    const [lon, lat] = epsg3857ToWgs84(coord[0], coord[1]);
+                    return [lon, lat];
+                  });
+                  lines.push({
+                    ...feature,
+                    geometry: {
+                      ...feature.geometry,
+                      coordinates: transformedCoords,
+                    },
+                  });
+                } else {
+                  lines.push(feature);
+                }
               } else if (feature.geometry.type === 'Point') {
-                stations.push(feature);
+                // Transform point coordinates from EPSG:3857 to WGS84
+                if (isEpsg3857 && feature.geometry.coordinates) {
+                  const [lon, lat] = epsg3857ToWgs84(
+                    feature.geometry.coordinates[0],
+                    feature.geometry.coordinates[1]
+                  );
+                  stations.push({
+                    ...feature,
+                    geometry: {
+                      ...feature.geometry,
+                      coordinates: [lon, lat],
+                    },
+                  });
+                } else {
+                  stations.push(feature);
+                }
               }
             });
             
@@ -400,6 +460,58 @@ export default function Home() {
 
     loadTransitData();
   }, [mapReady, transitDataLoaded]);
+
+  // Draw polylines for transit lines
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || transitLines.length === 0) return;
+
+    // Clear existing polylines
+    polylinesRef.current.forEach((polyline) => polyline.setMap(null));
+    polylinesRef.current = [];
+
+    // Draw new polylines
+    transitLines.forEach((line) => {
+      if (!line.geometry || !line.geometry.coordinates) return;
+
+      if (line.geometry.type === 'LineString') {
+        const path = line.geometry.coordinates.map((coord: number[]) => ({
+          lat: coord[1],
+          lng: coord[0],
+        }));
+
+        const polyline = new google.maps.Polyline({
+          path,
+          strokeColor: '#4285F4',
+          strokeOpacity: 0.8,
+          strokeWeight: 3,
+        });
+
+        polyline.setMap(map);
+        polylinesRef.current.push(polyline);
+      } else if (line.geometry.type === 'MultiLineString') {
+        // Draw each line segment in the MultiLineString
+        line.geometry.coordinates.forEach((lineString: number[][]) => {
+          const path = lineString.map((coord: number[]) => ({
+            lat: coord[1],
+            lng: coord[0],
+          }));
+
+          const polyline = new google.maps.Polyline({
+            path,
+            strokeColor: '#4285F4',
+            strokeOpacity: 0.8,
+            strokeWeight: 3,
+          });
+
+          polyline.setMap(map);
+          polylinesRef.current.push(polyline);
+        });
+      }
+    });
+
+    console.log(`🗺️ Drew ${polylinesRef.current.length} transit lines`);
+  }, [transitLines]);
 
   // Handle Book Now button click
   const handleBookNow = () => {
@@ -433,15 +545,10 @@ export default function Home() {
     if (isCurrentlySelected) {
       // Remove circle
       const circle = circlesRef.current.get(stationIndex);
-      console.log('🔍 Removing circle for station', stationIndex, 'Circle exists:', !!circle);
       if (circle) {
-        console.log('🗑️ Calling setMap(null) on circle');
         circle.setMap(null);
         circlesRef.current.delete(stationIndex);
         selectedStationsRef.current.delete(stationIndex);
-        console.log('✅ Circle removed');
-      } else {
-        console.warn('⚠️ No circle found in ref for station', stationIndex);
       }
     } else {
       // Add circle
@@ -459,7 +566,6 @@ export default function Home() {
       circle.setMap(map);
       circlesRef.current.set(stationIndex, circle);
       selectedStationsRef.current.add(stationIndex);
-      console.log('➕ Added circle for station', stationIndex);
     }
     
     // Update the state for rendering (keeps UI in sync)
@@ -469,6 +575,144 @@ export default function Home() {
   // Handle Book Now snackbar close
   const handleBookNowSnackbarClose = () => {
     setBookNowSnackbarOpen(false);
+  };
+
+  // Handle search functionality using Google Places API directly
+  const handleSearch = async (query: string) => {
+    console.log('🔍 Search triggered:', { query, selectedStations: selectedStations.size });
+    
+    if (!query.trim() || selectedStations.size === 0) {
+      console.log('⚠️ Search cancelled - no query or stations selected');
+      setSearchResults([]);
+      return;
+    }
+
+    if (!window.google || !window.google.maps || !window.google.maps.places) {
+      console.error('❌ Google Maps Places API not loaded');
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      // Get all selected station coordinates
+      const stationCoords = Array.from(selectedStations).map((index) => {
+        const station = transitStations[index];
+        return {
+          lat: station.geometry.coordinates[0],
+          lng: station.geometry.coordinates[1],
+        };
+      });
+
+      console.log('📍 Searching near stations:', stationCoords);
+
+      // Search for places near each selected station using Google Places API
+      const allResults: any[] = [];
+      
+      for (const coord of stationCoords) {
+        try {
+          console.log('🔎 Searching at:', coord);
+          
+          // Create a request for nearby search
+          const request: google.maps.places.PlaceSearchRequest = {
+            location: new google.maps.LatLng(coord.lat, coord.lng),
+            radius: 800, // 800 meters to match circle radius
+            keyword: query,
+            type: 'restaurant', // Focus on restaurants and food places
+          };
+
+          // Use PlacesService to search
+          const service = new google.maps.places.PlacesService(
+            mapInstanceRef.current as google.maps.Map
+          );
+
+          // Wrap the callback in a Promise
+          const results = await new Promise<any[]>((resolve, reject) => {
+            service.nearbySearch(request, (results, status) => {
+              if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+                console.log(`✅ Found ${results.length} results near this station`);
+                resolve(results);
+              } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+                console.log('⚠️ No results found for this station');
+                resolve([]);
+              } else {
+                console.error('❌ Places API error:', status);
+                reject(new Error(`Places API error: ${status}`));
+              }
+            });
+          });
+
+          // Transform the results to our format and filter by distance
+          const transformedResults = results
+            .map((place) => {
+              const placeLat = place.geometry?.location?.lat() || 0;
+              const placeLng = place.geometry?.location?.lng() || 0;
+              
+              // Calculate distance from station center to place
+              const distance = google.maps.geometry.spherical.computeDistanceBetween(
+                new google.maps.LatLng(coord.lat, coord.lng),
+                new google.maps.LatLng(placeLat, placeLng)
+              );
+              
+              return {
+                place_id: place.place_id,
+                name: place.name,
+                address: place.vicinity || place.formatted_address || '',
+                latitude: placeLat,
+                longitude: placeLng,
+                rating: place.rating || null,
+                user_ratings_total: place.user_ratings_total || 0,
+                price_level: place.price_level || null,
+                types: place.types || [],
+                photos: place.photos?.map((photo) => photo.getUrl()) || [],
+                website: null, // Would need to fetch place details for this
+                phone: null, // Would need to fetch place details for this
+                distance: distance, // Store distance for filtering
+              };
+            })
+            .filter((place) => place.distance <= 800); // Only include places within 800 meters
+
+          console.log(`📍 Filtered to ${transformedResults.length} results within 800m radius`);
+          allResults.push(...transformedResults);
+        } catch (error) {
+          console.error('❌ Error searching near station:', error);
+        }
+      }
+
+      // Remove duplicates based on place_id
+      const uniqueResults = Array.from(
+        new Map(allResults.map((item) => [item.place_id, item])).values()
+      );
+
+      console.log('🎯 Total unique results:', uniqueResults.length);
+      setSearchResults(uniqueResults);
+    } catch (error) {
+      console.error('❌ Search error:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Handle search input change
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    if (value.trim() && selectedStations.size > 0) {
+      handleSearch(value);
+    } else {
+      setSearchResults([]);
+    }
+  };
+
+  // Clear search
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setSelectedSearchResult(null);
+  };
+
+  // Hide search results dropdown
+  const handleHideSearchResults = () => {
+    setSearchResults([]);
   };
 
   // Handle date editing
@@ -510,6 +754,146 @@ export default function Home() {
     }
   };
 
+  // Saved Places Functions
+  const fetchSavedLists = async () => {
+    try {
+      const response = await api.get('/api/lists');
+      setSavedLists(response.data.lists || []);
+    } catch (error) {
+      console.error('Error fetching saved lists:', error);
+    }
+  };
+
+  const fetchSavedPlaces = async () => {
+    try {
+      console.log('Fetching saved places...');
+      const response = await api.get('/api/lists/items');
+      console.log('Saved places response:', response.data);
+      setSavedPlaces(response.data.items || []);
+      console.log('Set saved places:', response.data.items?.length || 0, 'items');
+    } catch (error) {
+      console.error('Error fetching saved places:', error);
+    }
+  };
+
+  const handleSavePlace = (place: any) => {
+    setPlaceToSave(place);
+    setSaveToListDialogOpen(true);
+  };
+
+  const handleAddToSavedList = async (listId: string) => {
+    if (!placeToSave) return;
+    try {
+      // Transform the place data to match the expected format
+      const placeData = {
+        name: placeToSave.name,
+        address: placeToSave.address || placeToSave.vicinity || '',
+        latitude: placeToSave.latitude || placeToSave.coordinates?.[0],
+        longitude: placeToSave.longitude || placeToSave.coordinates?.[1],
+        rating: placeToSave.rating || null,
+        place_id: placeToSave.place_id || `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        user_ratings_total: placeToSave.user_ratings_total || 0,
+        price_level: placeToSave.price_level || null,
+        types: placeToSave.types || [],
+        photos: placeToSave.photos || [],
+      };
+
+      console.log('Sending place data:', placeData);
+      
+      const response = await api.post(`/api/lists/${listId}/items`, placeData);
+      console.log('Save response:', response.data);
+      
+      setSaveToListDialogOpen(false);
+      setPlaceToSave(null);
+      setSelectedSearchResult(null);
+      
+      // Refresh saved places
+      console.log('Refreshing saved places...');
+      await fetchSavedPlaces();
+      
+      alert('Place saved to list!');
+    } catch (error: any) {
+      console.error('Error adding to list:', error);
+      console.error('Error response:', error.response?.data);
+      if (error.response?.status === 409) {
+        alert('This place is already in the list!');
+      } else if (error.response?.status === 400) {
+        alert(`Validation error: ${error.response.data.error}`);
+      } else {
+        alert(`Failed to add to list: ${error.response?.data?.error || 'Unknown error'}`);
+      }
+    }
+  };
+
+  const handleCreateList = async () => {
+    if (!newListName.trim()) return;
+    try {
+      const response = await api.post('/api/lists', {
+        name: newListName,
+        icon: newListIcon,
+        color: newListColor,
+      });
+      const newList = response.data.list;
+      setSavedLists([...savedLists, newList]);
+      
+      // If there's a place waiting to be saved, add it to the new list
+      if (placeToSave) {
+        try {
+          const placeData = {
+            name: placeToSave.name,
+            address: placeToSave.address || placeToSave.vicinity || '',
+            latitude: placeToSave.latitude || placeToSave.coordinates?.[0],
+            longitude: placeToSave.longitude || placeToSave.coordinates?.[1],
+            rating: placeToSave.rating || null,
+            place_id: placeToSave.place_id || `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            user_ratings_total: placeToSave.user_ratings_total || 0,
+            price_level: placeToSave.price_level || null,
+            types: placeToSave.types || [],
+            photos: placeToSave.photos || [],
+          };
+          await api.post(`/api/lists/${newList.id}/items`, placeData);
+          fetchSavedPlaces();
+        } catch (error) {
+          console.error('Error adding place to new list:', error);
+        }
+      }
+      
+      setCreateListDialogOpen(false);
+      setNewListName('');
+      setNewListIcon('📌');
+      setNewListColor('#4285F4');
+      setPlaceToSave(null);
+      setSelectedSearchResult(null);
+    } catch (error) {
+      console.error('Error creating list:', error);
+      alert('Failed to create list. Please try again.');
+    }
+  };
+
+  const handleDeleteList = async (listId: string) => {
+    if (!confirm('Are you sure you want to delete this list?')) return;
+    try {
+      await api.delete(`/api/lists/${listId}`);
+      setSavedLists(savedLists.filter((list) => list.id !== listId));
+      if (selectedList?.id === listId) {
+        setSelectedList(null);
+      }
+    } catch (error) {
+      console.error('Error deleting list:', error);
+      alert('Failed to delete list. Please try again.');
+    }
+  };
+
+  const handleRemoveFromList = async (listId: string, itemId: string) => {
+    try {
+      await api.delete(`/api/lists/${listId}/items/${itemId}`);
+      fetchSavedPlaces();
+    } catch (error) {
+      console.error('Error removing from list:', error);
+      alert('Failed to remove from list. Please try again.');
+    }
+  };
+
   const loadTripItinerary = useCallback(async (trip: any) => {
     try {
       setLoading(true);
@@ -521,25 +905,8 @@ export default function Home() {
         setVacationEndDate(trip.end_date);
       }
 
-      // Fetch itinerary items for the selected trip
-      console.log(`🔍 Fetching itinerary for trip ${trip.id}...`);
-      const itineraryResponse = await api.get(`/api/itinerary?trip_id=${trip.id}`);
-      const items = itineraryResponse.data.items;
-
-      console.log(`📋 Loaded ${items?.length || 0} itinerary items:`, items);
-
-      setItinerary(items || []);
-
-      // Calculate map center from itinerary items or geocode destination
-      if (items && items.length > 0) {
-        // Calculate average coordinates from all items
-        const avgLat =
-          items.reduce((sum: number, item: any) => sum + item.coordinates[0], 0) / items.length;
-        const avgLng =
-          items.reduce((sum: number, item: any) => sum + item.coordinates[1], 0) / items.length;
-        setMapCenter({ lat: avgLat, lng: avgLng });
-      } else if (trip.destination && typeof window !== 'undefined' && window.google?.maps) {
-        // No items yet, geocode the destination to center the map
+      // Geocode destination to center the map
+      if (trip.destination && typeof window !== 'undefined' && window.google?.maps) {
         try {
           const geocoder = new window.google.maps.Geocoder();
           geocoder.geocode({ address: trip.destination }, (results, status) => {
@@ -547,7 +914,6 @@ export default function Home() {
               const location = results[0].geometry.location;
               setMapCenter({ lat: location.lat(), lng: location.lng() });
             } else {
-              // Fallback to null if geocoding fails
               setMapCenter(null);
             }
           });
@@ -556,14 +922,10 @@ export default function Home() {
           setMapCenter(null);
         }
       } else {
-        // No items and can't geocode, reset map center
         setMapCenter(null);
       }
-      // Initialize expanded days for days that have activities (start collapsed by default)
-      setExpandedDays(new Set());
     } catch (error) {
-      console.error('Failed to fetch itinerary:', error);
-      setItinerary([]);
+      console.error('Failed to load trip:', error);
     } finally {
       setLoading(false);
     }
@@ -576,11 +938,14 @@ export default function Home() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser(session.user);
+        fetchSavedLists();
+        fetchSavedPlaces();
       } else {
         setUser(null);
         setTrips([]);
-        setItinerary([]);
         setCurrentTrip(null);
+        setSavedLists([]);
+        setSavedPlaces([]);
       }
       setLoading(false);
     });
@@ -604,7 +969,6 @@ export default function Home() {
     const fetchTrips = async () => {
       if (!user) {
         setTrips([]);
-        setItinerary([]);
         setCurrentTrip(null);
         setLoading(false);
         hasLoadedDataRef.current = false;
@@ -628,7 +992,6 @@ export default function Home() {
           const firstTrip = fetchedTrips[0];
           await loadTripItinerary(firstTrip);
         } else {
-          setItinerary([]);
           setCurrentTrip(null);
         }
 
@@ -637,7 +1000,6 @@ export default function Home() {
       } catch (error) {
         console.error('Failed to fetch trips:', error);
         setTrips([]);
-        setItinerary([]);
       } finally {
         setLoading(false);
       }
@@ -687,307 +1049,43 @@ export default function Home() {
         event.preventDefault();
         toggleSidebar();
       }
-      // Escape to close sidebar
-      if (event.key === 'Escape' && sidebarOpen) {
-        setSidebarOpen(false);
+      // Escape to close sidebar or hide search results
+      if (event.key === 'Escape') {
+        if (sidebarOpen) {
+          setSidebarOpen(false);
+        }
+        if (searchResults.length > 0) {
+          handleHideSearchResults();
+        }
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [sidebarOpen]);
+  }, [sidebarOpen, searchResults]);
 
-  // Handle drag start
-  const handleDragStart = (result: any) => {
-    // Disable drag on mobile devices
-    if (isMobile) {
-      return;
+  // Handle click outside to close search results
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      // Check if click is outside the search area
+      const searchContainer = document.querySelector('[data-search-container]');
+      if (searchContainer && !searchContainer.contains(target)) {
+        handleHideSearchResults();
+      }
+    };
+
+    if (searchResults.length > 0) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
     }
-    console.log('Drag start result:', result);
-    setIsDragging(true);
-  };
+  }, [searchResults]);
 
   // Track which day is being dragged over for hover-to-expand
   const [draggedOverDay, setDraggedOverDay] = useState<string | null>(null);
   const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null);
   const [dragFeedback, setDragFeedback] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-
-  // Handle hover-to-expand for empty day boxes
-  useEffect(() => {
-    if (isDragging && draggedOverDay) {
-      // Get the activities for this day
-      const dayActivities = itinerary.filter((item) => item.date === draggedOverDay);
-      if (dayActivities.length === 0) {
-        setExpandedDays((prev) => new Set([...Array.from(prev), draggedOverDay]));
-      }
-    } else if (isDragging && !draggedOverDay) {
-      // Close all empty day boxes when not hovering over any
-      const activitiesByDay = getActivitiesByDay();
-      const emptyDays = Object.keys(activitiesByDay).filter(
-        (day) => activitiesByDay[day].length === 0
-      );
-
-      setExpandedDays((prev) => {
-        const newSet = new Set(Array.from(prev));
-        emptyDays.forEach((day) => {
-          newSet.delete(day);
-        });
-        return newSet;
-      });
-    }
-  }, [isDragging, draggedOverDay, itinerary]);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (hoverTimeout) {
-        clearTimeout(hoverTimeout);
-      }
-    };
-  }, [hoverTimeout]);
-
-  // Auto-close empty day boxes when they become empty
-  useEffect(() => {
-    const activitiesByDay = getActivitiesByDay();
-    const emptyDays = Object.keys(activitiesByDay).filter(
-      (day) => activitiesByDay[day].length === 0
-    );
-
-    setExpandedDays((prev) => {
-      const newSet = new Set(Array.from(prev));
-      emptyDays.forEach((day) => {
-        newSet.delete(day);
-      });
-      return newSet;
-    });
-  }, [itinerary]);
-
-  // Handle drag and drop
-  const handleDragEnd = async (result: any) => {
-    console.log('Drag end result:', result);
-    setIsDragging(false);
-    setDraggedOverDay(null);
-
-    // Disable drag on mobile devices
-    if (isMobile) {
-      return;
-    }
-
-    // Clear any pending hover timeout
-    if (hoverTimeout) {
-      clearTimeout(hoverTimeout);
-      setHoverTimeout(null);
-    }
-
-    // Show drag feedback if successful drop
-    if (result.destination) {
-      setDragFeedback(true);
-      // Haptic feedback if supported
-      if (navigator.vibrate) {
-        navigator.vibrate(50);
-      }
-      setTimeout(() => setDragFeedback(false), 300);
-    }
-
-    if (!result.destination) {
-      console.log('No destination, drag cancelled');
-      return;
-    }
-
-    const { source, destination, draggableId } = result;
-    const sourceDay = source.droppableId;
-    const destinationDay = destination.droppableId;
-
-    console.log('Moving from', sourceDay, 'to', destinationDay);
-    console.log('All vacation days:', generateVacationDays());
-    console.log('Source day exists:', generateVacationDays().includes(sourceDay));
-    console.log('Destination day exists:', generateVacationDays().includes(destinationDay));
-
-    if (sourceDay === destinationDay) {
-      // Same day - reorder within the day
-      const dayActivities = itinerary.filter((item) => item && item.date === sourceDay);
-      const otherActivities = itinerary.filter((item) => item && item.date !== sourceDay);
-
-      const [reorderedItem] = dayActivities.splice(source.index, 1);
-      dayActivities.splice(destination.index, 0, reorderedItem);
-
-      // Update times based on new order
-      const updatedDayActivities = dayActivities.map((item, index) => {
-        const baseTime = new Date(`${sourceDay}T09:00:00`);
-        const newTime = new Date(baseTime.getTime() + index * 60 * 60 * 1000); // Add 1 hour per activity
-        return {
-          ...item,
-          time: newTime.toISOString(),
-        };
-      });
-
-      const newItinerary = [...otherActivities, ...updatedDayActivities];
-      setItinerary(newItinerary);
-
-      // Update backend for all reordered activities
-      try {
-        await Promise.all(
-          updatedDayActivities.map(async (item) => {
-            await api.put(`/api/itinerary/${item.id}`, {
-              time: item.time,
-            });
-          })
-        );
-        console.log('Successfully updated activity times');
-      } catch (error) {
-        console.error('Failed to update activity times:', error);
-        setItinerary(itinerary);
-      }
-    } else {
-      // Different day - move to new day
-      const sourceActivities = itinerary.filter((item) => item && item.date === sourceDay);
-      const destinationActivities = itinerary.filter(
-        (item) => item && item.date === destinationDay
-      );
-      const otherActivities = itinerary.filter(
-        (item) => item && item.date !== sourceDay && item.date !== destinationDay
-      );
-
-      console.log('Source activities:', sourceActivities);
-      console.log('Destination activities:', destinationActivities);
-
-      // Remove from source day
-      const [movedItem] = sourceActivities.splice(source.index, 1);
-
-      // Add to destination day at specific position
-      const updatedItem = { ...movedItem, date: destinationDay };
-      destinationActivities.splice(destination.index, 0, updatedItem);
-
-      // Rebuild itinerary
-      const newItinerary = [...otherActivities, ...sourceActivities, ...destinationActivities];
-      setItinerary(newItinerary);
-
-      // Expand the destination day when activity is moved to it
-      setExpandedDays((prev) => new Set([...Array.from(prev), destinationDay]));
-
-      // Close source day if it becomes empty
-      if (sourceActivities.length === 0) {
-        setExpandedDays((prev) => {
-          const newSet = new Set(Array.from(prev));
-          newSet.delete(sourceDay);
-          return newSet;
-        });
-      }
-
-      // Update in backend
-      try {
-        await api.put(`/api/itinerary/${movedItem.id}`, {
-          date: destinationDay,
-        });
-        console.log('Successfully updated activity date');
-      } catch (error) {
-        console.error('Failed to update activity date:', error);
-        // Revert on error
-        setItinerary(itinerary);
-      }
-    }
-  };
-
-  const handleItineraryUpdate = (updatedItinerary: any) => {
-    if (updatedItinerary) {
-      setItinerary(updatedItinerary);
-    }
-  };
-
-  const handleLoginSuccess = async (loggedInUser: any) => {
-    setUser(loggedInUser);
-    // Data will be fetched automatically by the useEffect when user state changes
-  };
-
-  const handleLogout = async () => {
-    try {
-      // Sign out from Supabase client-side
-      await supabase.auth.signOut();
-      setUser(null);
-      setAnchorEl(null);
-      setTrips([]);
-      setItinerary([]);
-      setCurrentTrip(null);
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
-  };
-
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  // Generate vacation days based on date range
-  const generateVacationDays = () => {
-    if (!currentTrip || !currentTrip.start_date || !currentTrip.end_date) {
-      return [];
-    }
-
-    const startDate = new Date(currentTrip.start_date);
-    const endDate = new Date(currentTrip.end_date);
-    const days = [];
-
-    console.log('Generating days from', startDate, 'to', endDate);
-
-    // Generate all days in the vacation range
-    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
-      const dayString = date.toISOString().split('T')[0];
-      days.push(dayString);
-      console.log('Added day:', dayString);
-    }
-
-    console.log('Generated days:', days);
-    return days;
-  };
-
-  // Group activities by day based on vacation date range
-  const getActivitiesByDay = () => {
-    const grouped: { [key: string]: any[] } = {};
-
-    // Get vacation days from date range
-    const vacationDays = generateVacationDays();
-    console.log('Generated vacation days:', vacationDays);
-
-    // Initialize all vacation days with empty arrays
-    vacationDays.forEach((day) => {
-      grouped[day] = [];
-    });
-
-    // Add activities to their respective days
-    itinerary
-      .filter((activity) => activity != null)
-      .forEach((activity) => {
-        // Skip activities without a date
-        if (!activity || !activity.date) {
-          return;
-        }
-
-        const day = activity.date;
-
-        if (grouped[day]) {
-          grouped[day].push(activity);
-        } else {
-          // If activity is outside vacation range, add to the last day
-          const lastDay = vacationDays[vacationDays.length - 1];
-          if (lastDay) {
-            const migratedActivity = {
-              ...activity,
-              date: lastDay,
-              migrated: true,
-            };
-            grouped[lastDay].push(migratedActivity);
-          }
-        }
-      });
-
-    console.log('Final grouped activities:', grouped);
-    return grouped;
-  };
 
   // Activity suggestions based on type
   const getActivitySuggestions = (type: string) => {
@@ -1207,129 +1305,9 @@ export default function Home() {
       return;
     }
 
-    try {
-      // Update in backend
-      await api.put(`/api/itinerary/${editingActivity.id}`, {
-        location: editingActivity.location,
-        address: editingActivity.address,
-        activity: editingActivity.activity,
-        type: editingActivity.type,
-        date: editingActivity.date,
-        time: editingActivity.time,
-        duration: editingActivity.duration,
-        rating: editingActivity.rating,
-        coordinates: editingActivity.coordinates,
-      });
-
-      // Update local state
-      const updatedItinerary = itinerary.map((item) =>
-        item.id === editingActivity.id
-          ? {
-              ...item,
-              ...editingActivity,
-              time: editingActivity.time + ':00', // Add seconds back
-            }
-          : item
-      );
-      setItinerary(updatedItinerary);
-      setEditDialogOpen(false);
-      setEditingActivity(null);
-    } catch (error) {
-      console.error('Failed to update activity:', error);
-      alert('Failed to update activity. Please try again.');
-    }
-  };
-
-  const removeActivity = async (activityId: number) => {
-    if (!currentTrip) return;
-
-    try {
-      // Delete from backend
-      await api.delete(`/api/itinerary/${activityId}`);
-
-      // Update local state
-      const updatedItinerary = itinerary.filter((item) => item.id !== activityId);
-      setItinerary(updatedItinerary);
-
-      // Clear selection if the removed item was selected
-      if (selectedItem && selectedItem.id === activityId) {
-        setSelectedItem(null);
-      }
-    } catch (error) {
-      console.error('Failed to remove activity:', error);
-    }
-  };
-
-  const addActivity = async () => {
-    if (!newActivity.location || !newActivity.activity) {
-      alert('Please fill in location and activity name');
-      return;
-    }
-
-    if (!currentTrip) {
-      alert('Please select a trip first');
-      return;
-    }
-
-    try {
-      // Add to backend
-      const response = await api.post('/api/itinerary', {
-        trip_id: currentTrip.id,
-        location: newActivity.location,
-        address: newActivity.address,
-        activity: newActivity.activity,
-        type: newActivity.type,
-        date: newActivity.date,
-        time: newActivity.time,
-        duration: newActivity.duration,
-        rating: newActivity.rating,
-        coordinates: newActivity.coordinates,
-      });
-
-      // Format the response to match frontend format
-      const formattedItem = {
-        id: response.data.item.id,
-        date: response.data.item.date,
-        time: response.data.item.time,
-        location: response.data.item.location,
-        address: response.data.item.address,
-        activity: response.data.item.activity,
-        duration: response.data.item.duration,
-        type: response.data.item.type,
-        rating: response.data.item.rating,
-        coordinates: [response.data.item.latitude, response.data.item.longitude],
-      };
-
-      // Add to local state
-      setItinerary([...itinerary, formattedItem]);
-      setAddDialogOpen(false);
-      setNewActivity({
-        location: '',
-        address: '',
-        activity: '',
-        type: 'activity',
-        date: new Date().toISOString().split('T')[0],
-        time: '09:00',
-        duration: '2 hours',
-        rating: 4.5,
-        coordinates: [40.758, -73.9855],
-      });
-    } catch (error) {
-      console.error('Failed to add activity:', error);
-      alert('Failed to add activity. Please try again.');
-    }
-  };
-
-  const handleTitleClick = () => {
-    if (currentTrip) {
-      setEditedTripTitle(currentTrip.title);
-      setIsEditingTitle(true);
-    }
-  };
-
-  const handleTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setEditedTripTitle(event.target.value);
-  };
+    setIsEditingTitle(false);
+    return;
+  }
 
   const handleTitleSubmit = async () => {
     if (!currentTrip || !editedTripTitle.trim()) {
@@ -1363,6 +1341,45 @@ export default function Home() {
     if (event.key === 'Escape') {
       setIsEditingTitle(false);
     }
+  };
+
+  const handleLoginSuccess = async (loggedInUser: any) => {
+    setUser(loggedInUser);
+    setLoginModalOpen(false);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setTrips([]);
+    setCurrentTrip(null);
+  };
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleDragStart = (_result: any) => {
+    setIsDragging(true);
+  };
+
+  const handleDragEnd = (_result: any) => {
+    setIsDragging(false);
+  };
+
+  const handleTitleClick = () => {
+    if (currentTrip) {
+      setEditedTripTitle(currentTrip.title);
+      setIsEditingTitle(true);
+    }
+  };
+
+  const handleTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setEditedTripTitle(event.target.value);
   };
 
   const getActivityIcon = (type: string) => {
@@ -1423,22 +1440,6 @@ export default function Home() {
       '#FF6B6B', // Coral - soft coral
       '#4ECDC4', // Teal - mint teal
     ];
-
-    // Get vacation days and find the index
-    const vacationDays = generateVacationDays();
-    const dayIndex = vacationDays.indexOf(date);
-    return dayColors[dayIndex % dayColors.length];
-  };
-
-  // Get sequential number within each day
-  const getDayNumber = (item: any) => {
-    if (!item || !item.date) return 1;
-
-    const dayItems = itinerary
-      .filter((dayItem) => dayItem && dayItem.date === item.date)
-      .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
-
-    return dayItems.indexOf(item) + 1;
   };
 
   // Show landing page if not logged in and not loading
@@ -1465,12 +1466,13 @@ export default function Home() {
           position="fixed"
           sx={{
             zIndex: (theme) => theme.zIndex.drawer + 1,
-            backgroundColor: 'rgba(25, 118, 210, 0.95)',
-            backdropFilter: 'blur(10px)',
+            backgroundColor: 'white',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
           }}
         >
-          <Toolbar>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexGrow: 1 }}>
+          <Toolbar sx={{ px: 3, py: 1 }}>
+            {/* Logo and Title */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mr: 4 }}>
               <Image
                 src="/logo.png"
                 alt="SkyFinder Logo"
@@ -1478,18 +1480,149 @@ export default function Home() {
                 height={40}
                 style={{ borderRadius: '8px' }}
               />
-              <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
+              <Typography 
+                variant="h6" 
+                component="div" 
+                sx={{ 
+                  fontWeight: 600,
+                  color: '#1D1D1F',
+                  fontSize: '1.25rem',
+                }}
+              >
                 SkyFinder
               </Typography>
             </Box>
 
+            {/* Search Bar */}
+            <Box sx={{ flexGrow: 1, maxWidth: 600, position: 'relative' }}>
+              <TextField
+                placeholder={selectedStations.size > 0 ? "Search places near stations..." : "⚠️ Click stations on map to search"}
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && selectedStations.size === 0) {
+                    alert('Please select at least one station on the map first!');
+                  }
+                }}
+                disabled={selectedStations.size === 0}
+                variant="outlined"
+                size="small"
+                InputProps={{
+                  startAdornment: (
+                    <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
+                      <SearchIcon sx={{ color: selectedStations.size > 0 ? '#007AFF' : '#8E8E93', fontSize: 20 }} />
+                    </Box>
+                  ),
+                  endAdornment: searchQuery && (
+                    <IconButton 
+                      size="small" 
+                      onClick={handleClearSearch}
+                      sx={{ mr: 0.5 }}
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  ),
+                }}
+                sx={{
+                  width: '100%',
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: '#F5F5F7',
+                    borderRadius: 2,
+                    fontSize: '0.875rem',
+                    '& fieldset': {
+                      borderColor: selectedStations.size > 0 ? '#007AFF' : '#E5E5EA',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: '#007AFF',
+                    },
+                    '&.Mui-focused': {
+                      backgroundColor: 'white',
+                      '& fieldset': {
+                        borderColor: '#007AFF',
+                      },
+                    },
+                    '&.Mui-disabled': {
+                      backgroundColor: '#F5F5F7',
+                      opacity: 0.5,
+                    },
+                  },
+                }}
+              />
+              
+              {/* Search Results Dropdown */}
+              {searchResults.length > 0 && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    left: 0,
+                    right: 0,
+                    backgroundColor: 'white',
+                    borderRadius: 2,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    maxHeight: '400px',
+                    overflow: 'auto',
+                    zIndex: 1300,
+                  }}
+                >
+                  {searchResults.map((result, index) => (
+                    <Box
+                      key={result.place_id || index}
+                      onClick={() => {
+                        setSelectedSearchResult(result);
+                        setSearchResults([]);
+                      }}
+                      sx={{
+                        p: 2,
+                        cursor: 'pointer',
+                        borderBottom: index < searchResults.length - 1 ? '1px solid' : 'none',
+                        borderColor: '#E5E5EA',
+                        '&:hover': {
+                          backgroundColor: '#F5F5F7',
+                        },
+                      }}
+                    >
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                        {result.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        {result.address}
+                      </Typography>
+                      {result.rating && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <StarIcon sx={{ fontSize: 16, color: 'warning.main' }} />
+                          <Typography variant="caption">{result.rating}</Typography>
+                          {result.user_ratings_total > 0 && (
+                            <Typography variant="caption" color="text.secondary">
+                              ({result.user_ratings_total})
+                            </Typography>
+                          )}
+                        </Box>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Box>
+
+            {/* User Info */}
             {user ? (
               <>
                 <Button
-                  color="inherit"
-                  startIcon={<AccountCircle />}
                   onClick={handleMenuOpen}
-                  sx={{ textTransform: 'none' }}
+                  sx={{ 
+                    textTransform: 'none',
+                    color: '#1D1D1F',
+                    ml: 2,
+                    '&:hover': {
+                      backgroundColor: '#F5F5F7',
+                    },
+                  }}
+                  startIcon={
+                    <Avatar sx={{ width: 32, height: 32, bgcolor: '#007AFF' }}>
+                      {user.email?.charAt(0).toUpperCase()}
+                    </Avatar>
+                  }
                 >
                   {user.email}
                 </Button>
@@ -1524,17 +1657,17 @@ export default function Home() {
               </>
             ) : (
               <Button
-                color="inherit"
-                startIcon={<LoginIcon />}
                 onClick={() => setLoginModalOpen(true)}
-                variant="outlined"
+                variant="contained"
                 sx={{
-                  borderColor: 'white',
+                  ml: 2,
+                  backgroundColor: '#007AFF',
+                  textTransform: 'none',
                   '&:hover': {
-                    borderColor: 'white',
-                    backgroundColor: 'rgba(255,255,255,0.1)',
+                    backgroundColor: '#0056CC',
                   },
                 }}
+                startIcon={<LoginIcon />}
               >
                 Login
               </Button>
@@ -1635,7 +1768,7 @@ export default function Home() {
                           : {},
                       }}
                     >
-                      {currentTrip ? currentTrip.title : 'My Itinerary'}
+                      {currentTrip ? currentTrip.title : 'Saved Lists'}
                     </Typography>
                   )}
                   <Typography
@@ -1800,7 +1933,7 @@ export default function Home() {
                     },
                   }}
                 >
-                  {trips.length === 0 ? 'Create Your First Trip' : `Switch Trip (${trips.length})`}
+                  {trips.length === 0 ? 'Create Your First List' : `Switch Trip (${trips.length})`}
                 </Button>
               )}
             </Box>
@@ -1827,647 +1960,165 @@ export default function Home() {
                 >
                   <CircularProgress />
                 </Box>
-              ) : itinerary.length === 0 ? (
+              ) : !user ? (
                 <Box sx={{ p: 4, textAlign: 'center' }}>
                   <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
-                    {user ? '📝 No Itinerary Yet' : '🗺️ Welcome!'}
+                    🗺️ Welcome!
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {user
-                      ? 'Start planning your trip by adding activities and destinations.'
-                      : 'Sign in to create and manage your travel itineraries.'}
+                    Sign in to save places and create your own lists.
                   </Typography>
                 </Box>
-              ) : (
-                Object.entries(getActivitiesByDay())
-                  .sort(([a], [b]) => {
-                    const dateA = new Date(a);
-                    const dateB = new Date(b);
-                    return dateA.getTime() - dateB.getTime();
-                  })
-                  .map(([day, activities], index, array) => {
-                    const isLastDay = index === array.length - 1;
-                    return (
-                      <Accordion
-                        key={day}
-                        expanded={
-                          expandedDays.has(day) || (activities.length > 0 && expandedDays.has(day))
-                        }
-                        onChange={(event, isExpanded) => {
-                          // Only allow expansion/collapse if there are activities
-                          if (activities.length > 0) {
-                            if (isExpanded) {
-                              setExpandedDays((prev) => new Set([...Array.from(prev), day]));
-                            } else {
-                              setExpandedDays((prev) => {
-                                const newSet = new Set(Array.from(prev));
-                                newSet.delete(day);
-                                return newSet;
-                              });
-                            }
-                          }
-                        }}
-                        sx={{
-                          boxShadow:
-                            activities.length > 0 && expandedDays.has(day)
-                              ? '0 2px 8px rgba(0, 0, 0, 0.1)'
-                              : 'none',
-                          borderRadius: 2,
-                          mb: isLastDay
-                            ? 12
-                            : activities.length > 0 && expandedDays.has(day)
-                              ? 1
-                              : 0,
-                          '&:before': { display: 'none' },
-                          '&.Mui-expanded': {
-                            margin: '0 0 8px 0',
-                            animation: 'bounceIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-                          },
-                          backgroundColor: 'transparent',
-                          minHeight: activities.length > 0 ? 'auto' : { xs: '44px', sm: '48px' },
-                          transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-                          '@keyframes bounceIn': {
-                            '0%': {
-                              transform: 'scale(0.95)',
-                              opacity: 0.8,
-                            },
-                            '50%': {
-                              transform: 'scale(1.02)',
-                              opacity: 1,
-                            },
-                            '100%': {
-                              transform: 'scale(1)',
-                              opacity: 1,
-                            },
-                          },
-                          '& .MuiAccordionSummary-root': {
-                            minHeight: '48px',
-                            cursor: activities.length > 0 ? 'pointer' : 'default',
-                          },
-                          '& .MuiAccordionSummary-expandIconWrapper': {
-                            display: activities.length > 0 ? 'block' : 'none',
-                          },
-                        }}
+              ) : selectedList ? (
+                /* List Items View */
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                    <IconButton size="small" onClick={() => setSelectedList(null)}>
+                      <ChevronLeftIcon />
+                    </IconButton>
+                    <Typography variant="h6" sx={{ flex: 1 }}>
+                      {selectedList.icon} {selectedList.name}
+                    </Typography>
+                    {!selectedList.is_default && (
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDeleteList(selectedList.id)}
+                        sx={{ color: 'error.main' }}
                       >
-                        <AccordionSummary
-                          expandIcon={<ExpandMoreIcon sx={{ color: 'white', fontSize: 20 }} />}
-                          sx={{
-                            backgroundColor: `${getDayColor(day)} !important`,
-                            borderRadius: 2,
-                            color: 'white',
-                            minHeight: 48,
-                            border: '1px solid rgba(255, 255, 255, 0.2)',
-                            '&.MuiAccordionSummary-root': {
-                              backgroundColor: `${getDayColor(day)} !important`,
-                            },
-                            '&:hover': {
-                              transform: 'translateY(-1px)',
-                              boxShadow: `0 4px 12px ${getDayColor(day)}40`,
-                              filter: 'brightness(1.05)',
-                            },
-                            '&.Mui-expanded': {
-                              borderRadius: '8px 8px 0 0',
-                              boxShadow: `0 2px 8px ${getDayColor(day)}40`,
-                            },
-                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                          }}
-                        >
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                            <EventIcon
-                              sx={{
-                                color: 'white',
-                                fontSize: 22,
-                                filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3))',
-                              }}
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                  </Box>
+
+                  {savedPlaces.filter((item) => item.list_id === selectedList.id).length === 0 ? (
+                    <Box sx={{ p: 4, textAlign: 'center' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        No places saved yet
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <List>
+                      {savedPlaces
+                        .filter((item) => item.list_id === selectedList.id)
+                        .map((item) => (
+                          <ListItem
+                            key={item.id}
+                            button
+                            onClick={() => {
+                              // Center map on this location
+                              if (item.latitude && item.longitude) {
+                                setMapCenter({ 
+                                  lat: parseFloat(item.latitude), 
+                                  lng: parseFloat(item.longitude) 
+                                });
+                                // Zoom in to show the location better
+                                setMapZoom(16);
+                                // Set as selected item to show in InfoWindow
+                                setSelectedItem(item);
+                                // Close the search result if open
+                                setSelectedSearchResult(null);
+                              }
+                            }}
+                            sx={{
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              borderRadius: 2,
+                              mb: 1,
+                              '&:hover': {
+                                backgroundColor: 'action.hover',
+                              },
+                            }}
+                          >
+                            <ListItemIcon>
+                              <PlaceIcon sx={{ color: selectedList.color }} />
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={item.name}
+                              secondary={item.address}
                             />
-                            <Typography
-                              variant="subtitle1"
-                              sx={{
-                                fontWeight: 700,
-                                color: 'white',
-                                textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
-                                fontSize: '1rem',
-                                letterSpacing: '0.01em',
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveFromList(selectedList.id, item.id);
                               }}
                             >
-                              {formatLocalDate(day)}
-                            </Typography>
-                            <Chip
-                              label={`${activities.length} activities`}
-                              size="small"
-                              sx={{
-                                backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                                color: 'white',
-                                fontSize: '0.75rem',
-                                height: 22,
-                                fontWeight: 600,
-                                border: '1px solid rgba(255, 255, 255, 0.3)',
-                                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                                '& .MuiChip-label': { px: 1.5 },
-                                '&:hover': {
-                                  backgroundColor: 'rgba(255, 255, 255, 0.35)',
-                                  transform: 'scale(1.05)',
-                                },
-                                transition: 'all 0.2s ease',
-                              }}
-                            />
-                          </Box>
-                        </AccordionSummary>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </ListItem>
+                        ))}
+                    </List>
+                  )}
+                </Box>
+              ) : (
+                /* Saved Lists View */
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                    <Typography variant="h6">Saved Lists</Typography>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      startIcon={<AddIcon />}
+                      onClick={() => setCreateListDialogOpen(true)}
+                    >
+                      New List
+                    </Button>
+                  </Box>
 
-                        <AccordionDetails
+                  {savedLists.length === 0 ? (
+                    <Box sx={{ p: 4, textAlign: 'center' }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        No lists yet
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => setCreateListDialogOpen(true)}
+                      >
+                        Create Your First List
+                      </Button>
+                    </Box>
+                  ) : (
+                    <List>
+                      {savedLists.map((list) => (
+                        <ListItem
+                          key={list.id}
+                          button
+                          onClick={() => setSelectedList(list)}
                           sx={{
-                            p: 1,
-                            backgroundColor: 'rgba(248, 249, 250, 0.5)',
-                            borderRadius: '0 0 8px 8px',
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            borderRadius: 2,
+                            mb: 1,
+                            '&:hover': {
+                              backgroundColor: 'action.hover',
+                            },
                           }}
                         >
-                          <Droppable droppableId={day.toString()}>
-                            {(provided, snapshot) => {
-                              // Handle hover-to-expand for empty day boxes
-                              if (
-                                isDragging &&
-                                snapshot.isDraggingOver &&
-                                activities.length === 0
-                              ) {
-                                setDraggedOverDay(day);
-                              }
-
-                              return (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.droppableProps}
-                                  onMouseEnter={() => {
-                                    if (isDragging && activities.length === 0) {
-                                      // Clear any existing timeout
-                                      if (hoverTimeout) {
-                                        clearTimeout(hoverTimeout);
-                                        setHoverTimeout(null);
-                                      }
-                                      setDraggedOverDay(day);
-                                    }
-                                  }}
-                                  onMouseLeave={() => {
-                                    if (isDragging && activities.length === 0) {
-                                      // Clear any existing timeout
-                                      if (hoverTimeout) {
-                                        clearTimeout(hoverTimeout);
-                                        setHoverTimeout(null);
-                                      }
-                                      // Set a small delay before closing to prevent flickering
-                                      const timeout = setTimeout(() => {
-                                        setDraggedOverDay(null);
-                                        setExpandedDays((prev) => {
-                                          const newSet = new Set(prev);
-                                          newSet.delete(day);
-                                          return newSet;
-                                        });
-                                      }, 100);
-                                      setHoverTimeout(timeout);
-                                    }
-                                  }}
-                                  style={{
-                                    minHeight: '60px',
-                                    backgroundColor: snapshot.isDraggingOver
-                                      ? 'rgba(0, 122, 255, 0.1)'
-                                      : activities.length === 0 && isDragging
-                                        ? 'rgba(0, 122, 255, 0.05)'
-                                        : 'transparent',
-                                    borderRadius: '12px',
-                                    transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-                                    position: 'relative',
-                                    zIndex: snapshot.isDraggingOver ? 1000 : 'auto',
-                                    pointerEvents: 'auto', // Ensure droppable areas are interactive
-                                    border: snapshot.isDraggingOver
-                                      ? '2px solid #007AFF'
-                                      : activities.length === 0 && isDragging
-                                        ? '2px dashed rgba(0, 122, 255, 0.3)'
-                                        : '2px solid transparent',
-                                    boxShadow: snapshot.isDraggingOver
-                                      ? '0 8px 25px rgba(0, 122, 255, 0.3), 0 0 0 1px rgba(0, 122, 255, 0.1)'
-                                      : activities.length === 0 && isDragging
-                                        ? '0 4px 12px rgba(0, 122, 255, 0.2)'
-                                        : '0 2px 8px rgba(0, 0, 0, 0.05)',
-                                    transform: snapshot.isDraggingOver
-                                      ? 'scale(1.02) translateY(-3px)'
-                                      : activities.length === 0 && isDragging
-                                        ? 'scale(1.01) translateY(-1px)'
-                                        : 'scale(1) translateY(0)',
-                                  }}
-                                >
-                                  {activities.map((item: any, index: number) => (
-                                    <Draggable
-                                      key={item.id}
-                                      draggableId={item.id.toString()}
-                                      index={index}
-                                      isDragDisabled={isMobile}
-                                    >
-                                      {(provided, snapshot) => {
-                                        const child = (
-                                          <Box
-                                            ref={provided.innerRef}
-                                            {...provided.draggableProps}
-                                            {...(!isMobile ? provided.dragHandleProps : {})}
-                                            onClick={() => setSelectedItem(item)}
-                                            sx={{
-                                              p: { xs: 1.5, sm: 2 },
-                                              mx: 0.5,
-                                              mb: 0.5,
-                                              borderRadius: 2,
-                                              cursor: isMobile
-                                                ? 'pointer'
-                                                : snapshot.isDragging
-                                                  ? 'grabbing'
-                                                  : 'grab',
-                                              touchAction: isMobile ? 'auto' : 'none', // Allow scrolling on mobile, prevent during drag on desktop
-                                              backgroundColor:
-                                                selectedItem?.id === item.id
-                                                  ? 'rgba(0, 122, 255, 0.1)'
-                                                  : snapshot.isDragging
-                                                    ? 'rgba(0, 122, 255, 0.15)'
-                                                    : 'rgba(248, 249, 250, 0.8)',
-                                              border:
-                                                selectedItem?.id === item.id
-                                                  ? '1px solid rgba(0, 122, 255, 0.3)'
-                                                  : snapshot.isDragging
-                                                    ? '1px solid rgba(0, 122, 255, 0.5)'
-                                                    : '1px solid rgba(0, 0, 0, 0.05)',
-                                              transition:
-                                                'all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-                                              position: 'relative',
-                                              transform: snapshot.isDragging
-                                                ? 'rotate(1deg) scale(1.03) translateY(-4px)'
-                                                : 'rotate(0deg) scale(1) translateY(0)',
-                                              zIndex: snapshot.isDragging ? 99999 : 'auto',
-                                              boxShadow: snapshot.isDragging
-                                                ? '0 12px 30px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 122, 255, 0.1)'
-                                                : selectedItem?.id === item.id
-                                                  ? '0 4px 12px rgba(0, 122, 255, 0.3)'
-                                                  : '0 2px 6px rgba(0, 0, 0, 0.1)',
-                                              '&:hover': {
-                                                backgroundColor:
-                                                  selectedItem?.id === item.id
-                                                    ? 'rgba(0, 122, 255, 0.15)'
-                                                    : 'rgba(0, 122, 255, 0.05)',
-                                                transform: 'translateY(-1px)',
-                                                boxShadow: '0 2px 8px rgba(0, 122, 255, 0.15)',
-                                              },
-                                              '&:active': {
-                                                cursor: 'grabbing',
-                                                transform: 'translateY(0) scale(0.98)',
-                                              },
-                                            }}
-                                          >
-                                            <Box
-                                              sx={{
-                                                display: 'flex',
-                                                alignItems: 'flex-start',
-                                                gap: 1,
-                                                minHeight: 64,
-                                                py: 1,
-                                              }}
-                                            >
-                                              <Box
-                                                sx={{
-                                                  display: 'flex',
-                                                  flexDirection: 'column',
-                                                  gap: 0.5,
-                                                  flex: 1,
-                                                  minWidth: 0,
-                                                }}
-                                              >
-                                                {/* First line: Icon + Title */}
-                                                <Box
-                                                  sx={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: 1.5,
-                                                  }}
-                                                >
-                                                  <Box
-                                                    sx={{
-                                                      width: 36,
-                                                      height: 36,
-                                                      borderRadius: 2,
-                                                      backgroundColor:
-                                                        selectedItem?.id === item.id
-                                                          ? '#007AFF'
-                                                          : '#F2F2F7',
-                                                      display: 'flex',
-                                                      alignItems: 'center',
-                                                      justifyContent: 'center',
-                                                      flexShrink: 0,
-                                                      transition: 'all 0.2s ease',
-                                                      boxShadow:
-                                                        selectedItem?.id === item.id
-                                                          ? '0 2px 8px rgba(0, 122, 255, 0.3)'
-                                                          : '0 1px 3px rgba(0,0,0,0.1)',
-                                                      '&:hover': {
-                                                        transform: 'scale(1.05)',
-                                                      },
-                                                    }}
-                                                  >
-                                                    {item.type === 'museum' ? (
-                                                      <MuseumIcon
-                                                        sx={{
-                                                          fontSize: 16,
-                                                          color:
-                                                            selectedItem?.id === item.id
-                                                              ? 'white'
-                                                              : '#8E8E93',
-                                                        }}
-                                                      />
-                                                    ) : item.type === 'shopping' ? (
-                                                      <ShoppingIcon
-                                                        sx={{
-                                                          fontSize: 16,
-                                                          color:
-                                                            selectedItem?.id === item.id
-                                                              ? 'white'
-                                                              : '#8E8E93',
-                                                        }}
-                                                      />
-                                                    ) : item.type === 'landmark' ? (
-                                                      <PlaceIcon
-                                                        sx={{
-                                                          fontSize: 16,
-                                                          color:
-                                                            selectedItem?.id === item.id
-                                                              ? 'white'
-                                                              : '#8E8E93',
-                                                        }}
-                                                      />
-                                                    ) : item.type === 'accommodation' ? (
-                                                      <EventIcon
-                                                        sx={{
-                                                          fontSize: 16,
-                                                          color:
-                                                            selectedItem?.id === item.id
-                                                              ? 'white'
-                                                              : '#8E8E93',
-                                                        }}
-                                                      />
-                                                    ) : item.type === 'restaurant' ? (
-                                                      <StarIcon
-                                                        sx={{
-                                                          fontSize: 16,
-                                                          color:
-                                                            selectedItem?.id === item.id
-                                                              ? 'white'
-                                                              : '#8E8E93',
-                                                        }}
-                                                      />
-                                                    ) : item.type === 'outdoor' ? (
-                                                      <AttractionsIcon
-                                                        sx={{
-                                                          fontSize: 16,
-                                                          color:
-                                                            selectedItem?.id === item.id
-                                                              ? 'white'
-                                                              : '#8E8E93',
-                                                        }}
-                                                      />
-                                                    ) : (
-                                                      <AttractionsIcon
-                                                        sx={{
-                                                          fontSize: 16,
-                                                          color:
-                                                            selectedItem?.id === item.id
-                                                              ? 'white'
-                                                              : '#8E8E93',
-                                                        }}
-                                                      />
-                                                    )}
-                                                  </Box>
-                                                  <Typography
-                                                    variant="subtitle2"
-                                                    sx={{
-                                                      fontWeight: 500,
-                                                      color: '#1D1D1F',
-                                                      fontSize: '0.875rem',
-                                                      lineHeight: 1.4,
-                                                      flex: 1,
-                                                      minWidth: 0,
-                                                      wordBreak: 'break-word',
-                                                    }}
-                                                  >
-                                                    {item.location}
-                                                  </Typography>
-                                                </Box>
-
-                                                {/* Second line: Time + Location */}
-                                                <Box
-                                                  sx={{
-                                                    display: 'flex',
-                                                    alignItems: 'flex-start',
-                                                    gap: 1.5,
-                                                    flexWrap: 'wrap',
-                                                  }}
-                                                >
-                                                  <Box
-                                                    sx={{
-                                                      display: 'flex',
-                                                      alignItems: 'center',
-                                                      gap: 0.5,
-                                                      flexShrink: 0,
-                                                    }}
-                                                  >
-                                                    <ScheduleIcon
-                                                      sx={{ fontSize: 14, color: '#8E8E93' }}
-                                                    />
-                                                    <Typography
-                                                      variant="caption"
-                                                      sx={{
-                                                        color: '#8E8E93',
-                                                        fontSize: '0.75rem',
-                                                        fontWeight: 400,
-                                                      }}
-                                                    >
-                                                      {item.time}
-                                                    </Typography>
-                                                  </Box>
-                                                  <Box
-                                                    sx={{
-                                                      display: 'flex',
-                                                      alignItems: 'flex-start',
-                                                      gap: 0.5,
-                                                      flex: '1 1 auto',
-                                                      minWidth: 0,
-                                                    }}
-                                                  >
-                                                    <LocationIcon
-                                                      sx={{
-                                                        fontSize: 14,
-                                                        color: '#8E8E93',
-                                                        flexShrink: 0,
-                                                        mt: 0.5,
-                                                      }}
-                                                    />
-                                                    <Typography
-                                                      variant="caption"
-                                                      sx={{
-                                                        color: '#8E8E93',
-                                                        fontSize: '0.75rem',
-                                                        fontWeight: 400,
-                                                        wordBreak: 'break-word',
-                                                        lineHeight: 1.4,
-                                                      }}
-                                                    >
-                                                      {item.address}
-                                                    </Typography>
-                                                  </Box>
-                                                </Box>
-
-                                                {/* Third line: Tags */}
-                                                <Box
-                                                  sx={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: 1,
-                                                    flexWrap: 'wrap',
-                                                  }}
-                                                >
-                                                  {item.migrated && (
-                                                    <Chip
-                                                      label="Moved"
-                                                      size="small"
-                                                      sx={{
-                                                        backgroundColor: '#FF950020',
-                                                        color: '#FF9500',
-                                                        fontWeight: 500,
-                                                        fontSize: '0.7rem',
-                                                        height: 18,
-                                                        borderRadius: 2,
-                                                        flexShrink: 0,
-                                                      }}
-                                                    />
-                                                  )}
-                                                  <Chip
-                                                    label={item.type}
-                                                    size="small"
-                                                    sx={{
-                                                      backgroundColor: `${getActivityColor(item.type)}20`,
-                                                      color: getActivityColor(item.type),
-                                                      fontWeight: 500,
-                                                      fontSize: '0.75rem',
-                                                      height: 20,
-                                                      borderRadius: 2,
-                                                      flexShrink: 0,
-                                                      transition: 'all 0.2s ease',
-                                                      '&:hover': {
-                                                        transform: 'scale(1.05)',
-                                                        backgroundColor: `${getActivityColor(item.type)}30`,
-                                                      },
-                                                    }}
-                                                  />
-                                                </Box>
-                                              </Box>
-                                              <Box
-                                                sx={{
-                                                  display: 'flex',
-                                                  flexDirection: 'column',
-                                                  gap: 0.5,
-                                                  alignSelf: 'flex-start',
-                                                  pt: 0.5,
-                                                }}
-                                              >
-                                                <IconButton
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    openEditDialog(item);
-                                                  }}
-                                                  size="small"
-                                                  sx={{
-                                                    color: '#8E8E93',
-                                                    borderRadius: 2,
-                                                    transition: 'all 0.2s ease',
-                                                    flexShrink: 0,
-                                                    '&:hover': {
-                                                      color: '#007AFF',
-                                                      backgroundColor: 'rgba(0, 122, 255, 0.08)',
-                                                      transform: 'scale(1.05)',
-                                                    },
-                                                  }}
-                                                >
-                                                  <EditIcon fontSize="small" />
-                                                </IconButton>
-                                                <IconButton
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    removeActivity(item.id);
-                                                  }}
-                                                  size="small"
-                                                  sx={{
-                                                    color: '#8E8E93',
-                                                    borderRadius: 2,
-                                                    transition: 'all 0.2s ease',
-                                                    flexShrink: 0,
-                                                    '&:hover': {
-                                                      color: '#FF3B30',
-                                                      backgroundColor: 'rgba(255, 59, 48, 0.08)',
-                                                      transform: 'scale(1.05)',
-                                                    },
-                                                  }}
-                                                >
-                                                  <DeleteIcon fontSize="small" />
-                                                </IconButton>
-                                              </Box>
-                                            </Box>
-                                          </Box>
-                                        );
-
-                                        return snapshot.isDragging
-                                          ? createPortal(child, document.body)
-                                          : child;
-                                      }}
-                                    </Draggable>
-                                  ))}
-                                  {activities.length === 0 && (
-                                    <Box
-                                      sx={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        minHeight: '80px',
-                                        color: isDragging
-                                          ? 'rgba(0, 122, 255, 0.8)'
-                                          : 'rgba(0, 0, 0, 0.4)',
-                                        fontSize: '14px',
-                                        fontStyle: 'italic',
-                                        border: isDragging
-                                          ? '2px dashed rgba(0, 122, 255, 0.5)'
-                                          : '2px dashed rgba(0, 122, 255, 0.3)',
-                                        borderRadius: '12px',
-                                        backgroundColor: isDragging
-                                          ? 'rgba(0, 122, 255, 0.08)'
-                                          : 'rgba(0, 122, 255, 0.05)',
-                                        transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-                                        cursor: 'pointer',
-                                        transform: isDragging ? 'scale(1.01)' : 'scale(1)',
-                                        boxShadow: isDragging
-                                          ? '0 4px 12px rgba(0, 122, 255, 0.2)'
-                                          : '0 2px 6px rgba(0, 0, 0, 0.05)',
-                                        '&:hover': {
-                                          backgroundColor: 'rgba(0, 122, 255, 0.1)',
-                                          borderColor: 'rgba(0, 122, 255, 0.5)',
-                                          color: 'rgba(0, 122, 255, 0.8)',
-                                          transform: 'scale(1.01)',
-                                        },
-                                      }}
-                                    >
-                                      {isDragging
-                                        ? 'Drop here to add activity'
-                                        : 'Drop activities here'}
-                                    </Box>
-                                  )}
-                                  {provided.placeholder}
-                                </div>
-                              );
-                            }}
-                          </Droppable>
-                        </AccordionDetails>
-                      </Accordion>
-                    );
-                  })
+                          <ListItemIcon>
+                            <Typography sx={{ fontSize: '1.5rem' }}>{list.icon}</Typography>
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={list.name}
+                            secondary={`${list.items_count || 0} places`}
+                          />
+                          {!list.is_default && (
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteList(list.id);
+                              }}
+                              sx={{ color: 'error.main' }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                        </ListItem>
+                      ))}
+                    </List>
+                  )}
+                </Box>
               )}
             </Box>
 
@@ -2482,11 +2133,10 @@ export default function Home() {
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
-                onClick={() => setAddDialogOpen(true)}
-                disabled={!currentTrip}
+                onClick={() => setCreateListDialogOpen(true)}
+                disabled={!user}
                 sx={{
-                  width: { xs: 'calc(100% - 80px)', sm: '100%' }, // Shorter on mobile to avoid AI button overlap
-                  mr: { xs: 0, sm: 0 }, // Remove margin since we're using calc width
+                  width: '100%',
                   background:
                     'linear-gradient(135deg, hsl(240 5.9% 10%) 0%, hsl(240 5.9% 10%) 100%)',
                   color: 'hsl(0 0% 98%)',
@@ -2512,7 +2162,7 @@ export default function Home() {
                   },
                 }}
               >
-                Add New Activity
+                Create New List
               </Button>
             </Box>
           </Drawer>
@@ -2565,7 +2215,7 @@ export default function Home() {
                   height: '100vh',
                 }}
                 center={mapCenter}
-                zoom={13}
+                zoom={mapZoom}
                 options={{
                   styles: [
                     {
@@ -2573,238 +2223,14 @@ export default function Home() {
                       elementType: 'geometry',
                       stylers: [{ color: '#a2daf2' }],
                     },
-                    {
-                      featureType: 'landscape',
-                      elementType: 'geometry',
-                      stylers: [{ color: '#f8f8f8' }],
-                    },
-                    {
-                      featureType: 'landscape.natural',
-                      elementType: 'geometry',
-                      stylers: [{ color: '#e8f5e8' }],
-                    },
-                    {
-                      featureType: 'landscape.man_made',
-                      elementType: 'geometry',
-                      stylers: [{ color: '#ffffff' }],
-                    },
-                    {
-                      featureType: 'poi',
-                      elementType: 'geometry',
-                      stylers: [{ color: '#f0f0f0' }],
-                    },
-                    {
-                      featureType: 'poi.park',
-                      elementType: 'geometry',
-                      stylers: [{ color: '#d4edda' }],
-                    },
-                    {
-                      featureType: 'poi.attraction',
-                      elementType: 'geometry',
-                      stylers: [{ color: '#fff3cd' }],
-                    },
-                    {
-                      featureType: 'poi.business',
-                      elementType: 'geometry',
-                      stylers: [{ color: '#f8f9fa' }],
-                    },
-                    {
-                      featureType: 'road',
-                      elementType: 'geometry',
-                      stylers: [{ color: '#f0f0f0' }],
-                    },
-                    {
-                      featureType: 'road',
-                      elementType: 'geometry.stroke',
-                      stylers: [{ color: '#d0d0d0' }],
-                    },
-                    {
-                      featureType: 'road.highway',
-                      elementType: 'geometry',
-                      stylers: [{ color: '#d0d0d0' }],
-                    },
-                    {
-                      featureType: 'road.highway',
-                      elementType: 'geometry.stroke',
-                      stylers: [{ color: '#b0b0b0' }],
-                    },
-                    {
-                      featureType: 'road.arterial',
-                      elementType: 'geometry',
-                      stylers: [{ color: '#e8e8e8' }],
-                    },
-                    {
-                      featureType: 'road.arterial',
-                      elementType: 'geometry.stroke',
-                      stylers: [{ color: '#d8d8d8' }],
-                    },
-                    {
-                      featureType: 'road.local',
-                      elementType: 'geometry',
-                      stylers: [{ color: '#f5f5f5' }],
-                    },
-                    {
-                      featureType: 'road.local',
-                      elementType: 'geometry.stroke',
-                      stylers: [{ color: '#e5e5e5' }],
-                    },
-                    {
-                      featureType: 'transit',
-                      elementType: 'geometry',
-                      stylers: [{ color: '#d0d0d0' }],
-                    },
-                    {
-                      featureType: 'transit',
-                      elementType: 'geometry.stroke',
-                      stylers: [{ color: '#e0e0e0' }],
-                    },
-                    {
-                      featureType: 'transit.station',
-                      elementType: 'geometry',
-                      stylers: [{ color: '#e8e8e8' }],
-                    },
-                    {
-                      featureType: 'administrative',
-                      elementType: 'geometry',
-                      stylers: [{ color: '#e3f2fd' }],
-                    },
-                    {
-                      featureType: 'administrative.country',
-                      elementType: 'geometry.stroke',
-                      stylers: [{ color: '#bdbdbd' }],
-                    },
-                    {
-                      featureType: 'administrative.province',
-                      elementType: 'geometry.stroke',
-                      stylers: [{ color: '#e0e0e0' }],
-                    },
                   ],
-                  disableDefaultUI: !showMapControls,
-                  zoomControl: showMapControls,
-                  mapTypeControl: showMapControls,
-                  scaleControl: showMapControls,
-                  streetViewControl: showMapControls,
-                  rotateControl: showMapControls,
-                  fullscreenControl: showMapControls,
                 }}
                 onLoad={(map) => {
                   mapInstanceRef.current = map;
                   setMapReady(true);
                 }}
               >
-                {/* Map Markers for each itinerary item */}
-                {mapReady &&
-                  itinerary
-                    .filter((item) => item != null)
-                    .map((item) => {
-                      // Create numbered pin with day-based color
-                      let customIcon;
-                      try {
-                        if (
-                          isGoogleMapsLoaded &&
-                          typeof window !== 'undefined' &&
-                          window.google?.maps?.Size &&
-                          window.google?.maps?.Point
-                        ) {
-                          const dayColor = getDayColor(item.date);
-                          const dayNumber = getDayNumber(item);
-
-                          customIcon = {
-                            url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-                    <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-                      <defs>
-                        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-                          <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="rgba(0,0,0,0.2)"/>
-                        </filter>
-                      </defs>
-                      <circle cx="16" cy="16" r="14" fill="${dayColor}" filter="url(#shadow)"/>
-                      <circle cx="16" cy="16" r="12" fill="white" opacity="0.2"/>
-                      <text x="16" y="20" text-anchor="middle" fill="white" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" letter-spacing="-0.01em">
-                        ${dayNumber}
-                      </text>
-                    </svg>
-                  `)}`,
-                            scaledSize: new window.google.maps.Size(32, 32),
-                            anchor: new window.google.maps.Point(16, 16),
-                          };
-                        }
-                      } catch (error) {
-                        console.warn('Failed to create custom marker icon:', error);
-                      }
-
-                      // Skip items without coordinates
-                      if (
-                        !item ||
-                        !item.coordinates ||
-                        !Array.isArray(item.coordinates) ||
-                        item.coordinates.length < 2
-                      ) {
-                        return null;
-                      }
-
-                      return (
-                        <Marker
-                          key={item.id}
-                          position={{ lat: item.coordinates[0], lng: item.coordinates[1] }}
-                          onClick={() => setSelectedItem(item)}
-                          icon={customIcon}
-                        />
-                      );
-                    })}
-
-                {/* User's current location marker */}
-                {mapCenter && (
-                  <Marker
-                    position={mapCenter}
-                    icon={{
-                      path: window.google?.maps?.SymbolPath?.CIRCLE || '',
-                      scale: 8,
-                      fillColor: '#4285F4',
-                      fillOpacity: 1,
-                      strokeColor: '#FFFFFF',
-                      strokeWeight: 2,
-                    }}
-                    title="Your Location"
-                  />
-                )}
-
-                {/* Transit Lines - Using Data component */}
-                {transitDataLoaded && transitLines.length > 0 && (
-                  <Data
-                    options={{
-                      map: undefined,
-                      controlPosition: undefined,
-                      controls: [],
-                      drawingMode: undefined,
-                      style: (feature: any) => {
-                        const lineName = feature.getProperty('Line');
-                        let color = '#0099CC'; // Default teal
-                        
-                        // Color coding for different lines
-                        if (lineName?.includes('Canada Line')) color = '#0099CC'; // Teal
-                        if (lineName?.includes('Expo')) color = '#FFCC00'; // Yellow
-                        if (lineName?.includes('Millennium')) color = '#0066CC'; // Blue
-                        if (lineName?.includes('West Coast Express')) color = '#FF6600'; // Orange
-                        
-                        return {
-                          strokeColor: color,
-                          strokeWeight: 4,
-                          strokeOpacity: 0.9,
-                          zIndex: 1,
-                        };
-                      },
-                    }}
-                    onLoad={(data) => {
-                      const linesGeoJson = {
-                        type: 'FeatureCollection',
-                        features: transitLines,
-                      };
-                      data.addGeoJson(linesGeoJson);
-                    }}
-                  />
-                )}
-
-                {/* Transit Stations - Using Marker components */}
+                {/* Transit Stations (Markers) */}
                 {transitDataLoaded && transitStations.map((station, index) => {
                   const coords = station.geometry.coordinates;
                   if (!coords || coords.length < 2) {
@@ -2826,59 +2252,133 @@ export default function Home() {
                   );
                 })}
 
-                {/* Info Window for selected item */}
-                {mapReady && selectedItem && (
+                {/* Saved Places Markers */}
+                {savedPlaces.map((place) => (
+                  <Marker
+                    key={place.id}
+                    position={{ lat: place.latitude, lng: place.longitude }}
+                    onClick={() => setSelectedItem(place)}
+                  />
+                ))}
+
+                {/* Search Result Markers */}
+                {searchResults.map((result, index) => (
+                  <Marker
+                    key={`search-result-${result.place_id || index}`}
+                    position={{ lat: result.latitude, lng: result.longitude }}
+                    icon={{
+                      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#FF6B6B">
+                          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                        </svg>
+                      `),
+                      scaledSize: new google.maps.Size(32, 32),
+                      anchor: new google.maps.Point(16, 32),
+                    }}
+                    title={result.name}
+                    onClick={() => setSelectedSearchResult(result)}
+                    zIndex={998}
+                  />
+                ))}
+
+                {/* Info Window for selected search result */}
+                {selectedSearchResult && (
                   <InfoWindow
                     position={{
-                      lat: selectedItem.coordinates[0],
-                      lng: selectedItem.coordinates[1],
+                      lat: selectedSearchResult.latitude,
+                      lng: selectedSearchResult.longitude,
+                    }}
+                    onCloseClick={() => setSelectedSearchResult(null)}
+                  >
+                    <Box sx={{ p: 1, minWidth: 250 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        {selectedSearchResult.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        {selectedSearchResult.address}
+                      </Typography>
+                      {selectedSearchResult.rating && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                          <StarIcon sx={{ fontSize: 18, color: 'warning.main' }} />
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {selectedSearchResult.rating}
+                          </Typography>
+                          {selectedSearchResult.user_ratings_total > 0 && (
+                            <Typography variant="body2" color="text.secondary">
+                              ({selectedSearchResult.user_ratings_total} reviews)
+                            </Typography>
+                          )}
+                        </Box>
+                      )}
+                      <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<DirectionsIcon />}
+                          onClick={() => {
+                            window.open(
+                              `https://www.google.com/maps/dir/?api=1&destination=${selectedSearchResult.latitude},${selectedSearchResult.longitude}`,
+                              '_blank'
+                            );
+                          }}
+                        >
+                          Directions
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          startIcon={<StarIcon />}
+                          onClick={() => {
+                            setPlaceToSave(selectedSearchResult);
+                            setSaveToListDialogOpen(true);
+                          }}
+                        >
+                          Save to List
+                        </Button>
+                      </Box>
+                    </Box>
+                  </InfoWindow>
+                )}
+
+                {/* Info Window for selected item */}
+                {selectedItem && (
+                  <InfoWindow
+                    position={{
+                      lat: selectedItem.latitude,
+                      lng: selectedItem.longitude,
                     }}
                     onCloseClick={() => setSelectedItem(null)}
                   >
                     <Box sx={{ p: 1, minWidth: 250 }}>
                       <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        {selectedItem.location}
+                        {selectedItem.name}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        📅 {selectedItem.date} • 🕐 {selectedItem.time}
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        {selectedItem.address}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        📍 {selectedItem.address}
-                      </Typography>
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        {selectedItem.activity} • {selectedItem.duration}
-                      </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                        <StarIcon sx={{ fontSize: 16, color: '#ffc107', mr: 0.5 }} />
-                        <Typography variant="body2" color="text.secondary">
-                          {selectedItem.rating}
-                        </Typography>
-                      </Box>
+                      {selectedItem.rating && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                          <StarIcon sx={{ fontSize: 18, color: 'warning.main' }} />
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {selectedItem.rating}
+                          </Typography>
+                        </Box>
+                      )}
                       <Button
-                        variant="contained"
                         size="small"
-                        onClick={handleBookNow}
-                        sx={{
-                          backgroundColor: '#007AFF',
-                          color: 'white',
-                          borderRadius: 2,
-                          textTransform: 'none',
-                          fontWeight: 500,
-                          px: 2,
-                          py: 0.5,
-                          '&:hover': {
-                            backgroundColor: '#0056CC',
-                            boxShadow: '0 2px 8px rgba(0, 122, 255, 0.3)',
-                          },
-                        }}
+                        variant="contained"
+                        startIcon={<StarIcon />}
+                        onClick={() => handleSavePlace(selectedItem)}
+                        sx={{ mt: 1 }}
                       >
-                        Book Now
+                        Save to Another List
                       </Button>
                     </Box>
                   </InfoWindow>
                 )}
               </GoogleMap>
             )}
+
           </Box>
 
           {/* Sidebar Trigger */}
@@ -2942,8 +2442,8 @@ export default function Home() {
 
         {/* AI Chat Bot - Overlaid on top of everything */}
         <ChatBot
-          itinerary={itinerary}
-          onItineraryUpdate={handleItineraryUpdate}
+          itinerary={[]}
+          onItineraryUpdate={() => {}}
           currentTrip={currentTrip}
         />
 
@@ -2964,254 +2464,128 @@ export default function Home() {
           onTripCreated={handleTripCreated}
         />
 
-        {/* Add Activity Dialog */}
+        {/* Create List Dialog */}
         <Dialog
-          open={addDialogOpen}
-          onClose={() => setAddDialogOpen(false)}
+          open={createListDialogOpen}
+          onClose={() => {
+            setCreateListDialogOpen(false);
+            setNewListName('');
+            setNewListIcon('📌');
+            setNewListColor('#4285F4');
+          }}
           maxWidth="sm"
           fullWidth
         >
-          <DialogTitle>Add New Activity</DialogTitle>
+          <DialogTitle>Create New List</DialogTitle>
           <DialogContent>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
               <TextField
-                label="Location Name"
-                value={newActivity.location}
-                onChange={(e) => setNewActivity({ ...newActivity, location: e.target.value })}
+                label="List Name"
+                value={newListName}
+                onChange={(e) => setNewListName(e.target.value)}
                 fullWidth
                 required
+                placeholder="e.g., Coffee Shops, Restaurants to Try"
               />
-              <Autocomplete
-                freeSolo
-                options={addressSuggestions}
-                value={newActivity.address}
-                onInputChange={(event, newValue) => handleAddressChange(newValue)}
-                onChange={(event, selectedOption) => handleAddressSelect(selectedOption)}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Address"
-                    fullWidth
-                    placeholder="Start typing an address..."
-                  />
-                )}
-                renderOption={(props, option) => {
-                  const { key, ...otherProps } = props;
-                  return (
-                    <Box component="li" key={key} {...otherProps}>
-                      {option.label}
-                    </Box>
-                  );
-                }}
-              />
-              <Autocomplete
-                freeSolo
-                options={activitySuggestions}
-                value={newActivity.activity}
-                onInputChange={(event, newValue) => handleActivityChange(newValue)}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Activity Description"
-                    fullWidth
-                    required
-                    placeholder="Start typing an activity..."
-                  />
-                )}
-                renderOption={(props, option) => {
-                  const { key, ...otherProps } = props;
-                  return (
-                    <Box component="li" key={key} {...otherProps}>
-                      {option.label}
-                    </Box>
-                  );
-                }}
-              />
-              <FormControl fullWidth>
-                <InputLabel>Activity Type</InputLabel>
-                <Select
-                  value={newActivity.type}
-                  onChange={(e) => setNewActivity({ ...newActivity, type: e.target.value })}
-                  label="Activity Type"
-                >
-                  <MenuItem value="activity">Activity</MenuItem>
-                  <MenuItem value="museum">Museum</MenuItem>
-                  <MenuItem value="shopping">Shopping</MenuItem>
-                  <MenuItem value="landmark">Landmark</MenuItem>
-                  <MenuItem value="accommodation">Accommodation</MenuItem>
-                  <MenuItem value="restaurant">Restaurant</MenuItem>
-                  <MenuItem value="outdoor">Outdoor</MenuItem>
-                </Select>
-              </FormControl>
-              <Box sx={{ display: 'flex', gap: 2 }}>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                 <TextField
-                  label="Date"
-                  type="date"
-                  value={newActivity.date}
-                  onChange={(e) => setNewActivity({ ...newActivity, date: e.target.value })}
-                  sx={{ flex: 1 }}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
+                  label="Icon"
+                  value={newListIcon}
+                  onChange={(e) => setNewListIcon(e.target.value)}
+                  sx={{ width: 100 }}
+                  placeholder="📌"
                 />
                 <TextField
-                  label="Time"
-                  type="time"
-                  value={newActivity.time}
-                  onChange={(e) => setNewActivity({ ...newActivity, time: e.target.value })}
-                  sx={{ flex: 1 }}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
+                  label="Color"
+                  type="color"
+                  value={newListColor}
+                  onChange={(e) => setNewListColor(e.target.value)}
+                  sx={{ width: 100 }}
                 />
               </Box>
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <TextField
-                  label="Duration"
-                  value={newActivity.duration}
-                  onChange={(e) => setNewActivity({ ...newActivity, duration: e.target.value })}
-                  sx={{ flex: 1 }}
-                />
-                <TextField
-                  label="Rating"
-                  type="number"
-                  value={newActivity.rating}
-                  onChange={(e) =>
-                    setNewActivity({ ...newActivity, rating: parseFloat(e.target.value) })
-                  }
-                  inputProps={{ min: 1, max: 5, step: 0.1 }}
-                  sx={{ flex: 1 }}
-                />
-              </Box>
-              <Typography variant="body2" color="text.secondary">
-                Note: Coordinates will be set to Times Square by default. You can update them later
-                by using the address autocomplete.
-              </Typography>
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setAddDialogOpen(false)}>Cancel</Button>
-            <Button onClick={addActivity} variant="contained">
-              Add Activity
+            <Button onClick={() => {
+              setCreateListDialogOpen(false);
+              setNewListName('');
+              setNewListIcon('📌');
+              setNewListColor('#4285F4');
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateList} variant="contained" disabled={!newListName.trim()}>
+              Create List
             </Button>
           </DialogActions>
         </Dialog>
 
-        {/* Edit Activity Dialog */}
+        {/* Save to List Dialog */}
         <Dialog
-          open={editDialogOpen}
-          onClose={() => setEditDialogOpen(false)}
+          open={saveToListDialogOpen}
+          onClose={() => {
+            setSaveToListDialogOpen(false);
+            setPlaceToSave(null);
+          }}
           maxWidth="sm"
           fullWidth
         >
-          <DialogTitle>Edit Activity</DialogTitle>
-          <DialogContent>
-            {editingActivity && (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-                <TextField
-                  label="Location Name"
-                  value={editingActivity.location}
-                  onChange={(e) =>
-                    setEditingActivity({ ...editingActivity, location: e.target.value })
-                  }
-                  fullWidth
-                  required
-                />
-                <TextField
-                  label="Address"
-                  value={editingActivity.address}
-                  onChange={(e) =>
-                    setEditingActivity({ ...editingActivity, address: e.target.value })
-                  }
-                  fullWidth
-                />
-                <TextField
-                  label="Activity Description"
-                  value={editingActivity.activity}
-                  onChange={(e) =>
-                    setEditingActivity({ ...editingActivity, activity: e.target.value })
-                  }
-                  fullWidth
-                  required
-                />
-                <FormControl fullWidth>
-                  <InputLabel>Activity Type</InputLabel>
-                  <Select
-                    value={editingActivity.type}
-                    onChange={(e) =>
-                      setEditingActivity({ ...editingActivity, type: e.target.value })
-                    }
-                    label="Activity Type"
-                  >
-                    <MenuItem value="activity">Activity</MenuItem>
-                    <MenuItem value="museum">Museum</MenuItem>
-                    <MenuItem value="shopping">Shopping</MenuItem>
-                    <MenuItem value="landmark">Landmark</MenuItem>
-                    <MenuItem value="accommodation">Accommodation</MenuItem>
-                    <MenuItem value="restaurant">Restaurant</MenuItem>
-                    <MenuItem value="outdoor">Outdoor</MenuItem>
-                  </Select>
-                </FormControl>
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <TextField
-                    label="Date"
-                    type="date"
-                    value={editingActivity.date}
-                    onChange={(e) =>
-                      setEditingActivity({ ...editingActivity, date: e.target.value })
-                    }
-                    sx={{ flex: 1 }}
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                  />
-                  <TextField
-                    label="Time"
-                    type="time"
-                    value={editingActivity.time}
-                    onChange={(e) =>
-                      setEditingActivity({ ...editingActivity, time: e.target.value })
-                    }
-                    sx={{ flex: 1 }}
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                  />
-                </Box>
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <TextField
-                    label="Duration"
-                    value={editingActivity.duration}
-                    onChange={(e) =>
-                      setEditingActivity({ ...editingActivity, duration: e.target.value })
-                    }
-                    sx={{ flex: 1 }}
-                  />
-                  <TextField
-                    label="Rating"
-                    type="number"
-                    value={editingActivity.rating}
-                    onChange={(e) =>
-                      setEditingActivity({ ...editingActivity, rating: parseFloat(e.target.value) })
-                    }
-                    inputProps={{ min: 1, max: 5, step: 0.1 }}
-                    sx={{ flex: 1 }}
-                  />
-                </Box>
-              </Box>
+          <DialogTitle>
+            Save to List
+            {placeToSave && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontWeight: 'normal' }}>
+                {placeToSave.name}
+              </Typography>
             )}
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+              {savedLists.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  No lists available. Create a list to save this place.
+                </Typography>
+              ) : (
+                savedLists.map((list) => (
+                  <Button
+                    key={list.id}
+                    variant="outlined"
+                    fullWidth
+                    startIcon={<Typography sx={{ fontSize: '1.5rem' }}>{list.icon}</Typography>}
+                    onClick={() => handleAddToSavedList(list.id)}
+                    sx={{
+                      justifyContent: 'flex-start',
+                      textTransform: 'none',
+                    }}
+                  >
+                    {list.name}
+                  </Button>
+                ))
+              )}
+              
+              <Divider sx={{ my: 1 }} />
+              
+              <Button
+                variant="contained"
+                fullWidth
+                startIcon={<AddIcon />}
+                onClick={() => {
+                  setSaveToListDialogOpen(false);
+                  setCreateListDialogOpen(true);
+                }}
+                sx={{
+                  textTransform: 'none',
+                }}
+              >
+                Create New List
+              </Button>
+            </Box>
           </DialogContent>
           <DialogActions>
-            <Button
-              onClick={() => {
-                setEditDialogOpen(false);
-                setEditingActivity(null);
-              }}
-            >
+            <Button onClick={() => {
+              setSaveToListDialogOpen(false);
+              setPlaceToSave(null);
+            }}>
               Cancel
-            </Button>
-            <Button onClick={updateActivity} variant="contained">
-              Update Activity
             </Button>
           </DialogActions>
         </Dialog>

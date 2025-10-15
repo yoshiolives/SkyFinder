@@ -3,11 +3,8 @@ import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
 
-// DELETE /api/lists/[id]/items/[itemId] - Remove an item from a list
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string; itemId: string } }
-) {
+// GET /api/lists/items - Get all items from all lists for the authenticated user
+export async function GET(request: NextRequest) {
   try {
     // Get token from Authorization header
     const authHeader = request.headers.get('authorization');
@@ -31,39 +28,43 @@ export async function DELETE(
       );
     }
 
-    // Verify user owns the list
-    const { data: list, error: listError } = await supabase
+    // Get all lists owned by the user
+    const { data: lists, error: listsError } = await supabase
       .from('saved_lists')
       .select('id')
-      .eq('id', params.id)
-      .eq('user_id', user.id)
-      .single();
+      .eq('user_id', user.id);
 
-    if (listError || !list) {
+    if (listsError) {
+      console.error('Error fetching lists:', listsError);
       return NextResponse.json(
-        { error: 'List not found' },
-        { status: 404 }
-      );
-    }
-
-    // Delete the item
-    const { error } = await supabase
-      .from('saved_list_items')
-      .delete()
-      .eq('id', params.itemId)
-      .eq('list_id', params.id);
-
-    if (error) {
-      console.error('Error deleting list item:', error);
-      return NextResponse.json(
-        { error: 'Failed to delete list item' },
+        { error: 'Failed to fetch lists' },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ success: true });
+    if (!lists || lists.length === 0) {
+      return NextResponse.json({ items: [] });
+    }
+
+    // Get all items from all lists
+    const listIds = lists.map(list => list.id);
+    const { data: items, error: itemsError } = await supabase
+      .from('saved_list_items')
+      .select('*')
+      .in('list_id', listIds)
+      .order('created_at', { ascending: false });
+
+    if (itemsError) {
+      console.error('Error fetching list items:', itemsError);
+      return NextResponse.json(
+        { error: 'Failed to fetch list items' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ items: items || [] });
   } catch (error) {
-    console.error('Delete list item API error:', error);
+    console.error('Get all list items API error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

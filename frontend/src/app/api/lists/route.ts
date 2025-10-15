@@ -6,7 +6,17 @@ export const dynamic = 'force-dynamic';
 // GET /api/lists - Get all lists for the authenticated user
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
+    // Get auth token from headers
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    const supabase = createServerSupabaseClient(token);
     
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -44,7 +54,17 @@ export async function GET(request: NextRequest) {
 // POST /api/lists - Create a new list
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
+    // Get auth token from headers
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    const supabase = createServerSupabaseClient(token);
     
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();

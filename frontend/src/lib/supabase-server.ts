@@ -1,16 +1,27 @@
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 
-export function createServerSupabaseClient() {
+export function createServerSupabaseClient(token?: string) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_API_KEY || '';
 
-  return createClient(supabaseUrl, supabaseAnonKey, {
+  const options: any = {
     auth: {
       detectSessionInUrl: false,
       persistSession: false,
     },
-  });
+  };
+
+  // If token is provided, add it to the headers
+  if (token) {
+    options.global = {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    };
+  }
+
+  return createClient(supabaseUrl, supabaseAnonKey, options);
 }
 
 export async function getServerSession() {

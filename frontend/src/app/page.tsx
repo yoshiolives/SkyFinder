@@ -2261,26 +2261,61 @@ export default function Home() {
           {/* Google Map Background */}
           <Box sx={{ flexGrow: 1, position: 'relative' }}>
             {loadError && (
-                        onChange={(event, isExpanded) => {
-                          // Only allow expansion/collapse if there are activities
-                          if (activities.length > 0) {
-                            if (isExpanded) {
-                              setExpandedDays((prev) => new Set([...Array.from(prev), day]));
-                            } else {
-                              setExpandedDays((prev) => {
-                                const newSet = new Set(Array.from(prev));
-                                newSet.delete(day);
-                                return newSet;
-                              });
-                            }
-                          }
-                        }}
-                        sx={{
-                          boxShadow:
-                            activities.length > 0 && expandedDays.has(day)
-                              ? '0 2px 8px rgba(0, 0, 0, 0.1)'
-                              : 'none',
-                          borderRadius: 2,
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  height: '100%',
+                }}
+              >
+                <Typography color="error">Error loading Google Maps</Typography>
+              </Box>
+            )}
+
+            {!isGoogleMapsLoaded && !loadError && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  height: '100%',
+                }}
+              >
+                <CircularProgress />
+              </Box>
+            )}
+
+            {isGoogleMapsLoaded && !loadError && !mapCenter && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  height: '100%',
+                  backgroundColor: '#f5f5f5',
+                }}
+              >
+                <Typography variant="h6" color="text.secondary">
+                  Select or create a trip to view on the map
+                </Typography>
+              </Box>
+            )}
+            {isGoogleMapsLoaded && !loadError && mapCenter && (
+              <GoogleMap
+                mapContainerStyle={{
+                  width: '100%',
+                  height: '100vh',
+                }}
+                center={mapCenter}
+                zoom={13}
+                options={{
+                  styles: [
+                    {
+                      featureType: 'water',
+                      elementType: 'geometry',
+                      stylers: [{ color: '#a2daf2' }],
+                    },
                           mb: isLastDay
                             ? 12
                             : activities.length > 0 && expandedDays.has(day)
@@ -3837,6 +3872,62 @@ export default function Home() {
             </Button>
             <Button onClick={updateActivity} variant="contained">
               Update Activity
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Create List Dialog */}
+        <Dialog
+          open={createListDialogOpen}
+          onClose={() => {
+            setCreateListDialogOpen(false);
+            setNewListName('');
+            setNewListIcon('📌');
+            setNewListColor('#4285F4');
+          }}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Create New List</DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <TextField
+                label="List Name"
+                value={newListName}
+                onChange={(e) => setNewListName(e.target.value)}
+                fullWidth
+                required
+                placeholder="e.g., Coffee Shops, Restaurants to Try"
+              />
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <TextField
+                  label="Icon"
+                  value={newListIcon}
+                  onChange={(e) => setNewListIcon(e.target.value)}
+                  sx={{ width: 100 }}
+                  placeholder="📌"
+                />
+                <TextField
+                  label="Color"
+                  type="color"
+                  value={newListColor}
+                  onChange={(e) => setNewListColor(e.target.value)}
+                  sx={{ width: 100 }}
+                />
+              </Box>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => {
+              setCreateListDialogOpen(false);
+              setNewListName('');
+              setNewListIcon('📌');
+              setNewListColor('#4285F4');
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateList} variant="contained" disabled={!newListName.trim()}>
+              Create List
             </Button>
           </DialogActions>
         </Dialog>

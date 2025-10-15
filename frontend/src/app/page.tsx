@@ -67,7 +67,7 @@ import {
 } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { GoogleMap, InfoWindow, Marker, useLoadScript } from '@react-google-maps/api';
+import { Data, GoogleMap, InfoWindow, Marker, useLoadScript } from '@react-google-maps/api';
 import Image from 'next/image';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -280,6 +280,12 @@ export default function Home() {
   const [isDragging, setIsDragging] = useState(false);
   const [hoveredDay, setHoveredDay] = useState<string | null>(null);
   const [bookNowSnackbarOpen, setBookNowSnackbarOpen] = useState(false);
+  const [transitDataLoaded, setTransitDataLoaded] = useState(false);
+  const [transitStations, setTransitStations] = useState<any[]>([]);
+  const [transitLines, setTransitLines] = useState<any[]>([]);
+  const [selectedStations, setSelectedStations] = useState<Set<number>>(new Set());
+  const circlesRef = useRef<Map<number, google.maps.Circle>>(new Map());
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
 
   // Detect if device is mobile/touch device
   const [isMobile, setIsMobile] = useState(false);
@@ -303,10 +309,146 @@ export default function Home() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Get user's current location and set map center
+  useEffect(() => {
+    if (!mapCenter && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setMapCenter({ lat: latitude, lng: longitude });
+          console.log('📍 Location detected:', latitude, longitude);
+        },
+        (error) => {
+          console.warn('⚠️ Geolocation error:', error.message);
+          // Fallback to default location (Times Square, NYC)
+          setMapCenter({ lat: 40.758, lng: -73.9855 });
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    }
+  }, [mapCenter]);
+
+  // Load transit data dynamically from all GeoJSON files
+  useEffect(() => {
+    const loadTransitData = async () => {
+      if (!mapReady || transitDataLoaded) return;
+
+      try {
+        // Get list of all GeoJSON files
+        const response = await fetch('/api/transit');
+        const { files } = await response.json();
+        
+
+        const stations: any[] = [];
+        const lines: any[] = [];
+
+        // Load each file
+        for (const file of files) {
+          try {
+            const fileResponse = await fetch(file.url);
+            const geoJson = await fileResponse.json();
+            
+            
+            // Transform and categorize features
+            geoJson.features.forEach((feature: any) => {
+              // Transform coordinates if needed (for EPSG:3857 to WGS84)
+              if (feature.properties?.Stn_Latitude && feature.properties?.Stn_Longtitude) {
+                stations.push({
+                  ...feature,
+                  geometry: {
+                    type: 'Point',
+                    coordinates: [
+                      feature.properties.Stn_Longtitude,
+                      feature.properties.Stn_Latitude,
+                    ],
+                  },
+                });
+              } else if (feature.geometry.type === 'LineString' || feature.geometry.type === 'MultiLineString') {
+                lines.push(feature);
+              } else if (feature.geometry.type === 'Point') {
+                stations.push(feature);
+              }
+            });
+            
+          } catch (fileError) {
+            console.error(`❌ Failed to load ${file.filename}:`, fileError);
+          }
+        }
+        
+        setTransitStations(stations);
+        setTransitLines(lines);
+        setTransitDataLoaded(true);
+        
+        console.log('🚇 Transit data loaded:', {
+          stations: stations.length,
+          lines: lines.length,
+        });
+      } catch (error) {
+        console.error('❌ Failed to load transit data:', error);
+      }
+    };
+
+    loadTransitData();
+  }, [mapReady, transitDataLoaded]);
+
   // Handle Book Now button click
   const handleBookNow = () => {
     setBookNowSnackbarOpen(true);
   };
+
+  // Handle station marker click - toggle coverage circle
+  const handleStationClick = useCallback((stationIndex: number, event: any) => {
+    // Prevent the InfoWindow from opening
+    event.stop();
+    
+    const map = mapInstanceRef.current;
+    if (!map) {
+      console.error('Map instance not available');
+      return;
+    }
+    
+    const station = transitStations[stationIndex];
+    if (!station) return;
+    
+    const coords = station.geometry.coordinates;
+    if (!coords || coords.length < 2) return;
+    
+    setSelectedStations((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(stationIndex)) {
+        // Remove circle
+        const circle = circlesRef.current.get(stationIndex);
+        if (circle) {
+          circle.setMap(null);
+          circlesRef.current.delete(stationIndex);
+          console.log('🗑️ Removed circle for station', stationIndex);
+        }
+        newSet.delete(stationIndex);
+      } else {
+        // Add circle
+        const circle = new google.maps.Circle({
+          center: { lat: coords[0], lng: coords[1] },
+          radius: 800,
+          fillColor: '#4285F4',
+          fillOpacity: 0.15,
+          strokeColor: '#4285F4',
+          strokeOpacity: 0.5,
+          strokeWeight: 2,
+          clickable: false,
+          zIndex: 1,
+        });
+        circle.setMap(map);
+        circlesRef.current.set(stationIndex, circle);
+        console.log('➕ Added circle for station', stationIndex);
+        newSet.add(stationIndex);
+      }
+      return newSet;
+    });
+  }, [transitStations]);
 
   // Handle Book Now snackbar close
   const handleBookNowSnackbarClose = () => {
@@ -2529,7 +2671,10 @@ export default function Home() {
                   rotateControl: showMapControls,
                   fullscreenControl: showMapControls,
                 }}
-                onLoad={() => setMapReady(true)}
+                onLoad={(map) => {
+                  mapInstanceRef.current = map;
+                  setMapReady(true);
+                }}
               >
                 {/* Map Markers for each itinerary item */}
                 {mapReady &&
@@ -2590,6 +2735,80 @@ export default function Home() {
                         />
                       );
                     })}
+
+                {/* User's current location marker */}
+                {mapCenter && (
+                  <Marker
+                    position={mapCenter}
+                    icon={{
+                      path: window.google?.maps?.SymbolPath?.CIRCLE || '',
+                      scale: 8,
+                      fillColor: '#4285F4',
+                      fillOpacity: 1,
+                      strokeColor: '#FFFFFF',
+                      strokeWeight: 2,
+                    }}
+                    title="Your Location"
+                  />
+                )}
+
+                {/* Transit Lines - Using Data component */}
+                {transitDataLoaded && transitLines.length > 0 && (
+                  <Data
+                    options={{
+                      map: undefined,
+                      controlPosition: undefined,
+                      controls: [],
+                      drawingMode: undefined,
+                      style: (feature: any) => {
+                        const lineName = feature.getProperty('Line');
+                        let color = '#0099CC'; // Default teal
+                        
+                        // Color coding for different lines
+                        if (lineName?.includes('Canada Line')) color = '#0099CC'; // Teal
+                        if (lineName?.includes('Expo')) color = '#FFCC00'; // Yellow
+                        if (lineName?.includes('Millennium')) color = '#0066CC'; // Blue
+                        if (lineName?.includes('West Coast Express')) color = '#FF6600'; // Orange
+                        
+                        return {
+                          strokeColor: color,
+                          strokeWeight: 4,
+                          strokeOpacity: 0.9,
+                          zIndex: 1,
+                        };
+                      },
+                    }}
+                    onLoad={(data) => {
+                      const linesGeoJson = {
+                        type: 'FeatureCollection',
+                        features: transitLines,
+                      };
+                      data.addGeoJson(linesGeoJson);
+                    }}
+                  />
+                )}
+
+                {/* Transit Stations - Using Marker components */}
+                {transitDataLoaded && transitStations.map((station, index) => {
+                  const coords = station.geometry.coordinates;
+                  if (!coords || coords.length < 2) {
+                    return null;
+                  }
+                  
+                  return (
+                    <Marker
+                      key={`station-${index}`}
+                      position={{ lat: coords[0], lng: coords[1] }}
+                      label={{
+                        text: '🚇',
+                        fontSize: '20px',
+                      }}
+                      title={station.properties?.Name || station.properties?.name || 'Transit Station'}
+                      onClick={(e) => handleStationClick(index, e)}
+                      zIndex={999}
+                    />
+                  );
+                })}
 
                 {/* Info Window for selected item */}
                 {mapReady && selectedItem && (

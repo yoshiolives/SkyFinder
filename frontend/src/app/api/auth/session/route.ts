@@ -1,8 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 export async function GET(_request: NextRequest) {
   try {
+    const supabase = createServerSupabaseClient();
+
     const {
       data: { session },
       error,

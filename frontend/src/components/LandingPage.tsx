@@ -166,7 +166,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                     textShadow: '0 2px 10px rgba(0,0,0,0.2)',
                   }}
                 >
-                  Stop Planning. Start Traveling.
+                  Discover Your Next Great Meal
                 </Typography>
                 <Typography
                   variant="h5"
@@ -179,8 +179,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                     display: { xs: 'none', md: 'block' }, // Hide on mobile, show on desktop
                   }}
                 >
-                  Let AI handle the details while you focus on what matters—making memories with the
-                  people you love.
+                  Find the perfect restaurant for any occasion. Search by cuisine, price, and more.
                 </Typography>
               </Box>
             </Box>
@@ -200,8 +199,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                 display: { xs: 'block', md: 'none' },
               }}
             >
-              Let AI handle the details while you focus on what matters—making memories with the
-              people you love.
+              Find the perfect restaurant for any occasion. Search by cuisine, price, and more.
             </Typography>
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Button
@@ -225,7 +223,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                   transition: 'all 0.3s ease',
                 }}
               >
-                Plan Your Dream Trip
+                Find Restaurants
               </Button>
             </Box>
           </Box>
@@ -251,11 +249,10 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               >
                 <ScheduleIcon sx={{ fontSize: 60, color: theme.palette.primary.main, mb: 2 }} />
                 <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
-                  Minutes, Not Hours
+                  Find Restaurants Fast
                 </Typography>
                 <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.7 }}>
-                  Create a complete itinerary in minutes with AI. No more endless browser tabs and
-                  research.
+                  Search thousands of restaurants in seconds. Filter by cuisine, price, rating, and more.
                 </Typography>
               </Paper>
             </Grid>
@@ -279,10 +276,10 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               >
                 <HappyIcon sx={{ fontSize: 60, color: theme.palette.secondary.main, mb: 2 }} />
                 <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
-                  Less Stress, More Joy
+                  Perfect Match Every Time
                 </Typography>
                 <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.7 }}>
-                  Spend your energy on experiences, not logistics. We handle the planning chaos.
+                  Get personalized recommendations based on your preferences. No more decision paralysis.
                 </Typography>
               </Paper>
             </Grid>
@@ -306,11 +303,10 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               >
                 <GroupIcon sx={{ fontSize: 60, color: theme.palette.success.main, mb: 2 }} />
                 <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
-                  Everyone's Happy
+                  Real Reviews & Ratings
                 </Typography>
                 <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.7 }}>
-                  Collaborate with friends and family. Share trips, get suggestions, and travel
-                  together.
+                  See ratings and reviews from real customers. Make informed decisions about where to dine.
                 </Typography>
               </Paper>
             </Grid>

@@ -22,7 +22,7 @@ const MapComponent = ({ selectedItem, onMarkerClick, itinerary }) => {
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <LoadScript
-        googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}
+        googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
         libraries={LIBRARIES}
       >
         <GoogleMap

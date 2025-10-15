@@ -21,7 +21,7 @@ const SimpleMap = () => {
   ];
 
   return (
-    <LoadScript googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY}>
+    <LoadScript googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
       <GoogleMap mapContainerStyle={mapContainerStyle} center={center} zoom={10}>
         {locations.map((location, index) => (
           <Marker

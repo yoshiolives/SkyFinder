@@ -335,6 +335,15 @@ export default function Home() {
     selectedStationsRef.current = new Set(selectedStations);
   }, [selectedStations]);
 
+  // Trigger map resize when sidebar toggles
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      setTimeout(() => {
+        window.google?.maps?.event?.trigger(mapInstanceRef.current, 'resize');
+      }, 100);
+    }
+  }, [sidebarOpen]);
+
   // Get user's current location and set map center
   useEffect(() => {
     if (!mapCenter && navigator.geolocation) {
@@ -1039,17 +1048,19 @@ export default function Home() {
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
+    
+    // Trigger map resize after sidebar animation
+    setTimeout(() => {
+      if (mapInstanceRef.current) {
+        window.google?.maps?.event?.trigger(mapInstanceRef.current, 'resize');
+      }
+    }, 50);
   };
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Ctrl/Cmd + B to toggle sidebar
-      if ((event.ctrlKey || event.metaKey) && event.key === 'b') {
-        event.preventDefault();
-        toggleSidebar();
-      }
-      // Escape to close sidebar or hide search results
+      // Escape to toggle sidebar or hide search results
       if (event.key === 'Escape') {
         if (sidebarOpen) {
           setSidebarOpen(false);
@@ -1683,271 +1694,274 @@ export default function Home() {
             pt: { xs: '56px', sm: '64px' }, // Smaller top padding on mobile
           }}
         >
-          {/* Apple-Style Sidebar */}
-          <Drawer
-            variant="persistent"
-            anchor="left"
-            open={sidebarOpen}
+          {/* Thin Left Bar with Hamburger */}
+          <Box
             sx={{
-              width: sidebarOpen ? { xs: '100vw', sm: 320 } : 0,
+              width: 56,
               flexShrink: 0,
-              '& .MuiDrawer-paper': {
-                width: { xs: '100vw', sm: 320 },
-                boxSizing: 'border-box',
-                background:
-                  'linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(240 4.8% 95.9%) 50%, hsl(240 4.8% 98%) 100%)',
-                backdropFilter: 'blur(20px)',
-                border: '1px solid hsl(220 13% 91%)',
-                borderLeft: 'none',
-                transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-                transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-                marginTop: { xs: '56px', sm: '64px' },
-                height: { xs: 'calc(100vh - 56px)', sm: 'calc(100vh - 64px)' },
-                zIndex: 1000,
-                overflow: 'visible',
-              },
+              backgroundColor: 'white',
+              borderRight: '1px solid #E5E5EA',
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
             }}
           >
-            {/* Sidebar Header */}
+            {/* Hamburger Button */}
             <Box
               sx={{
-                p: { xs: 2, sm: 3 },
-                background: 'rgba(255, 255, 255, 0.8)',
-                backdropFilter: 'blur(10px)',
-                borderBottom: '1px solid hsl(220 13% 91%)',
-                position: 'relative',
+                py: 1,
+                px: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderBottom: '1px solid #E5E5EA',
               }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box sx={{ flex: 1 }}>
-                  {isEditingTitle ? (
-                    <TextField
-                      value={editedTripTitle}
-                      onChange={handleTitleChange}
-                      onBlur={handleTitleSubmit}
-                      onKeyDown={handleTitleKeyPress}
-                      autoFocus
-                      variant="standard"
-                      sx={{
-                        '& .MuiInput-root': {
-                          color: 'hsl(240 5.9% 10%)',
-                          fontSize: '1.25rem',
-                          fontWeight: 600,
-                          '&:before': { borderBottomColor: 'hsl(220 13% 91%)' },
-                          '&:after': { borderBottomColor: 'hsl(217.2 91.2% 59.8%)' },
-                          '&:hover:not(.Mui-disabled):before': {
-                            borderBottomColor: 'hsl(220 13% 91%)',
-                          },
-                        },
-                        '& .MuiInput-input': {
-                          color: 'hsl(240 5.9% 10%)',
-                          fontSize: '1.25rem',
-                          fontWeight: 600,
-                        },
-                      }}
-                    />
-                  ) : (
-                    <Typography
-                      variant="h5"
-                      component="div"
-                      onClick={handleTitleClick}
-                      sx={{
-                        fontWeight: 600,
-                        fontSize: { xs: '1.1rem', sm: '1.25rem' },
-                        color: 'hsl(240 5.9% 10%)',
-                        cursor: currentTrip ? 'pointer' : 'default',
-                        transition: 'all 0.2s ease',
-                        borderRadius: '4px',
-                        px: 1,
-                        py: 0.5,
-                        '&:hover': currentTrip
-                          ? {
-                              backgroundColor: 'hsl(240 4.8% 95.9%)',
-                            }
-                          : {},
-                      }}
-                    >
-                      {currentTrip ? currentTrip.title : 'Saved Lists'}
-                    </Typography>
-                  )}
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: 'hsl(240 3.8% 46.1%)',
-                      mt: 0.5,
-                      fontSize: '0.875rem',
-                      fontWeight: 400,
-                    }}
-                    component="div"
-                  >
-                    {currentTrip ? (
-                      isEditingDates ? (
-                        <Box
-                          sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
-                        >
-                          <Typography variant="body2" sx={{ color: 'inherit' }}>
-                            {currentTrip.destination || 'Destination'} •
-                          </Typography>
-                          <TextField
-                            type="date"
-                            value={vacationStartDate}
-                            onChange={(e) => setVacationStartDate(e.target.value)}
-                            size="small"
-                            sx={{
-                              '& .MuiInputBase-root': {
-                                fontSize: '0.875rem',
-                                height: 28,
-                              },
-                              '& .MuiInputBase-input': {
-                                py: 0.5,
-                                px: 1,
-                              },
-                            }}
-                          />
-                          <Typography variant="body2" sx={{ color: 'inherit' }}>
-                            -
-                          </Typography>
-                          <TextField
-                            type="date"
-                            value={vacationEndDate}
-                            onChange={(e) => setVacationEndDate(e.target.value)}
-                            size="small"
-                            sx={{
-                              '& .MuiInputBase-root': {
-                                fontSize: '0.875rem',
-                                height: 28,
-                              },
-                              '& .MuiInputBase-input': {
-                                py: 0.5,
-                                px: 1,
-                              },
-                            }}
-                          />
-                          <Button
-                            size="small"
-                            onClick={handleDateSave}
-                            sx={{
-                              minWidth: 'auto',
-                              px: 1,
-                              py: 0.5,
-                              fontSize: '0.75rem',
-                              backgroundColor: '#007AFF',
-                              color: 'white',
-                              '&:hover': {
-                                backgroundColor: '#0056CC',
-                              },
-                            }}
-                          >
-                            Save
-                          </Button>
-                          <Button
-                            size="small"
-                            onClick={handleDateCancel}
-                            sx={{
-                              minWidth: 'auto',
-                              px: 1,
-                              py: 0.5,
-                              fontSize: '0.75rem',
-                              color: '#8E8E93',
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                        </Box>
-                      ) : (
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1,
-                            cursor: 'pointer',
-                            '&:hover': {
-                              opacity: 0.7,
-                            },
-                          }}
-                          onClick={() => handleDateEdit()}
-                        >
-                          <Typography variant="body2" sx={{ color: 'inherit' }}>
-                            {currentTrip.destination || 'Destination'} •{' '}
-                            {formatLocalDateSimple(currentTrip.start_date)} -{' '}
-                            {formatLocalDateSimple(currentTrip.end_date)}
-                          </Typography>
-                          <EditIcon sx={{ fontSize: 14, color: '#8E8E93' }} />
-                        </Box>
-                      )
-                    ) : user ? (
-                      'No trip selected'
-                    ) : (
-                      'Sign in to get started'
-                    )}
-                  </Typography>
-                </Box>
-
-                {/* Close Button */}
-                {sidebarOpen && (
-                  <Tooltip title="Close Sidebar (Esc)" placement="right" arrow>
-                    <IconButton
-                      onClick={toggleSidebar}
-                      aria-label="Close sidebar"
-                      sx={{
-                        position: 'fixed',
-                        top: '50%',
-                        left: sidebarOpen ? { xs: 'calc(100vw - 24px)', sm: 308 } : -100,
-                        transform: 'translateY(-50%)',
-                        width: 24,
-                        height: 60,
-                        background: 'hsl(0 0% 100%)',
-                        border: '2px solid hsl(220 13% 91%)',
-                        borderRadius: '0 6px 6px 0',
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-                        color: 'hsl(240 5.9% 10%)',
-                        zIndex: 1001,
-                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                        '&:hover': {
-                          background: 'hsl(240 4.8% 95.9%)',
-                          transform: 'translateY(-50%) translateX(2px)',
-                          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-                        },
-                      }}
-                    >
-                      <ChevronLeftIcon sx={{ fontSize: 18 }} />
-                    </IconButton>
-                  </Tooltip>
-                )}
-              </Box>
-
-              {user && (
-                <Button
-                  variant="outlined"
-                  size="small"
-                  fullWidth
-                  onClick={() => setTripSelectorOpen(true)}
-                  sx={{
-                    mt: 1.5,
-                    color: 'hsl(240 5.9% 10%)',
-                    borderColor: 'hsl(220 13% 91%)',
-                    '&:hover': {
-                      borderColor: 'hsl(217.2 91.2% 59.8%)',
-                      backgroundColor: 'rgba(59, 130, 246, 0.05)',
-                    },
-                  }}
-                >
-                  {trips.length === 0 ? 'Create Your First List' : `Switch Trip (${trips.length})`}
-                </Button>
-              )}
+              <IconButton
+                onClick={toggleSidebar}
+                sx={{
+                  color: '#1D1D1F',
+                  '&:hover': {
+                    backgroundColor: '#F5F5F7',
+                  },
+                }}
+              >
+                <MenuIcon />
+              </IconButton>
             </Box>
 
-            {/* Sidebar Content */}
+            {/* List Icons */}
             <Box
               sx={{
                 flexGrow: 1,
                 overflow: 'auto',
-                p: { xs: 1.5, sm: 2 },
-                position: 'relative',
-                zIndex: 1, // Ensure content is above background but below drag elements
+                py: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 0.5,
               }}
             >
+              {savedLists.map((list) => (
+                <Tooltip key={list.id} title={list.name} placement="right" arrow>
+                  <IconButton
+                    onClick={() => {
+                      setSelectedList(list);
+                      setSidebarOpen(true);
+                    }}
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      fontSize: '1.5rem',
+                      border: selectedList?.id === list.id ? '2px solid #007AFF' : 'none',
+                      backgroundColor: selectedList?.id === list.id ? '#F5F5F7' : 'transparent',
+                      '&:hover': {
+                        backgroundColor: '#F5F5F7',
+                      },
+                    }}
+                  >
+                    {list.icon}
+                  </IconButton>
+                </Tooltip>
+              ))}
+            </Box>
+          </Box>
+
+          {/* Saved Lists Panel - Appears to the right when open */}
+          {sidebarOpen && (
+            <Box
+              sx={{
+                width: 320,
+                flexShrink: 0,
+                backgroundColor: 'white',
+                borderRight: '1px solid #E5E5EA',
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+              }}
+            >
+              {/* Panel Header */}
+              <Box
+                sx={{
+                  py: 1,
+                  px: 2,
+                  background: 'white',
+                  borderBottom: '1px solid #E5E5EA',
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box sx={{ flex: 1 }}>
+                    {isEditingTitle ? (
+                      <TextField
+                        value={editedTripTitle}
+                        onChange={handleTitleChange}
+                        onBlur={handleTitleSubmit}
+                        onKeyDown={handleTitleKeyPress}
+                        autoFocus
+                        variant="standard"
+                        sx={{
+                          '& .MuiInput-root': {
+                            color: 'hsl(240 5.9% 10%)',
+                            fontSize: '1.25rem',
+                            fontWeight: 600,
+                            '&:before': { borderBottomColor: 'hsl(220 13% 91%)' },
+                            '&:after': { borderBottomColor: 'hsl(217.2 91.2% 59.8%)' },
+                            '&:hover:not(.Mui-disabled):before': {
+                              borderBottomColor: 'hsl(220 13% 91%)',
+                            },
+                          },
+                          '& .MuiInput-input': {
+                            color: 'hsl(240 5.9% 10%)',
+                            fontSize: '1.25rem',
+                            fontWeight: 600,
+                          },
+                        }}
+                      />
+                    ) : (
+                      <Typography
+                        variant="h5"
+                        component="div"
+                        onClick={handleTitleClick}
+                        sx={{
+                          fontWeight: 600,
+                          fontSize: { xs: '1.1rem', sm: '1.25rem' },
+                          color: 'hsl(240 5.9% 10%)',
+                          cursor: currentTrip ? 'pointer' : 'default',
+                          transition: 'all 0.2s ease',
+                          borderRadius: '4px',
+                          px: 1,
+                          py: 0.5,
+                          '&:hover': currentTrip
+                            ? {
+                                backgroundColor: 'hsl(240 4.8% 95.9%)',
+                              }
+                            : {},
+                        }}
+                      >
+                        {currentTrip ? currentTrip.title : 'Saved Lists'}
+                      </Typography>
+                    )}
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: 'hsl(240 3.8% 46.1%)',
+                        mt: 0.5,
+                        fontSize: '0.875rem',
+                        fontWeight: 400,
+                      }}
+                      component="div"
+                    >
+                      {currentTrip ? (
+                        isEditingDates ? (
+                          <Box
+                            sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
+                          >
+                            <Typography variant="body2" sx={{ color: 'inherit' }}>
+                              {currentTrip.destination || 'Destination'} •
+                            </Typography>
+                            <TextField
+                              type="date"
+                              value={vacationStartDate}
+                              onChange={(e) => setVacationStartDate(e.target.value)}
+                              size="small"
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  fontSize: '0.875rem',
+                                  height: 28,
+                                },
+                                '& .MuiInputBase-input': {
+                                  py: 0.5,
+                                  px: 1,
+                                },
+                              }}
+                            />
+                            <Typography variant="body2" sx={{ color: 'inherit' }}>
+                              -
+                            </Typography>
+                            <TextField
+                              type="date"
+                              value={vacationEndDate}
+                              onChange={(e) => setVacationEndDate(e.target.value)}
+                              size="small"
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  fontSize: '0.875rem',
+                                  height: 28,
+                                },
+                                '& .MuiInputBase-input': {
+                                  py: 0.5,
+                                  px: 1,
+                                },
+                              }}
+                            />
+                            <Button
+                              size="small"
+                              onClick={handleDateSave}
+                              sx={{
+                                minWidth: 'auto',
+                                px: 1,
+                                py: 0.5,
+                                fontSize: '0.75rem',
+                                backgroundColor: '#007AFF',
+                                color: 'white',
+                                '&:hover': {
+                                  backgroundColor: '#0056CC',
+                                },
+                              }}
+                            >
+                              Save
+                            </Button>
+                            <Button
+                              size="small"
+                              onClick={handleDateCancel}
+                              sx={{
+                                minWidth: 'auto',
+                                px: 1,
+                                py: 0.5,
+                                fontSize: '0.75rem',
+                                color: '#8E8E93',
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </Box>
+                        ) : (
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                              cursor: 'pointer',
+                              '&:hover': {
+                                opacity: 0.7,
+                              },
+                            }}
+                            onClick={() => handleDateEdit()}
+                          >
+                            <Typography variant="body2" sx={{ color: 'inherit' }}>
+                              {currentTrip.destination || 'Destination'} •{' '}
+                              {formatLocalDateSimple(currentTrip.start_date)} -{' '}
+                              {formatLocalDateSimple(currentTrip.end_date)}
+                            </Typography>
+                            <EditIcon sx={{ fontSize: 14, color: '#8E8E93' }} />
+                          </Box>
+                        )
+                      ) : null}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+
+              {/* Panel Content */}
+              <Box
+                sx={{
+                  flexGrow: 1,
+                  overflow: 'auto',
+                  p: { xs: 1.5, sm: 2 },
+                  position: 'relative',
+                  zIndex: 1,
+                }}
+              >
               {loading ? (
                 <Box
                   sx={{
@@ -2053,18 +2067,6 @@ export default function Home() {
               ) : (
                 /* Saved Lists View */
                 <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                    <Typography variant="h6">Saved Lists</Typography>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      startIcon={<AddIcon />}
-                      onClick={() => setCreateListDialogOpen(true)}
-                    >
-                      New List
-                    </Button>
-                  </Box>
-
                   {savedLists.length === 0 ? (
                     <Box sx={{ p: 4, textAlign: 'center' }}>
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -2120,16 +2122,16 @@ export default function Home() {
                   )}
                 </Box>
               )}
-            </Box>
+              </Box>
 
-            {/* Sidebar Footer */}
-            <Box
-              sx={{
-                background: 'linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(240 4.8% 95.9%) 100%)',
-                borderTop: '1px solid hsl(220 13% 91%)',
-                p: { xs: 2, sm: 3 },
-              }}
-            >
+              {/* Panel Footer */}
+              <Box
+                sx={{
+                  background: 'white',
+                  borderTop: '1px solid #E5E5EA',
+                  p: { xs: 2, sm: 3 },
+                }}
+              >
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
@@ -2164,8 +2166,9 @@ export default function Home() {
               >
                 Create New List
               </Button>
+              </Box>
             </Box>
-          </Drawer>
+          )}
 
           {/* Google Map Background */}
           <Box sx={{ flexGrow: 1, position: 'relative' }}>
@@ -2379,64 +2382,6 @@ export default function Home() {
               </GoogleMap>
             )}
 
-          </Box>
-
-          {/* Sidebar Trigger */}
-          <Box
-            sx={{
-              position: 'fixed',
-              top: { xs: 'calc(56px + 8px)', sm: 'calc(64px + 8px)', md: 'calc(50% - 250px)' },
-              left: 0,
-              transform: { xs: 'none', sm: 'none', md: 'translateY(-50%)' },
-              zIndex: 1001,
-              opacity: sidebarOpen ? 0 : 1,
-              visibility: sidebarOpen ? 'hidden' : 'visible',
-              transition: sidebarOpen
-                ? 'opacity 0.1s ease-out, visibility 0.1s ease-out'
-                : 'opacity 0.3s ease-in 0.3s, visibility 0.3s ease-in 0.3s',
-            }}
-          >
-            <Tooltip title="Open Sidebar (Ctrl+B)" placement="right" arrow>
-              <IconButton
-                onClick={toggleSidebar}
-                aria-label="Open sidebar"
-                sx={{
-                  left: sidebarOpen ? -100 : { xs: 0, sm: 0 },
-                  width: 32,
-                  height: 80,
-                  background: 'rgba(0, 122, 255, 0.9)',
-                  color: 'white',
-                  borderRadius: '0 6px 6px 0',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-                  border: '2px solid hsl(220 13% 91%)',
-                  zIndex: 1001,
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  animation: 'pulse 2s infinite',
-                  '@keyframes pulse': {
-                    '0%': {
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-                    },
-                    '50%': {
-                      boxShadow:
-                        '0 4px 12px rgba(0, 122, 255, 0.4), 0 0 0 4px rgba(0, 122, 255, 0.1)',
-                    },
-                    '100%': {
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
-                    },
-                  },
-                  '&:hover': {
-                    background: 'rgba(0, 122, 255, 1)',
-                    boxShadow: '0 4px 12px rgba(0, 122, 255, 0.3)',
-                    animation: 'none',
-                  },
-                  '&:active': {
-                    transform: 'scale(0.98)',
-                  },
-                }}
-              >
-                <MenuIcon sx={{ fontSize: 24 }} />
-              </IconButton>
-            </Tooltip>
           </Box>
         </Box>
 

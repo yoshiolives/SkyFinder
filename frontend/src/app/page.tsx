@@ -286,6 +286,7 @@ export default function Home() {
   const [selectedStations, setSelectedStations] = useState<Set<number>>(new Set());
   const circlesRef = useRef<Map<number, google.maps.Circle>>(new Map());
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const selectedStationsRef = useRef<Set<number>>(new Set());
 
   // Detect if device is mobile/touch device
   const [isMobile, setIsMobile] = useState(false);
@@ -308,6 +309,11 @@ export default function Home() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Keep the ref in sync with the state
+  useEffect(() => {
+    selectedStationsRef.current = new Set(selectedStations);
+  }, [selectedStations]);
 
   // Get user's current location and set map center
   useEffect(() => {
@@ -412,42 +418,52 @@ export default function Home() {
     }
     
     const station = transitStations[stationIndex];
-    if (!station) return;
+    if (!station) {
+      return;
+    }
     
     const coords = station.geometry.coordinates;
-    if (!coords || coords.length < 2) return;
+    if (!coords || coords.length < 2) {
+      return;
+    }
     
-    setSelectedStations((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(stationIndex)) {
-        // Remove circle
-        const circle = circlesRef.current.get(stationIndex);
-        if (circle) {
-          circle.setMap(null);
-          circlesRef.current.delete(stationIndex);
-          console.log('🗑️ Removed circle for station', stationIndex);
-        }
-        newSet.delete(stationIndex);
+    // Check current state using the ref (immediate, synchronous)
+    const isCurrentlySelected = selectedStationsRef.current.has(stationIndex);
+    
+    if (isCurrentlySelected) {
+      // Remove circle
+      const circle = circlesRef.current.get(stationIndex);
+      console.log('🔍 Removing circle for station', stationIndex, 'Circle exists:', !!circle);
+      if (circle) {
+        console.log('🗑️ Calling setMap(null) on circle');
+        circle.setMap(null);
+        circlesRef.current.delete(stationIndex);
+        selectedStationsRef.current.delete(stationIndex);
+        console.log('✅ Circle removed');
       } else {
-        // Add circle
-        const circle = new google.maps.Circle({
-          center: { lat: coords[0], lng: coords[1] },
-          radius: 800,
-          fillColor: '#4285F4',
-          fillOpacity: 0.15,
-          strokeColor: '#4285F4',
-          strokeOpacity: 0.5,
-          strokeWeight: 2,
-          clickable: false,
-          zIndex: 1,
-        });
-        circle.setMap(map);
-        circlesRef.current.set(stationIndex, circle);
-        console.log('➕ Added circle for station', stationIndex);
-        newSet.add(stationIndex);
+        console.warn('⚠️ No circle found in ref for station', stationIndex);
       }
-      return newSet;
-    });
+    } else {
+      // Add circle
+      const circle = new google.maps.Circle({
+        center: { lat: coords[0], lng: coords[1] },
+        radius: 800,
+        fillColor: '#4285F4',
+        fillOpacity: 0.15,
+        strokeColor: '#4285F4',
+        strokeOpacity: 0.5,
+        strokeWeight: 2,
+        clickable: false,
+        zIndex: 1,
+      });
+      circle.setMap(map);
+      circlesRef.current.set(stationIndex, circle);
+      selectedStationsRef.current.add(stationIndex);
+      console.log('➕ Added circle for station', stationIndex);
+    }
+    
+    // Update the state for rendering (keeps UI in sync)
+    setSelectedStations(new Set(selectedStationsRef.current));
   }, [transitStations]);
 
   // Handle Book Now snackbar close

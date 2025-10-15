@@ -311,6 +311,7 @@ export default function Home() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedSearchResult, setSelectedSearchResult] = useState<any | null>(null);
+  const [searchPerformed, setSearchPerformed] = useState(false);
 
   // Detect if device is mobile/touch device
   const [isMobile, setIsMobile] = useState(false);
@@ -597,6 +598,7 @@ export default function Home() {
     if (!query.trim() || selectedStations.size === 0) {
       console.log('⚠️ Search cancelled - no query or stations selected');
       setSearchResults([]);
+      setSearchPerformed(false);
       return;
     }
 
@@ -606,6 +608,7 @@ export default function Home() {
     }
 
     setIsSearching(true);
+    setSearchPerformed(true);
     try {
       // Get all selected station coordinates
       const stationCoords = Array.from(selectedStations).map((index) => {
@@ -722,6 +725,7 @@ export default function Home() {
       handleSearch(value);
     } else {
       setSearchResults([]);
+      setSearchPerformed(false);
     }
   };
 
@@ -746,11 +750,12 @@ export default function Home() {
     setSearchQuery('');
     setSearchResults([]);
     setSelectedSearchResult(null);
+    setSearchPerformed(false);
   };
 
-  // Hide search results dropdown
+  // Hide search results dropdown (but keep markers on map)
   const handleHideSearchResults = () => {
-    setSearchResults([]);
+    setSearchPerformed(false);
   };
 
   // Handle date editing
@@ -1139,22 +1144,29 @@ export default function Home() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [sidebarOpen, searchResults]);
 
-  // Handle click outside to close search results
+  // Handle click outside to close search results and category dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
+      
       // Check if click is outside the search area
       const searchContainer = document.querySelector('[data-search-container]');
       if (searchContainer && !searchContainer.contains(target)) {
         handleHideSearchResults();
       }
+      
+      // Check if click is outside the category buttons area
+      const categoryContainer = document.querySelector('[data-category-container]');
+      if (categoryContainer && !categoryContainer.contains(target)) {
+        setSelectedCategory(null);
+      }
     };
 
-    if (searchResults.length > 0) {
+    if (searchResults.length > 0 || selectedCategory) {
       document.addEventListener('click', handleClickOutside);
       return () => document.removeEventListener('click', handleClickOutside);
     }
-  }, [searchResults]);
+  }, [searchResults, selectedCategory]);
 
   // Track which day is being dragged over for hover-to-expand
   const [draggedOverDay, setDraggedOverDay] = useState<string | null>(null);
@@ -1536,130 +1548,79 @@ export default function Home() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        {/* Top Header with Login */}
-        <AppBar
-          position="fixed"
-          sx={{
-            zIndex: (theme) => theme.zIndex.drawer + 1,
-            backgroundColor: 'white',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-            borderRadius: 0,
-            height: '40px',
-          }}
-        >
-          <Toolbar sx={{ px: 3, py: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '40px !important', height: '40px !important' }}>
-            {/* Logo and Title */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Image
-                src="/logo.png"
-                alt="SkyFinder Logo"
-                width={28}
-                height={28}
-                style={{ borderRadius: '6px' }}
-              />
-              <Typography 
-                variant="h6" 
-                component="div" 
-                sx={{ 
-                  fontWeight: 600,
-                  color: '#1D1D1F',
-                  fontSize: '1rem',
-                }}
-              >
-                SkyFinder
-              </Typography>
-            </Box>
-
-            {/* User Info */}
-            {user ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Button
-                  onClick={handleMenuOpen}
-                  sx={{ 
-                    textTransform: 'none',
-                    color: '#1D1D1F',
-                    '&:hover': {
-                      backgroundColor: '#F5F5F7',
-                    },
-                  }}
-                  startIcon={
-                    <Avatar sx={{ width: 28, height: 28, bgcolor: '#007AFF', fontSize: '0.875rem' }}>
-                      {user.email?.charAt(0).toUpperCase()}
-                    </Avatar>
-                  }
-                >
-                  {user.email}
-                </Button>
-                <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-                  <MenuItem
-                    onClick={() => {
-                      window.open('https://discord.gg/btd7PUjYkW', '_blank');
-                      handleMenuClose();
-                    }}
-                  >
-                    <SupportIcon sx={{ mr: 1 }} />
-                    Discord Support
-                  </MenuItem>
-                  <MenuItem
-                    onClick={() => {
-                      setShowMapControls(!showMapControls);
-                      handleMenuClose();
-                    }}
-                  >
-                    {showMapControls ? (
-                      <VisibilityOffIcon sx={{ mr: 1 }} />
-                    ) : (
-                      <VisibilityIcon sx={{ mr: 1 }} />
-                    )}
-                    {showMapControls ? 'Hide Map Controls' : 'Show Map Controls'}
-                  </MenuItem>
-                  <MenuItem onClick={handleLogout}>
-                    <LogoutIcon sx={{ mr: 1 }} />
-                    Logout
-                  </MenuItem>
-                </Menu>
-              </Box>
+        {/* User Menu (for sidebar avatar) */}
+        <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
+          <MenuItem
+            onClick={() => {
+              window.open('https://discord.gg/btd7PUjYkW', '_blank');
+              handleMenuClose();
+            }}
+          >
+            <SupportIcon sx={{ mr: 1 }} />
+            Discord Support
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setShowMapControls(!showMapControls);
+              handleMenuClose();
+            }}
+          >
+            {showMapControls ? (
+              <VisibilityOffIcon sx={{ mr: 1 }} />
             ) : (
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Button
-                  onClick={() => setLoginModalOpen(true)}
-                  variant="contained"
-                  sx={{
-                    backgroundColor: '#007AFF',
-                    textTransform: 'none',
-                    '&:hover': {
-                      backgroundColor: '#0056CC',
-                    },
-                  }}
-                  startIcon={<LoginIcon />}
-                >
-                  Login
-                </Button>
-              </Box>
+              <VisibilityIcon sx={{ mr: 1 }} />
             )}
-          </Toolbar>
-        </AppBar>
+            {showMapControls ? 'Hide Map Controls' : 'Show Map Controls'}
+          </MenuItem>
+          <MenuItem onClick={handleLogout}>
+            <LogoutIcon sx={{ mr: 1 }} />
+            Logout
+          </MenuItem>
+        </Menu>
 
-        {/* Floating Category Bars */}
+        {/* Merged Top Bar with Logo, Search, and Categories */}
         <Box
+          data-category-container
           sx={{
             position: 'fixed',
-            top: '40px',
+            top: 0,
             left: 0,
             right: 0,
             height: '56px',
-            zIndex: (theme) => theme.zIndex.drawer,
+            zIndex: (theme) => theme.zIndex.drawer + 1,
             display: 'flex',
             alignItems: 'center',
             gap: 2,
             px: 3,
-            backgroundColor: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)',
+            backgroundColor: 'white',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
             borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
           }}
         >
-            {/* Search Bar */}
-          <Box sx={{ position: 'relative', maxWidth: 400, flex: 1 }}>
+          {/* Logo and Title */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
+            <Image
+              src="/logo.png"
+              alt="SkyFinder Logo"
+              width={28}
+              height={28}
+              style={{ borderRadius: '6px' }}
+            />
+            <Typography 
+              variant="h6" 
+              component="div" 
+              sx={{ 
+                fontWeight: 600,
+                color: '#1D1D1F',
+                fontSize: '1rem',
+              }}
+            >
+              SkyFinder
+            </Typography>
+          </Box>
+
+          {/* Search Bar */}
+          <Box data-search-container sx={{ position: 'relative', maxWidth: 400, flex: 1 }}>
               <TextField
               placeholder={selectedStations.size > 0 ? "Search places near stations..." : "Click stations on map to search"}
                 value={searchQuery}
@@ -1726,7 +1687,7 @@ export default function Home() {
               />
               
               {/* Search Results Dropdown */}
-              {searchResults.length > 0 && (
+              {searchPerformed && (searchResults.length > 0 || (!isSearching && searchResults.length === 0)) && (
                 <Box
                   sx={{
                     position: 'absolute',
@@ -1741,12 +1702,14 @@ export default function Home() {
                     zIndex: 1300,
                   }}
                 >
-                  {searchResults.map((result, index) => (
+                  {searchResults.length > 0 ? (
+                    searchResults.map((result, index) => (
                     <Box
                       key={result.place_id || index}
                       onClick={() => {
                         setSelectedSearchResult(result);
                         setSearchResults([]);
+                          setSearchPerformed(false);
                       }}
                       sx={{
                         p: 2,
@@ -1758,11 +1721,11 @@ export default function Home() {
                         },
                       }}
                     >
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5, color: '#1D1D1F' }}>
-                      {result.name || 'Unnamed Place'}
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5, color: '#1D1D1F' }}>
+                          {result.name || 'Unnamed Place'}
                       </Typography>
-                    <Typography variant="body2" sx={{ mb: 0.5, color: '#6E6E73' }}>
-                      {result.address || 'No address available'}
+                        <Typography variant="body2" sx={{ mb: 0.5, color: '#6E6E73' }}>
+                          {result.address || 'No address available'}
                       </Typography>
                       {result.rating && (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -1776,7 +1739,22 @@ export default function Home() {
                         </Box>
                       )}
                     </Box>
-                  ))}
+                    ))
+                  ) : (
+                    <Box
+                      sx={{
+                        p: 3,
+                        textAlign: 'center',
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ color: '#6E6E73', mb: 0.5 }}>
+                        No results found
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: '#8E8E93' }}>
+                        Try a different search term or select more stations
+                      </Typography>
+                    </Box>
+                  )}
                 </Box>
               )}
             </Box>
@@ -1947,14 +1925,41 @@ export default function Home() {
               backgroundColor: selectedCategory === 'museums' ? '#007AFF' : 'white',
               borderColor: '#E5E5EA',
               color: selectedCategory === 'museums' ? 'white' : '#1D1D1F',
-                  '&:hover': {
+              '&:hover': {
                 backgroundColor: selectedCategory === 'museums' ? '#0056CC' : '#F5F5F7',
                 borderColor: '#007AFF',
-                  },
-                }}
-              >
+              },
+            }}
+          >
             🏛️ Museums
               </Button>
+
+          {/* Clear Results Button */}
+          {searchResults.length > 0 && (
+            <Button
+              variant="outlined"
+              onClick={handleClearSearch}
+              startIcon={<CloseIcon fontSize="small" />}
+              sx={{
+                textTransform: 'none',
+                borderRadius: 3,
+                px: 2.5,
+                py: 1,
+                fontWeight: 500,
+                backgroundColor: 'white',
+                borderColor: '#E5E5EA',
+                color: '#1D1D1F',
+                ml: 'auto',
+                '&:hover': {
+                  backgroundColor: '#FEF2F2',
+                  borderColor: '#EF4444',
+                  color: '#EF4444',
+                },
+              }}
+            >
+              Clear Results
+            </Button>
+          )}
         </Box>
 
         <Box
@@ -1962,7 +1967,7 @@ export default function Home() {
             display: 'flex',
             height: '100vh',
             overflow: 'hidden',
-            pt: '96px', // Header (40px) + Category bar (56px) = 96px
+            pt: '56px', // Merged header bar
           }}
         >
           {/* Thin Left Bar with Hamburger */}
@@ -2036,19 +2041,63 @@ export default function Home() {
                 </Tooltip>
               ))}
             </Box>
+
+            {/* User Avatar at Bottom */}
+            {user && (
+              <Box
+                sx={{
+                  py: 1,
+                  px: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderTop: '1px solid #E5E5EA',
+                }}
+              >
+                <Tooltip title={user.email} placement="right" arrow>
+                  <IconButton
+                    onClick={handleMenuOpen}
+                    sx={{
+                      p: 0,
+                      '&:hover': {
+                        backgroundColor: 'transparent',
+                      },
+                    }}
+                  >
+                    <Avatar 
+                      sx={{ 
+                        width: 40, 
+                        height: 40, 
+                        bgcolor: '#007AFF', 
+                        fontSize: '1rem',
+                        '&:hover': {
+                          opacity: 0.8,
+                        },
+                      }}
+                    >
+                      {user.email?.charAt(0).toUpperCase()}
+                    </Avatar>
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            )}
           </Box>
 
-          {/* Saved Lists Panel - Appears to the right when open */}
+          {/* Saved Lists Panel - Overlays the map when open */}
           {sidebarOpen && (
             <Box
               sx={{
+                position: 'fixed',
+                left: 56,
+                top: '56px',
+                bottom: 0,
                 width: 320,
-                flexShrink: 0,
                 backgroundColor: 'white',
                 borderRight: '1px solid #E5E5EA',
                 display: 'flex',
                 flexDirection: 'column',
-                height: '100%',
+                zIndex: (theme) => theme.zIndex.drawer - 1,
+                boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
               }}
             >
               {/* Panel Header */}
@@ -2536,9 +2585,15 @@ export default function Home() {
                     <Marker
                       key={`station-${index}`}
                       position={{ lat: coords[0], lng: coords[1] }}
-                      label={{
-                        text: '🚇',
-                        fontSize: '20px',
+                      icon={{
+                        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+                            <circle cx="10" cy="10" r="6" fill="white" stroke="${selectedStations.has(index) ? '#007AFF' : '#1D1D1F'}" stroke-width="${selectedStations.has(index) ? '2' : '1.5'}"/>
+                            <circle cx="10" cy="10" r="3.5" fill="transparent" stroke="none"/>
+                          </svg>
+                        `),
+                        scaledSize: new google.maps.Size(selectedStations.has(index) ? 22 : 20, selectedStations.has(index) ? 22 : 20),
+                        anchor: new google.maps.Point(selectedStations.has(index) ? 11 : 10, selectedStations.has(index) ? 11 : 10),
                       }}
                       title={station.properties?.Name || station.properties?.name || 'Transit Station'}
                       onClick={(e) => handleStationClick(index, e)}
@@ -2547,14 +2602,26 @@ export default function Home() {
                   );
                 })}
 
-                {/* Saved Places Markers */}
-                {savedPlaces.map((place) => (
-                  <Marker
-                    key={place.id}
-                    position={{ lat: place.latitude, lng: place.longitude }}
-                    onClick={() => setSelectedItem(place)}
-                  />
-                ))}
+                {/* Saved Places Markers - Only show places from selected list */}
+                {selectedList && savedPlaces
+                  .filter((place) => place.list_id === selectedList.id)
+                  .map((place) => (
+                    <Marker
+                      key={place.id}
+                      position={{ lat: place.latitude, lng: place.longitude }}
+                      onClick={() => setSelectedItem(place)}
+                      icon={{
+                        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="${selectedList.color || '#007AFF'}">
+                            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                          </svg>
+                        `),
+                        scaledSize: new google.maps.Size(32, 32),
+                        anchor: new google.maps.Point(16, 32),
+                      }}
+                      zIndex={997}
+                    />
+                  ))}
 
                 {/* Search Result Markers */}
                 {searchResults.map((result, index) => (

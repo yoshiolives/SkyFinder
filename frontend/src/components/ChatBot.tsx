@@ -258,7 +258,7 @@ const ChatBot: React.FC<ChatBotProps> = ({
         sx={{
           position: 'fixed',
           bottom: { xs: 16, sm: 24 },
-          right: { xs: 16, sm: 100 },
+          right: { xs: 16, sm: 24 },
           display: isOpen ? 'none' : 'flex',
           zIndex: 1000,
           background: 'linear-gradient(135deg, #007AFF 0%, #0051D5 100%)',
@@ -267,6 +267,8 @@ const ChatBot: React.FC<ChatBotProps> = ({
           width: 56,
           height: 56,
           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+          maxWidth: 'calc(100vw - 32px)',
+          maxHeight: 'calc(100vh - 128px)',
           '&:hover': {
             background: 'linear-gradient(135deg, #0051D5 0%, #003D99 100%)',
             boxShadow: '0 12px 24px rgba(0, 122, 255, 0.4)',
@@ -286,11 +288,11 @@ const ChatBot: React.FC<ChatBotProps> = ({
           sx={{
             position: 'fixed',
             bottom: { xs: 16, sm: 24 },
-            right: { xs: 16, sm: 100 },
+            right: { xs: 16, sm: 24 },
             left: { xs: 16, sm: 'auto' },
             width: { xs: 'calc(100vw - 32px)', sm: 400 },
-            height: { xs: 'calc(100vh - 120px)', sm: 650 },
-            maxHeight: { xs: 'calc(100vh - 120px)', sm: 'none' },
+            height: { xs: 'calc(100vh - 128px)', sm: 'min(650px, calc(100vh - 128px))' },
+            maxHeight: 'calc(100vh - 128px)',
             display: 'flex',
             flexDirection: 'column',
             zIndex: 1000,
@@ -300,7 +302,7 @@ const ChatBot: React.FC<ChatBotProps> = ({
             backdropFilter: 'blur(20px)',
             border: '1px solid rgba(255, 255, 255, 0.2)',
             overflow: 'hidden',
-            maxWidth: { xs: 'calc(100vw - 32px)', sm: 'none' },
+            maxWidth: { xs: 'calc(100vw - 32px)', sm: 'calc(100vw - 48px)' },
           }}
         >
           {/* Sharp Chat Header */}

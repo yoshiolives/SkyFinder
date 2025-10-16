@@ -84,69 +84,86 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               mb: { xs: 4, md: 8 },
             }}
           >
-            {/* SkyFinder Banner Section - positioned where logo was */}
+            {/* Mobile: Logo above text */}
             <Box
               sx={{
-                display: 'flex',
+                mb: { xs: 4, md: 0 },
+                display: { xs: 'flex', md: 'none' },
                 justifyContent: 'center',
                 alignItems: 'center',
-                mb: { xs: 4, md: 6 },
-                px: { xs: 2, md: 4 },
               }}
             >
               <Box
+                component="img"
+                src="/logo-transparent.png"
+                alt="SkyFinder Logo"
                 sx={{
-                  width: '100%',
-                  maxWidth: { xs: 350, md: 500 },
-                  height: 'auto',
-                  display: 'flex',
+                  width: 120,
+                  height: 120,
+                  objectFit: 'contain',
+                }}
+              />
+            </Box>
+
+            {/* Desktop: Side-by-side layout */}
+            <Box
+              sx={{
+                display: { xs: 'block', md: 'flex' },
+                alignItems: 'center',
+                gap: { md: 6 },
+                justifyContent: 'center',
+                mb: { xs: 0, md: 2 },
+              }}
+            >
+              {/* Desktop: Logo on the left */}
+              <Box
+                sx={{
+                  display: { xs: 'none', md: 'flex' },
                   justifyContent: 'center',
-                  borderRadius: 3,
-                  overflow: 'hidden',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+                  alignItems: 'center',
+                  flex: 1,
                 }}
               >
                 <Box
                   component="img"
-                  src="/banner.png"
-                  alt="SkyFinder Banner - Discover places near transit stations"
+                  src="/logo-transparent.png"
+                  alt="SkyFinder Logo"
                   sx={{
-                    width: '100%',
-                    height: 'auto',
+                    width: 200,
+                    height: 200,
                     objectFit: 'contain',
-                    display: 'block',
                   }}
                 />
               </Box>
-            </Box>
 
-            {/* Text content */}
-            <Box sx={{ textAlign: 'center', mb: { xs: 0, md: 2 } }}>
-              <Typography
-                variant="h2"
-                component="h1"
-                sx={{
-                  fontWeight: 700,
-                  mb: 2,
-                  fontSize: { xs: '2.5rem', md: '3.5rem' },
-                  textShadow: '0 2px 10px rgba(0,0,0,0.2)',
-                }}
-              >
-                Discover Places Near Transit
-              </Typography>
-              <Typography
-                variant="h5"
-                sx={{
-                  mb: 4,
-                  fontWeight: 300,
-                  opacity: 0.95,
-                  lineHeight: 1.6,
-                  fontSize: { xs: '1.1rem', md: '1.5rem' },
-                  display: { xs: 'none', md: 'block' }, // Hide on mobile, show on desktop
-                }}
-              >
-                Find restaurants and places within 800m of any rapid transit station. Discover hidden gems you never knew existed.
-              </Typography>
+              {/* Text content */}
+              <Box sx={{ flex: 1, textAlign: { xs: 'center', md: 'left' } }}>
+                <Typography
+                  variant="h2"
+                  component="h1"
+                  sx={{
+                    fontWeight: 700,
+                    mb: 2,
+                    fontSize: { xs: '2.5rem', md: '3.5rem' },
+                    textShadow: '0 2px 10px rgba(0,0,0,0.2)',
+                  }}
+                >
+                  Discover Places Near Transit
+                </Typography>
+                <Typography
+                  variant="h5"
+                  sx={{
+                    mb: 4,
+                    fontWeight: 300,
+                    opacity: 0.95,
+                    lineHeight: 1.6,
+                    fontSize: { xs: '1.1rem', md: '1.5rem' },
+                    display: { xs: 'none', md: 'block' }, // Hide on mobile, show on desktop
+                  }}
+                >
+                  Find restaurants and places within 800m of any rapid transit station. Discover hidden gems you never knew existed.
+                </Typography>
+              </Box>
             </Box>
 
             {/* Mobile subheading - positioned below banner on mobile only */}
@@ -193,6 +210,41 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             </Box>
           </Box>
 
+          {/* SkyFinder Banner Section */}
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              mb: { xs: 6, md: 8 },
+              px: { xs: 2, md: 4 },
+            }}
+          >
+            <Box
+              sx={{
+                width: '100%',
+                maxWidth: { xs: 400, md: 600 },
+                height: 'auto',
+                display: 'flex',
+                justifyContent: 'center',
+                borderRadius: 3,
+                overflow: 'hidden',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+              }}
+            >
+              <Box
+                component="img"
+                src="/banner.png"
+                alt="SkyFinder Banner - Discover places near transit stations"
+                sx={{
+                  width: '100%',
+                  height: 'auto',
+                  objectFit: 'contain',
+                  display: 'block',
+                }}
+              />
+            </Box>
+          </Box>
 
           {/* Value Proposition Cards */}
           <Grid container spacing={3} sx={{ mb: { xs: 4, md: 8 } }}>

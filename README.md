@@ -1,46 +1,48 @@
-# Places.ai - AI-Powered Travel Itinerary Planner
+# SkyFinder - Transit-Based Location Discovery App
 
-> **Hackathon Project**: Leveraging Google Gemini AI to revolutionize trip planning
+> **Location Discovery Platform**: Find restaurants and places near rapid transit stations
 
 ## The Problem
 
-Planning a trip is **overwhelming and time-consuming**:
-- Researching destinations, activities, and restaurants takes hours
-- Coordinating schedules, locations, and timing is tedious
-- Balancing different preferences and constraints is difficult
-- Manually organizing everything into a coherent itinerary is frustrating
+Discovering great places near transit stations is **challenging and time-consuming**:
+- Manually searching for restaurants and attractions near each station
+- No centralized way to explore what's available within walking distance
+- Difficulty organizing and saving favorite locations for future reference
+- Limited visibility into what's actually accessible from transit stops
 
-**Result**: People either spend days planning trips or end up with disorganized, suboptimal itineraries that don't maximize their vacation time.
+**Result**: People miss out on great local spots or waste time researching what's available near their transit stops.
 
 ## Our Solution
 
-**Places.ai** is an intelligent travel planning platform that uses **Google Gemini AI** to instantly generate complete, personalized trip itineraries. Just tell us where you're going and your preferences—our AI handles the rest.
+**SkyFinder** is a location discovery platform that helps you find restaurants, cafes, and interesting places within an 800-meter radius of rapid transit stations. Simply select a station and explore what's nearby.
 
-### How Gemini Powers Our Platform
+### Key Features
 
-1. **Intelligent Itinerary Generation**: Gemini analyzes your destination, dates, and preferences to create complete day-by-day itineraries including hotels, meals, activities, and optimal scheduling
+1. **Transit Station Integration**: Interactive map showing all rapid transit stations with real-time data
 
-2. **Conversational AI Assistant**: A Gemini-powered chatbot helps you modify your trip in natural language—add activities, change times, get recommendations, all through conversation
+2. **Radius-Based Discovery**: Find places within 800m walking distance of any selected station
 
-3. **Context-Aware Planning**: Gemini understands travel context—timing constraints, geographic proximity, activity types, and user preferences—to create realistic, enjoyable itineraries
+3. **Comprehensive Place Data**: Restaurants, cafes, attractions, and other points of interest
 
-4. **Personalization at Scale**: Each itinerary is uniquely tailored using Gemini's advanced language understanding to match your specific travel style and interests
+4. **Saved Lists**: Organize and manage your favorite locations with custom lists
+
+5. **Interactive Maps**: Visual exploration with Google Maps integration showing exact locations and walking routes
 
 ## Value Proposition
 
-### For Travelers
-- **Save Hours**: What takes hours of research is done in 90 seconds
-- **Better Trips**: AI-optimized scheduling maximizes your vacation time
-- **Stress-Free Planning**: No more decision fatigue or coordination headaches
-- **Flexibility**: Easily modify and refine your itinerary with the AI assistant
+### For Transit Users
+- **Discover Hidden Gems**: Find great places you never knew existed near your regular stops
+- **Save Time**: No more wandering around looking for good restaurants or cafes
+- **Plan Better**: Know what's available before you get off the train
+- **Stay Organized**: Save your favorite spots in custom lists for easy reference
 
 ### Key Features
-- 🤖 **AI Trip Generation**: Complete itineraries in under 2 minutes using Gemini
-- 🗺️ **Interactive Map**: Visualize your entire trip with Google Maps integration
-- 💬 **Smart Chatbot**: Modify your trip naturally using conversational AI
-- 📱 **Drag & Drop**: Intuitive interface to reorganize activities between days
-- 🔐 **Personal Trips**: Secure authentication and cloud storage for all your trips
-- ✨ **Beautiful UI**: Modern, responsive design inspired by iOS/macOS
+- 🚇 **Transit Station Map**: Interactive map showing all rapid transit stations
+- 📍 **Radius Search**: Find places within 800m of any selected station
+- 🍽️ **Restaurant Discovery**: Comprehensive database of nearby dining options
+- 📝 **Saved Lists**: Organize favorites into custom collections
+- 🔐 **User Accounts**: Secure authentication and cloud storage for your lists
+- ✨ **Modern UI**: Clean, intuitive interface built with Material-UI
 
 ## Technical Architecture
 
@@ -49,28 +51,28 @@ Planning a trip is **overwhelming and time-consuming**:
 - **UI Library**: Material-UI with custom theming
 - **State Management**: React hooks and context
 - **Map Integration**: Google Maps JavaScript API with react-google-maps
-- **Drag & Drop**: react-beautiful-dnd for intuitive reorganization
+- **Data Visualization**: GeoJSON integration for transit line data
 
-### Backend & AI
-- **AI Engine**: Google Gemini 2.5 Flash for generation and conversation
-- **Backend**: Supabase (PostgreSQL, Authentication, Real-time)
+### Backend & Data
+- **Database**: Supabase (PostgreSQL, Authentication, Real-time)
 - **API Design**: RESTful Next.js API routes
-- **Prompt Engineering**: Custom templates for consistent, high-quality itineraries
+- **Geospatial Data**: GeoJSON files for transit stations and rail lines
+- **Location Services**: Google Places API for restaurant and place data
+- **Authentication**: Supabase Auth with Row Level Security
 
-### Gemini Integration Details
+### Data Integration
 ```typescript
-// Intelligent prompt engineering for optimal results
-const prompt = generateItineraryPrompt({
-  destination,
-  startDate, 
-  endDate,
-  description: userPreferences
-});
+// Transit station data from GeoJSON
+const stationData = {
+  type: "FeatureCollection",
+  features: [/* station coordinates and properties */]
+};
 
-// Gemini generates structured JSON itineraries
-const response = await ai.models.generateContent({
-  model: 'gemini-2.5-flash',
-  contents: prompt,
+// Radius-based place search
+const nearbyPlaces = await searchPlaces({
+  center: stationCoordinates,
+  radius: 800, // meters
+  type: 'restaurant'
 });
 ```
 
@@ -81,19 +83,21 @@ frontend/
 ├── src/
 │   ├── app/                      # Next.js app directory
 │   │   ├── api/                  # API routes
-│   │   │   ├── trips/generate/   # AI itinerary generation endpoint
-│   │   │   ├── chat/             # Gemini chatbot endpoint
-│   │   │   ├── itinerary/        # Itinerary CRUD
+│   │   │   ├── restaurants/      # Restaurant search and favorites
+│   │   │   ├── lists/            # Saved lists management
+│   │   │   ├── transit/          # Transit station data
 │   │   │   └── auth/             # Authentication
-│   │   └── page.tsx              # Main application UI (1855 lines)
+│   │   └── page.tsx              # Main application UI
 │   ├── components/               # React components
-│   │   ├── ChatBot.tsx           # Gemini-powered chat assistant
-│   │   ├── TripSelector.tsx      # Trip management with AI generation
+│   │   ├── RestaurantCard.tsx    # Restaurant display component
+│   │   ├── TripSelector.tsx      # Station selection interface
 │   │   └── LandingPage.tsx       # Marketing landing page
 │   ├── services/                 # Business logic
-│   │   ├── geminiService.ts      # Gemini API integration
-│   │   └── templates/            # AI prompt templates
+│   │   └── geminiService.ts      # Future AI integration
 │   └── lib/                      # Utilities and configurations
+├── public/data/                  # GeoJSON transit data
+│   ├── skytrain-stations.geojson
+│   └── rail-lines.geojson
 └── docs/                         # Documentation
 ```
 
@@ -101,45 +105,46 @@ frontend/
 
 ### Prerequisites
 - Node.js 18+
-- Google Gemini API key
 - Google Maps API key
 - Supabase account
+- pnpm package manager
 
 ### Quick Start
 ```bash
 # Install dependencies
-cd architecture-test/frontend
-npm install
+cd frontend
+pnpm install
 
 # Configure environment variables
 cp .env.example .env.local
-# Add your API keys (GEMINI_API_KEY, GOOGLE_MAPS_API_KEY, SUPABASE_URL, etc.)
+# Add your API keys (GOOGLE_MAPS_API_KEY, SUPABASE_URL, etc.)
 
 # Run development server
-npm run dev
+pnpm dev
 ```
 
-Visit `http://localhost:3000` and start planning your next adventure!
+Visit `http://localhost:3000` and start discovering places near transit stations!
 
 ## Innovation & Impact
 
 This project demonstrates:
-- **Practical AI Application**: Real-world solution to a genuine problem using Gemini
-- **Superior UX**: Complex AI interactions made simple and intuitive
-- **Full-Stack Integration**: Seamless coordination between AI, backend, and frontend
+- **Location-Based Discovery**: Practical solution for transit users to find nearby places
+- **Geospatial Integration**: Real-time mapping with transit data and place search
+- **User-Centric Design**: Intuitive interface for organizing and managing favorite locations
 - **Production-Ready**: Deployed, tested, and ready for real users
 
 ## Technologies
 
-- **AI/ML**: Google Gemini 2.5 Flash
-- **Frontend**: Next.js, React, TypeScript, Material-UI
+- **Frontend**: Next.js 14, React 18, TypeScript, Material-UI
 - **Backend**: Supabase (PostgreSQL, Auth, Real-time)
-- **APIs**: Google Maps, Google Places
+- **Maps & Location**: Google Maps API, Google Places API
+- **Data**: GeoJSON for transit stations and rail lines
+- **Package Manager**: pnpm
 - **Deployment**: Vercel-ready with environment configuration
 
 ---
 
-**Built for StormHacks 2025** | Powered by Google Gemini AI
+**SkyFinder** | Discover places near transit stations
 
 
 

@@ -1,6 +1,5 @@
 'use client';
 
-import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import {
   AccountCircle,
   Add as AddIcon,
@@ -74,7 +73,6 @@ import Image from 'next/image';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import ChatBot from '@/components/ChatBot';
 import LandingPage from '@/components/LandingPage';
 import LoginModal from '@/components/LoginModal';
 import TripSelector from '@/components/TripSelector';
@@ -294,7 +292,6 @@ export default function Home() {
   const [vacationEndDate, setVacationEndDate] = useState('');
   const [isEditingDates, setIsEditingDates] = useState(false);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
-  const [isDragging, setIsDragging] = useState(false);
   const [hoveredDay, setHoveredDay] = useState<string | null>(null);
   const [bookNowSnackbarOpen, setBookNowSnackbarOpen] = useState(false);
   const [transitDataLoaded, setTransitDataLoaded] = useState(false);
@@ -1450,13 +1447,6 @@ export default function Home() {
     setAnchorEl(null);
   };
 
-  const handleDragStart = (_result: any) => {
-    setIsDragging(true);
-  };
-
-  const handleDragEnd = (_result: any) => {
-    setIsDragging(false);
-  };
 
   const handleTitleClick = () => {
     if (currentTrip) {
@@ -1547,7 +1537,6 @@ export default function Home() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         {/* User Menu (for sidebar avatar) */}
         <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
           <MenuItem
@@ -2588,8 +2577,8 @@ export default function Home() {
                       icon={{
                         url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
                           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
-                            <circle cx="10" cy="10" r="6" fill="white" stroke="${selectedStations.has(index) ? '#007AFF' : '#1D1D1F'}" stroke-width="${selectedStations.has(index) ? '2' : '1.5'}"/>
-                            <circle cx="10" cy="10" r="3.5" fill="transparent" stroke="none"/>
+                            <circle cx="10" cy="10" r="8" fill="${selectedStations.has(index) ? '#FF3B30' : '#DC2626'}" stroke="white" stroke-width="3"/>
+                            <circle cx="10" cy="10" r="4" fill="white"/>
                           </svg>
                         `),
                         scaledSize: new google.maps.Size(selectedStations.has(index) ? 22 : 20, selectedStations.has(index) ? 22 : 20),
@@ -2744,12 +2733,6 @@ export default function Home() {
           </Box>
         </Box>
 
-        {/* AI Chat Bot - Overlaid on top of everything */}
-        <ChatBot
-          itinerary={[]}
-          onItineraryUpdate={() => {}}
-          currentTrip={currentTrip}
-        />
 
         {/* Login Modal */}
         <LoginModal
@@ -3593,7 +3576,6 @@ export default function Home() {
             Coming Soon! Booking feature will be available soon.
           </Alert>
         </Snackbar>
-      </DragDropContext>
     </ThemeProvider>
   );
 }

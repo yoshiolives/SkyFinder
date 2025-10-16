@@ -4,7 +4,7 @@ export const metadata: Metadata = {
   title: 'SkyFinder - AI Travel Planner',
   description: 'Plan your perfect trip in seconds with AI-powered itinerary generation',
   icons: {
-    icon: '/logo.ico',
+    icon: '/favicon.ico',
   },
 };
 

@@ -1,97 +1,96 @@
 # SkyFinder - Restaurant Finder Near Transit Stations
 
-Hey! This is my first real web app project. I built SkyFinder because I was tired of wandering around transit stations looking for good places to eat. Now you can find restaurants within walking distance of any SkyTrain station in Vancouver!
+SkyFinder is a web application designed to help users discover restaurants and dining options within walking distance of rapid transit stations. This project addresses the common challenge of finding quality dining options near transit stops, making urban exploration more efficient and enjoyable.
 
-## What This App Does
+## Overview
 
-- **Find Restaurants**: Search for places to eat near any transit station
-- **See on Map**: View all the restaurants on an interactive Google Map  
-- **Save Favorites**: Create lists of your favorite spots
-- **Real-time Search**: Uses Google Places API to find current restaurant info
+SkyFinder provides an intuitive platform for locating restaurants near transit stations, featuring interactive maps, real-time search capabilities, and personalized list management for saving favorite locations.
 
-## The Problem I Was Trying to Solve
+### Key Features
 
-When I was commuting on the SkyTrain, I'd always wonder "what's good to eat near this station?" But I'd end up:
-- Walking around aimlessly looking for restaurants
-- Missing out on great spots because I didn't know they existed
-- Forgetting about places I discovered
-- Wasting time searching for food during my commute
+- **Transit Station Integration**: Interactive map displaying all rapid transit stations with coverage areas
+- **Radius-Based Search**: Find restaurants within 800m walking distance of selected stations
+- **Real-Time Data**: Integration with Google Places API for current restaurant information
+- **Saved Lists**: Organize and manage favorite restaurants with custom collections
+- **User Authentication**: Secure account management with cloud storage
 
-So I built this app to solve that problem!
+## Problem Statement
 
-## How It Works
+Urban transit users often face challenges when seeking dining options near stations:
+- Manual searching for restaurants near each station
+- Limited visibility into available dining options within walking distance
+- Difficulty organizing and referencing discovered locations
+- Time-consuming research during commute planning
 
-1. **Select Transit Stations**: Click on any station on the map
-2. **See Coverage Area**: A circle shows the 800m walking radius
-3. **Find Restaurants**: The app searches for places within that radius
-4. **Save Your Favorites**: Create lists to organize places you want to try
+SkyFinder streamlines this process by providing centralized access to restaurant data near transit stations.
 
-## What I Built This With
+## Technical Implementation
 
-- **Frontend**: Next.js with React and TypeScript
-- **Styling**: Material-UI (I'm still learning CSS, so this helps!)
-- **Database**: Supabase (PostgreSQL with built-in authentication)
-- **Maps**: Google Maps API for showing restaurants and stations
-- **Location Data**: Google Places API for restaurant information
+### Technology Stack
 
-## Getting Started
+- **Frontend**: Next.js 14 with React 18 and TypeScript
+- **UI Framework**: Material-UI for consistent, responsive design
+- **Database**: Supabase (PostgreSQL) with Row Level Security
+- **Authentication**: Supabase Auth for secure user management
+- **Maps Integration**: Google Maps JavaScript API
+- **Location Services**: Google Places API for restaurant data
+- **Package Manager**: pnpm
 
-1. **Clone this repo** (if you want to run it yourself)
-2. **Install dependencies**: `cd frontend && pnpm install`
-3. **Set up environment variables** (see the docs in `frontend/docs/`)
-4. **Run the app**: `pnpm dev`
-
-Visit `http://localhost:3000` and start finding restaurants near transit stations!
-
-## Project Structure
+### Architecture
 
 ```
 SkyFinder/
-├── frontend/              # The main Next.js app
+├── frontend/              # Next.js application
 │   ├── src/
 │   │   ├── app/          # Pages and API routes
-│   │   ├── components/   # React components I built
-│   │   └── lib/         # Helper functions
-│   ├── docs/            # Documentation (beginner-friendly!)
-│   └── public/          # Static files and GeoJSON data
-└── README.md            # This file
+│   │   ├── components/   # React components
+│   │   └── lib/         # Utilities and configurations
+│   ├── docs/            # Project documentation
+│   └── public/          # Static assets and GeoJSON data
+└── README.md            # Project overview
 ```
 
-## What I Learned Building This
+## Getting Started
 
-- How to use Next.js App Router (it's different from Pages Router!)
-- Building API routes in Next.js
-- Working with Supabase (database + auth)
-- Google Maps integration with React
-- Material-UI components
-- TypeScript (still learning this one!)
-- Database design and relationships
-- Authentication and security
+### Prerequisites
 
-## Things I Want to Improve
+- Node.js 18 or higher
+- Google Maps API key
+- Supabase account
+- pnpm package manager
 
-- Better error handling (I'm not great at this yet)
-- More restaurant filters (price, cuisine type, etc.)
-- Mobile responsiveness (needs work)
-- Performance optimization (the map can be slow sometimes)
-- Add user reviews and ratings
-- Better search functionality
+### Installation
 
-## For Other CS Students
+1. Clone the repository
+2. Navigate to the frontend directory: `cd frontend`
+3. Install dependencies: `pnpm install`
+4. Configure environment variables (see `frontend/docs/` for detailed setup)
+5. Start the development server: `pnpm dev`
 
-This was my first time building a full-stack app, so the code might not be perfect. I'm still learning about best practices, but I tried to make it readable and well-commented. 
+Visit `http://localhost:3000` to access the application.
 
-The documentation in `frontend/docs/` explains how I built everything, including the mistakes I made and things I learned along the way.
+## Development Notes
 
-Feel free to:
-- Ask questions about how I built this
-- Suggest improvements
-- Use this as a reference for your own projects
-- Point out things I could do better (I'm still learning!)
+This project demonstrates practical implementation of:
+- Full-stack web development with Next.js
+- Database design and management with Supabase
+- Google Maps API integration
+- User authentication and data security
+- Modern React development patterns
 
-## Contact
+The codebase includes comprehensive documentation in the `frontend/docs/` directory, covering database setup, API endpoints, and architectural decisions.
 
-If you have questions about how I built this or want to collaborate, feel free to reach out!
+## Future Enhancements
+
+- Enhanced filtering options (cuisine type, price range, ratings)
+- Mobile application development
+- Performance optimizations for map rendering
+- User review and rating system
+- Advanced search functionality
+
+## Contributing
+
+This project welcomes contributions and feedback. The documentation provides detailed information about the codebase structure and development setup.
 
 ## License
 
@@ -99,6 +98,4 @@ This project is open source and available under the MIT License.
 
 ---
 
-*Built with ❤️ by a CS student who just wanted to find good food near transit stations*
-
-*P.S. - If you're in Vancouver, try the sushi near Commercial-Broadway station! 🍣*
+*SkyFinder - Streamlining urban dining discovery near transit stations*

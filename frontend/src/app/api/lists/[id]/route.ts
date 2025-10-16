@@ -1,34 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
 
 // PUT /api/lists/[id] - Update a list
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     // Get token from Authorization header
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
+
     const token = authHeader.replace('Bearer ', '');
     const supabase = createServerSupabaseClient(token);
-    
+
     // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -52,7 +46,7 @@ export async function PUT(
 
     if (error) {
       console.error('Error updating list:', error);
-      
+
       // Check if it's a duplicate name error
       if (error.code === '23505') {
         return NextResponse.json(
@@ -60,56 +54,41 @@ export async function PUT(
           { status: 409 }
         );
       }
-      
-      return NextResponse.json(
-        { error: 'Failed to update list' },
-        { status: 500 }
-      );
+
+      return NextResponse.json({ error: 'Failed to update list' }, { status: 500 });
     }
 
     if (!list) {
-      return NextResponse.json(
-        { error: 'List not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'List not found' }, { status: 404 });
     }
 
     return NextResponse.json({ list });
   } catch (error) {
     console.error('Update list API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 // DELETE /api/lists/[id] - Delete a list
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     // Get token from Authorization header
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
+
     const token = authHeader.replace('Bearer ', '');
     const supabase = createServerSupabaseClient(token);
-    
+
     // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Delete the list (items will be deleted automatically due to CASCADE)
@@ -121,19 +100,12 @@ export async function DELETE(
 
     if (error) {
       console.error('Error deleting list:', error);
-      return NextResponse.json(
-        { error: 'Failed to delete list' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to delete list' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Delete list API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-

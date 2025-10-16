@@ -79,12 +79,7 @@ export default function TripSelector({
       });
 
       // Log success message if AI generated itinerary
-      if (response.data.message) {
-        console.log('✅', response.data.message);
-      }
-      if (response.data.warning) {
-        console.warn('⚠️', response.data.warning);
-      }
+      // Response processed successfully
 
       // Get the created trip from response
       const newTrip = response.data.trip;
@@ -145,8 +140,6 @@ export default function TripSelector({
 
       // Notify parent to refresh trips
       onTripCreated(); // This refreshes the trip list
-
-      console.log('✅ Trip deleted successfully');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to delete trip. Please try again.');
       setDeleteDialogOpen(false);
@@ -415,8 +408,8 @@ export default function TripSelector({
               freeSolo
               options={destinationSuggestions}
               value={destination}
-              onInputChange={(event, newValue) => handleDestinationChange(newValue)}
-              onChange={(event, selectedOption) => {
+              onInputChange={(_event, newValue) => handleDestinationChange(newValue)}
+              onChange={(_event, selectedOption) => {
                 if (typeof selectedOption === 'string') {
                   setDestination(selectedOption);
                 } else if (selectedOption) {
@@ -566,7 +559,7 @@ export default function TripSelector({
                 justifyContent: 'flex-end',
               }}
             >
-              {messageQueue.map((msg, index) => (
+              {messageQueue.map((msg, _index) => (
                 <Typography
                   key={msg.id}
                   variant="body2"

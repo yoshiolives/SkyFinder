@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
@@ -35,23 +35,17 @@ export async function POST(request: NextRequest) {
 
     // Validate parameters
     if (!location && (!latitude || !longitude)) {
-      return NextResponse.json(
-        { error: 'Location or coordinates required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Location or coordinates required' }, { status: 400 });
     }
 
     // Build Google Places API request
     const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!googleMapsApiKey) {
-      return NextResponse.json(
-        { error: 'Google Maps API key not configured' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Google Maps API key not configured' }, { status: 500 });
     }
 
     let googlePlacesUrl = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json?';
-    
+
     if (latitude && longitude) {
       googlePlacesUrl += `location=${latitude},${longitude}`;
     } else {
@@ -59,15 +53,12 @@ export async function POST(request: NextRequest) {
       const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${googleMapsApiKey}`;
       const geocodeResponse = await fetch(geocodeUrl);
       const geocodeData = await geocodeResponse.json();
-      
+
       if (geocodeData.results && geocodeData.results.length > 0) {
         const location = geocodeData.results[0].geometry.location;
         googlePlacesUrl += `location=${location.lat},${location.lng}`;
       } else {
-        return NextResponse.json(
-          { error: 'Location not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Location not found' }, { status: 404 });
       }
     }
 
@@ -98,15 +89,17 @@ export async function POST(request: NextRequest) {
 
     for (const place of places) {
       // Extract cuisine types from place types
-      const cuisineTypes = place.types
-        ?.filter((type) => 
-          type.includes('restaurant') || 
-          type.includes('food') || 
-          type.includes('cafe') ||
-          type.includes('bar')
-        )
-        .map((type) => type.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()))
-        .slice(0, 3) || [];
+      const cuisineTypes =
+        place.types
+          ?.filter(
+            (type) =>
+              type.includes('restaurant') ||
+              type.includes('food') ||
+              type.includes('cafe') ||
+              type.includes('bar')
+          )
+          .map((type) => type.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()))
+          .slice(0, 3) || [];
 
       // Extract photo references
       const photos = place.photos?.map((photo) => photo.photo_reference) || [];
@@ -152,10 +145,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Fetch error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-

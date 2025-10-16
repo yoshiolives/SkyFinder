@@ -15,13 +15,12 @@ async function getAuthHeaders() {
     }
 
     if (session?.access_token) {
-      console.log('Auth token found, user:', session.user.email);
       return {
         Authorization: `Bearer ${session.access_token}`,
       };
     }
 
-    console.warn('No active session found');
+    // No active session found
     return {};
   } catch (error) {
     console.error('Failed to get auth headers:', error);

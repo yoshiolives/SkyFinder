@@ -161,7 +161,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                     display: { xs: 'none', md: 'block' }, // Hide on mobile, show on desktop
                   }}
                 >
-                  Find restaurants and places within 800m of any rapid transit station. Discover hidden gems you never knew existed.
+                  Find restaurants and places within 800m of any rapid transit station. Discover
+                  hidden gems you never knew existed.
                 </Typography>
               </Box>
             </Box>
@@ -181,7 +182,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                 display: { xs: 'block', md: 'none' },
               }}
             >
-              Find restaurants and places within 800m of any rapid transit station. Discover hidden gems you never knew existed.
+              Find restaurants and places within 800m of any rapid transit station. Discover hidden
+              gems you never knew existed.
             </Typography>
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Button
@@ -270,7 +272,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                   Near Transit Stations
                 </Typography>
                 <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.7 }}>
-                  Discover restaurants and places within walking distance of any rapid transit station. No more wandering around aimlessly.
+                  Discover restaurants and places within walking distance of any rapid transit
+                  station. No more wandering around aimlessly.
                 </Typography>
               </Paper>
             </Grid>
@@ -297,7 +300,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                   Save Your Favorites
                 </Typography>
                 <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.7 }}>
-                  Create custom lists to organize your favorite places. Never forget that amazing restaurant you discovered.
+                  Create custom lists to organize your favorite places. Never forget that amazing
+                  restaurant you discovered.
                 </Typography>
               </Paper>
             </Grid>
@@ -324,7 +328,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                   Discover Hidden Gems
                 </Typography>
                 <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.7 }}>
-                  Find local favorites and hidden spots you never knew existed near your transit stops.
+                  Find local favorites and hidden spots you never knew existed near your transit
+                  stops.
                 </Typography>
               </Paper>
             </Grid>
@@ -357,7 +362,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                       Transit Station Integration
                     </Typography>
                     <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.8 }}>
-                      Select any rapid transit station and instantly see all restaurants and places within an 800-meter radius. No more guessing what's nearby.
+                      Select any rapid transit station and instantly see all restaurants and places
+                      within an 800-meter radius. No more guessing what's nearby.
                     </Typography>
                   </Box>
                 </Box>
@@ -373,7 +379,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                       Interactive Maps
                     </Typography>
                     <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.8 }}>
-                      See all nearby places on an interactive map. Know exactly how far each restaurant is from the station and plan your route accordingly.
+                      See all nearby places on an interactive map. Know exactly how far each
+                      restaurant is from the station and plan your route accordingly.
                     </Typography>
                   </Box>
                 </Box>
@@ -389,7 +396,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                       Radius-Based Search
                     </Typography>
                     <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.8 }}>
-                      Find places within a specific distance from any transit station. Perfect for quick meals during your commute or exploring new neighborhoods.
+                      Find places within a specific distance from any transit station. Perfect for
+                      quick meals during your commute or exploring new neighborhoods.
                     </Typography>
                   </Box>
                 </Box>
@@ -405,7 +413,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
                       Save & Organize
                     </Typography>
                     <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.8 }}>
-                      Create custom lists to save your favorite places. Organize by cuisine, occasion, or station for easy reference later.
+                      Create custom lists to save your favorite places. Organize by cuisine,
+                      occasion, or station for easy reference later.
                     </Typography>
                   </Box>
                 </Box>
@@ -413,7 +422,6 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             </Grid>
           </Container>
         </Box>
-
 
         {/* CTA Section */}
         <Box sx={{ bgcolor: 'white', py: { xs: 6, md: 10 } }}>
@@ -426,7 +434,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               color="text.secondary"
               sx={{ mb: 4, fontWeight: 300, lineHeight: 1.7 }}
             >
-              Stop wandering around transit stations looking for places. Discover amazing restaurants and spots near every stop.
+              Stop wandering around transit stations looking for places. Discover amazing
+              restaurants and spots near every stop.
             </Typography>
             <Button
               variant="contained"

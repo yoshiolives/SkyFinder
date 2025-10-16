@@ -1,6 +1,5 @@
 'use client';
 
-import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import {
   AccountCircle,
   Add as AddIcon,
@@ -23,8 +22,8 @@ import {
   Menu as MenuIcon,
   Museum as MuseumIcon,
   Place as PlaceIcon,
-  Search as SearchIcon,
   Schedule as ScheduleIcon,
+  Search as SearchIcon,
   ShoppingBag as ShoppingIcon,
   Star as StarIcon,
   Support as SupportIcon,
@@ -74,7 +73,6 @@ import Image from 'next/image';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import ChatBot from '@/components/ChatBot';
 import LandingPage from '@/components/LandingPage';
 import LoginModal from '@/components/LoginModal';
 import TripSelector from '@/components/TripSelector';
@@ -248,7 +246,7 @@ export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  
+
   // Saved Places State
   const [savedPlaces, setSavedPlaces] = useState<any[]>([]);
   const [savedLists, setSavedLists] = useState<any[]>([]);
@@ -261,7 +259,7 @@ export default function Home() {
   const [newListColor, setNewListColor] = useState('#4285F4');
   const [saveToListDialogOpen, setSaveToListDialogOpen] = useState(false);
   const [placeToSave, setPlaceToSave] = useState<any>(null);
-  
+
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [currentTrip, setCurrentTrip] = useState<any>(null);
   const [trips, setTrips] = useState<any[]>([]);
@@ -294,7 +292,6 @@ export default function Home() {
   const [vacationEndDate, setVacationEndDate] = useState('');
   const [isEditingDates, setIsEditingDates] = useState(false);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
-  const [isDragging, setIsDragging] = useState(false);
   const [hoveredDay, setHoveredDay] = useState<string | null>(null);
   const [bookNowSnackbarOpen, setBookNowSnackbarOpen] = useState(false);
   const [transitDataLoaded, setTransitDataLoaded] = useState(false);
@@ -356,10 +353,9 @@ export default function Home() {
         (position) => {
           const { latitude, longitude } = position.coords;
           setMapCenter({ lat: latitude, lng: longitude });
-          console.log('📍 Location detected:', latitude, longitude);
         },
         (error) => {
-          console.warn('⚠️ Geolocation error:', error.message);
+          // Geolocation failed, using default location
           // Fallback to default location (Times Square, NYC)
           setMapCenter({ lat: 40.758, lng: -73.9855 });
         },
@@ -389,7 +385,6 @@ export default function Home() {
         // Get list of all GeoJSON files
         const response = await fetch('/api/transit');
         const { files } = await response.json();
-        
 
         const stations: any[] = [];
         const lines: any[] = [];
@@ -399,10 +394,10 @@ export default function Home() {
           try {
             const fileResponse = await fetch(file.url);
             const geoJson = await fileResponse.json();
-            
+
             // Check if coordinates are in EPSG:3857 (Web Mercator)
             const isEpsg3857 = geoJson.crs?.properties?.name === 'EPSG:3857';
-            
+
             // Transform and categorize features
             geoJson.features.forEach((feature: any) => {
               // Transform coordinates if needed (for EPSG:3857 to WGS84)
@@ -417,7 +412,10 @@ export default function Home() {
                     ],
                   },
                 });
-              } else if (feature.geometry.type === 'LineString' || feature.geometry.type === 'MultiLineString') {
+              } else if (
+                feature.geometry.type === 'LineString' ||
+                feature.geometry.type === 'MultiLineString'
+              ) {
                 // Transform line coordinates from EPSG:3857 to WGS84
                 if (isEpsg3857 && feature.geometry.coordinates) {
                   const transformedCoords = feature.geometry.coordinates.map((coord: number[]) => {
@@ -453,20 +451,16 @@ export default function Home() {
                 }
               }
             });
-            
           } catch (fileError) {
             console.error(`❌ Failed to load ${file.filename}:`, fileError);
           }
         }
-        
+
         setTransitStations(stations);
         setTransitLines(lines);
         setTransitDataLoaded(true);
-        
-        console.log('🚇 Transit data loaded:', {
-          stations: stations.length,
-          lines: lines.length,
-        });
+
+        // Transit data loaded successfully
       } catch (error) {
         console.error('❌ Failed to load transit data:', error);
       }
@@ -524,7 +518,7 @@ export default function Home() {
       }
     });
 
-    console.log(`🗺️ Drew ${polylinesRef.current.length} transit lines`);
+    // Transit lines drawn successfully
   }, [transitLines]);
 
   // Handle Book Now button click
@@ -533,58 +527,61 @@ export default function Home() {
   };
 
   // Handle station marker click - toggle coverage circle
-  const handleStationClick = useCallback((stationIndex: number, event: any) => {
-    // Prevent the InfoWindow from opening
-    event.stop();
-    
-    const map = mapInstanceRef.current;
-    if (!map) {
-      console.error('Map instance not available');
-      return;
-    }
-    
-    const station = transitStations[stationIndex];
-    if (!station) {
-      return;
-    }
-    
-    const coords = station.geometry.coordinates;
-    if (!coords || coords.length < 2) {
-      return;
-    }
-    
-    // Check current state using the ref (immediate, synchronous)
-    const isCurrentlySelected = selectedStationsRef.current.has(stationIndex);
-    
-    if (isCurrentlySelected) {
-      // Remove circle
-      const circle = circlesRef.current.get(stationIndex);
-      if (circle) {
-        circle.setMap(null);
-        circlesRef.current.delete(stationIndex);
-        selectedStationsRef.current.delete(stationIndex);
+  const handleStationClick = useCallback(
+    (stationIndex: number, event: any) => {
+      // Prevent the InfoWindow from opening
+      event.stop();
+
+      const map = mapInstanceRef.current;
+      if (!map) {
+        console.error('Map instance not available');
+        return;
       }
-    } else {
-      // Add circle
-      const circle = new google.maps.Circle({
-        center: { lat: coords[0], lng: coords[1] },
-        radius: 800,
-        fillColor: '#4285F4',
-        fillOpacity: 0.15,
-        strokeColor: '#4285F4',
-        strokeOpacity: 0.5,
-        strokeWeight: 2,
-        clickable: false,
-        zIndex: 1,
-      });
-      circle.setMap(map);
-      circlesRef.current.set(stationIndex, circle);
-      selectedStationsRef.current.add(stationIndex);
-    }
-    
-    // Update the state for rendering (keeps UI in sync)
-    setSelectedStations(new Set(selectedStationsRef.current));
-  }, [transitStations]);
+
+      const station = transitStations[stationIndex];
+      if (!station) {
+        return;
+      }
+
+      const coords = station.geometry.coordinates;
+      if (!coords || coords.length < 2) {
+        return;
+      }
+
+      // Check current state using the ref (immediate, synchronous)
+      const isCurrentlySelected = selectedStationsRef.current.has(stationIndex);
+
+      if (isCurrentlySelected) {
+        // Remove circle
+        const circle = circlesRef.current.get(stationIndex);
+        if (circle) {
+          circle.setMap(null);
+          circlesRef.current.delete(stationIndex);
+          selectedStationsRef.current.delete(stationIndex);
+        }
+      } else {
+        // Add circle
+        const circle = new google.maps.Circle({
+          center: { lat: coords[0], lng: coords[1] },
+          radius: 800,
+          fillColor: '#4285F4',
+          fillOpacity: 0.15,
+          strokeColor: '#4285F4',
+          strokeOpacity: 0.5,
+          strokeWeight: 2,
+          clickable: false,
+          zIndex: 1,
+        });
+        circle.setMap(map);
+        circlesRef.current.set(stationIndex, circle);
+        selectedStationsRef.current.add(stationIndex);
+      }
+
+      // Update the state for rendering (keeps UI in sync)
+      setSelectedStations(new Set(selectedStationsRef.current));
+    },
+    [transitStations]
+  );
 
   // Handle Book Now snackbar close
   const handleBookNowSnackbarClose = () => {
@@ -593,10 +590,7 @@ export default function Home() {
 
   // Handle search functionality using Google Places API directly
   const handleSearch = async (query: string) => {
-    console.log('🔍 Search triggered:', { query, selectedStations: selectedStations.size });
-    
     if (!query.trim() || selectedStations.size === 0) {
-      console.log('⚠️ Search cancelled - no query or stations selected');
       setSearchResults([]);
       setSearchPerformed(false);
       return;
@@ -619,24 +613,32 @@ export default function Home() {
         };
       });
 
-      console.log('📍 Searching near stations:', stationCoords);
-
       // Search for places near each selected station using Google Places API
       const allResults: any[] = [];
-      
+
       for (const coord of stationCoords) {
         try {
-          console.log('🔎 Searching at:', coord);
-          
           // Determine the place type based on the query
           let placeType: string | undefined;
           if (query.toLowerCase().includes('museum')) {
             placeType = 'museum';
-          } else if (query.toLowerCase().includes('restaurant') || ['italian', 'japanese', 'chinese', 'mexican', 'american', 'indian', 'thai', 'mediterranean'].some(cuisine => query.toLowerCase().includes(cuisine.toLowerCase()))) {
+          } else if (
+            query.toLowerCase().includes('restaurant') ||
+            [
+              'italian',
+              'japanese',
+              'chinese',
+              'mexican',
+              'american',
+              'indian',
+              'thai',
+              'mediterranean',
+            ].some((cuisine) => query.toLowerCase().includes(cuisine.toLowerCase()))
+          ) {
             placeType = 'restaurant';
           }
           // For "things to do" or other queries, let Google decide by not specifying a type
-          
+
           // Create a request for nearby search
           const request: google.maps.places.PlaceSearchRequest = {
             location: new google.maps.LatLng(coord.lat, coord.lng),
@@ -654,10 +656,8 @@ export default function Home() {
           const results = await new Promise<any[]>((resolve, reject) => {
             service.nearbySearch(request, (results, status) => {
               if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-                console.log(`✅ Found ${results.length} results near this station`);
                 resolve(results);
               } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-                console.log('⚠️ No results found for this station');
                 resolve([]);
               } else {
                 console.error('❌ Places API error:', status);
@@ -671,13 +671,13 @@ export default function Home() {
             .map((place) => {
               const placeLat = place.geometry?.location?.lat() || 0;
               const placeLng = place.geometry?.location?.lng() || 0;
-              
+
               // Calculate distance from station center to place
               const distance = google.maps.geometry.spherical.computeDistanceBetween(
                 new google.maps.LatLng(coord.lat, coord.lng),
                 new google.maps.LatLng(placeLat, placeLng)
               );
-              
+
               return {
                 place_id: place.place_id,
                 name: place.name,
@@ -696,7 +696,6 @@ export default function Home() {
             })
             .filter((place) => place.distance <= 800); // Only include places within 800 meters
 
-          console.log(`📍 Filtered to ${transformedResults.length} results within 800m radius`);
           allResults.push(...transformedResults);
         } catch (error) {
           console.error('❌ Error searching near station:', error);
@@ -708,7 +707,6 @@ export default function Home() {
         new Map(allResults.map((item) => [item.place_id, item])).values()
       );
 
-      console.log('🎯 Total unique results:', uniqueResults.length);
       setSearchResults(uniqueResults);
     } catch (error) {
       console.error('❌ Search error:', error);
@@ -735,12 +733,12 @@ export default function Home() {
       alert('Please select at least one station on the map first!');
       return;
     }
-    
+
     // Construct search query based on category and filter
     const searchTerm = `${filter} ${category}`;
     setSearchQuery(searchTerm);
     handleSearch(searchTerm);
-    
+
     // Close the dropdown
     setSelectedCategory(null);
   };
@@ -809,11 +807,8 @@ export default function Home() {
 
   const fetchSavedPlaces = async () => {
     try {
-      console.log('Fetching saved places...');
       const response = await api.get('/api/lists/items');
-      console.log('Saved places response:', response.data);
       setSavedPlaces(response.data.items || []);
-      console.log('Set saved places:', response.data.items?.length || 0, 'items');
     } catch (error) {
       console.error('Error fetching saved places:', error);
     }
@@ -834,26 +829,23 @@ export default function Home() {
         latitude: placeToSave.latitude || placeToSave.coordinates?.[0],
         longitude: placeToSave.longitude || placeToSave.coordinates?.[1],
         rating: placeToSave.rating || null,
-        place_id: placeToSave.place_id || `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        place_id:
+          placeToSave.place_id || `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         user_ratings_total: placeToSave.user_ratings_total || 0,
         price_level: placeToSave.price_level || null,
         types: placeToSave.types || [],
         photos: placeToSave.photos || [],
       };
 
-      console.log('Sending place data:', placeData);
-      
       const response = await api.post(`/api/lists/${listId}/items`, placeData);
-      console.log('Save response:', response.data);
-      
+
       setSaveToListDialogOpen(false);
       setPlaceToSave(null);
       setSelectedSearchResult(null);
-      
+
       // Refresh saved places
-      console.log('Refreshing saved places...');
       await fetchSavedPlaces();
-      
+
       alert('Place saved to list!');
     } catch (error: any) {
       console.error('Error adding to list:', error);
@@ -878,7 +870,7 @@ export default function Home() {
       });
       const newList = response.data.list;
       setSavedLists([...savedLists, newList]);
-      
+
       // If there's a place waiting to be saved, add it to the new list
       if (placeToSave) {
         try {
@@ -888,7 +880,9 @@ export default function Home() {
             latitude: placeToSave.latitude || placeToSave.coordinates?.[0],
             longitude: placeToSave.longitude || placeToSave.coordinates?.[1],
             rating: placeToSave.rating || null,
-            place_id: placeToSave.place_id || `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            place_id:
+              placeToSave.place_id ||
+              `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             user_ratings_total: placeToSave.user_ratings_total || 0,
             price_level: placeToSave.price_level || null,
             types: placeToSave.types || [],
@@ -900,7 +894,7 @@ export default function Home() {
           console.error('Error adding place to new list:', error);
         }
       }
-      
+
       setCreateListDialogOpen(false);
       setNewListName('');
       setNewListIcon('📌');
@@ -929,13 +923,20 @@ export default function Home() {
         icon: newListIcon,
         color: newListColor,
       });
-      setSavedLists(savedLists.map((list) => 
-        list.id === editingList.id 
-          ? { ...list, name: newListName, icon: newListIcon, color: newListColor }
-          : list
-      ));
+      setSavedLists(
+        savedLists.map((list) =>
+          list.id === editingList.id
+            ? { ...list, name: newListName, icon: newListIcon, color: newListColor }
+            : list
+        )
+      );
       if (selectedList?.id === editingList.id) {
-        setSelectedList({ ...selectedList, name: newListName, icon: newListIcon, color: newListColor });
+        setSelectedList({
+          ...selectedList,
+          name: newListName,
+          icon: newListIcon,
+          color: newListColor,
+        });
       }
       setEditListDialogOpen(false);
       setEditingList(null);
@@ -1100,11 +1101,8 @@ export default function Home() {
       // If we have the new trip, load it directly
       // Otherwise load the first trip in the refreshed list
       if (newTrip) {
-        console.log('🎯 Auto-selecting newly created trip:', newTrip.title);
-        console.log('🎯 New trip details:', newTrip);
         await loadTripItinerary(newTrip);
       } else if (fetchedTrips && fetchedTrips.length > 0) {
-        console.log('🔄 Loading first trip from refreshed list');
         await loadTripItinerary(fetchedTrips[0]);
       }
 
@@ -1117,7 +1115,7 @@ export default function Home() {
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
-    
+
     // Trigger map resize after sidebar animation
     setTimeout(() => {
       if (mapInstanceRef.current) {
@@ -1148,13 +1146,13 @@ export default function Home() {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      
+
       // Check if click is outside the search area
       const searchContainer = document.querySelector('[data-search-container]');
       if (searchContainer && !searchContainer.contains(target)) {
         handleHideSearchResults();
       }
-      
+
       // Check if click is outside the category buttons area
       const categoryContainer = document.querySelector('[data-category-container]');
       if (categoryContainer && !categoryContainer.contains(target)) {
@@ -1394,7 +1392,7 @@ export default function Home() {
 
     setIsEditingTitle(false);
     return;
-  }
+  };
 
   const handleTitleSubmit = async () => {
     if (!currentTrip || !editedTripTitle.trim()) {
@@ -1448,14 +1446,6 @@ export default function Home() {
 
   const handleMenuClose = () => {
     setAnchorEl(null);
-  };
-
-  const handleDragStart = (_result: any) => {
-    setIsDragging(true);
-  };
-
-  const handleDragEnd = (_result: any) => {
-    setIsDragging(false);
   };
 
   const handleTitleClick = () => {
@@ -1547,169 +1537,176 @@ export default function Home() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        {/* User Menu (for sidebar avatar) */}
-        <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-          <MenuItem
-            onClick={() => {
-              window.open('https://discord.gg/btd7PUjYkW', '_blank');
-              handleMenuClose();
-            }}
-          >
-            <SupportIcon sx={{ mr: 1 }} />
-            Discord Support
-          </MenuItem>
-          <MenuItem
-            onClick={() => {
-              setShowMapControls(!showMapControls);
-              handleMenuClose();
-            }}
-          >
-            {showMapControls ? (
-              <VisibilityOffIcon sx={{ mr: 1 }} />
-            ) : (
-              <VisibilityIcon sx={{ mr: 1 }} />
-            )}
-            {showMapControls ? 'Hide Map Controls' : 'Show Map Controls'}
-          </MenuItem>
-          <MenuItem onClick={handleLogout}>
-            <LogoutIcon sx={{ mr: 1 }} />
-            Logout
-          </MenuItem>
-        </Menu>
-
-        {/* Merged Top Bar with Logo, Search, and Categories */}
-        <Box
-          data-category-container
-          sx={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '56px',
-            zIndex: (theme) => theme.zIndex.drawer + 1,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-            px: 3,
-            backgroundColor: 'white',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-            borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
+      {/* User Menu (for sidebar avatar) */}
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
+        <MenuItem
+          onClick={() => {
+            window.open('https://discord.gg/btd7PUjYkW', '_blank');
+            handleMenuClose();
           }}
         >
-          {/* Logo and Title */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
-            <Image
-              src="/logo.png"
-              alt="SkyFinder Logo"
-              width={28}
-              height={28}
-              style={{ borderRadius: '6px' }}
-            />
-            <Typography 
-              variant="h6" 
-              component="div" 
-              sx={{ 
-                fontWeight: 600,
-                color: '#1D1D1F',
-                fontSize: '1rem',
-              }}
-            >
-              SkyFinder
-            </Typography>
-          </Box>
+          <SupportIcon sx={{ mr: 1 }} />
+          Discord Support
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setShowMapControls(!showMapControls);
+            handleMenuClose();
+          }}
+        >
+          {showMapControls ? (
+            <VisibilityOffIcon sx={{ mr: 1 }} />
+          ) : (
+            <VisibilityIcon sx={{ mr: 1 }} />
+          )}
+          {showMapControls ? 'Hide Map Controls' : 'Show Map Controls'}
+        </MenuItem>
+        <MenuItem onClick={handleLogout}>
+          <LogoutIcon sx={{ mr: 1 }} />
+          Logout
+        </MenuItem>
+      </Menu>
 
-          {/* Search Bar */}
-          <Box data-search-container sx={{ position: 'relative', maxWidth: 400, flex: 1 }}>
-              <TextField
-              placeholder={selectedStations.size > 0 ? "Search places near stations..." : "Click stations on map to search"}
-                value={searchQuery}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && selectedStations.size === 0) {
-                    alert('Please select at least one station on the map first!');
-                  }
-                }}
-                disabled={selectedStations.size === 0}
-                variant="outlined"
-                size="small"
-                InputProps={{
-                endAdornment: (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    {searchQuery && (
-                    <IconButton 
-                      size="small" 
-                      onClick={handleClearSearch}
-                    >
+      {/* Merged Top Bar with Logo, Search, and Categories */}
+      <Box
+        data-category-container
+        sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '56px',
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          px: 3,
+          backgroundColor: 'white',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+          borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
+        }}
+      >
+        {/* Logo and Title */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
+          <Image
+            src="/logo.png"
+            alt="SkyFinder Logo"
+            width={28}
+            height={28}
+            style={{ borderRadius: '6px' }}
+          />
+          <Typography
+            variant="h6"
+            component="div"
+            sx={{
+              fontWeight: 600,
+              color: '#1D1D1F',
+              fontSize: '1rem',
+            }}
+          >
+            SkyFinder
+          </Typography>
+        </Box>
+
+        {/* Search Bar */}
+        <Box data-search-container sx={{ position: 'relative', maxWidth: 400, flex: 1 }}>
+          <TextField
+            placeholder={
+              selectedStations.size > 0
+                ? 'Search places near stations...'
+                : 'Click stations on map to search'
+            }
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && selectedStations.size === 0) {
+                alert('Please select at least one station on the map first!');
+              }
+            }}
+            disabled={selectedStations.size === 0}
+            variant="outlined"
+            size="small"
+            InputProps={{
+              endAdornment: (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  {searchQuery && (
+                    <IconButton size="small" onClick={handleClearSearch}>
                       <CloseIcon fontSize="small" />
                     </IconButton>
-                    )}
-                    <SearchIcon sx={{ color: selectedStations.size > 0 ? '#007AFF' : '#8E8E93', fontSize: 20, mr: 0.5 }} />
-                  </Box>
-                  ),
-                }}
-                sx={{
-                  width: '100%',
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#F5F5F7',
-                    borderRadius: 2,
-                    fontSize: '0.875rem',
+                  )}
+                  <SearchIcon
+                    sx={{
+                      color: selectedStations.size > 0 ? '#007AFF' : '#8E8E93',
+                      fontSize: 20,
+                      mr: 0.5,
+                    }}
+                  />
+                </Box>
+              ),
+            }}
+            sx={{
+              width: '100%',
+              '& .MuiOutlinedInput-root': {
+                backgroundColor: '#F5F5F7',
+                borderRadius: 2,
+                fontSize: '0.875rem',
+                color: '#1D1D1F',
+                '& input': {
                   color: '#1D1D1F',
+                  fontWeight: 400,
+                  '&::placeholder': {
+                    color: selectedStations.size > 0 ? '#6E6E73' : '#8E8E93',
+                    opacity: 1,
+                  },
+                },
+                '& fieldset': {
+                  borderColor: selectedStations.size > 0 ? '#007AFF' : '#E5E5EA',
+                },
+                '&:hover fieldset': {
+                  borderColor: '#007AFF',
+                },
+                '&.Mui-focused': {
+                  backgroundColor: 'white',
+                  '& fieldset': {
+                    borderColor: '#007AFF',
+                  },
+                },
+                '&.Mui-disabled': {
+                  backgroundColor: '#F5F5F7',
                   '& input': {
-                    color: '#1D1D1F',
-                    fontWeight: 400,
-                    '&::placeholder': {
-                      color: selectedStations.size > 0 ? '#6E6E73' : '#8E8E93',
-                      opacity: 1,
-                    },
+                    color: '#6E6E73',
+                    WebkitTextFillColor: '#6E6E73',
                   },
-                    '& fieldset': {
-                      borderColor: selectedStations.size > 0 ? '#007AFF' : '#E5E5EA',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: '#007AFF',
-                    },
-                    '&.Mui-focused': {
-                      backgroundColor: 'white',
-                      '& fieldset': {
-                        borderColor: '#007AFF',
-                      },
-                    },
-                    '&.Mui-disabled': {
-                      backgroundColor: '#F5F5F7',
-                    '& input': {
-                      color: '#6E6E73',
-                      WebkitTextFillColor: '#6E6E73',
-                    },
-                    },
-                  },
+                },
+              },
+            }}
+          />
+
+          {/* Search Results Dropdown */}
+          {searchPerformed &&
+            (searchResults.length > 0 || (!isSearching && searchResults.length === 0)) && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  left: 0,
+                  right: 0,
+                  backgroundColor: 'white',
+                  borderRadius: 2,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  maxHeight: '400px',
+                  overflow: 'auto',
+                  zIndex: 1300,
                 }}
-              />
-              
-              {/* Search Results Dropdown */}
-              {searchPerformed && (searchResults.length > 0 || (!isSearching && searchResults.length === 0)) && (
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: 'calc(100% + 8px)',
-                    left: 0,
-                    right: 0,
-                    backgroundColor: 'white',
-                    borderRadius: 2,
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                    maxHeight: '400px',
-                    overflow: 'auto',
-                    zIndex: 1300,
-                  }}
-                >
-                  {searchResults.length > 0 ? (
-                    searchResults.map((result, index) => (
+              >
+                {searchResults.length > 0 ? (
+                  searchResults.map((result, index) => (
                     <Box
                       key={result.place_id || index}
                       onClick={() => {
                         setSelectedSearchResult(result);
                         setSearchResults([]);
-                          setSearchPerformed(false);
+                        setSearchPerformed(false);
                       }}
                       sx={{
                         p: 2,
@@ -1721,11 +1718,14 @@ export default function Home() {
                         },
                       }}
                     >
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5, color: '#1D1D1F' }}>
-                          {result.name || 'Unnamed Place'}
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 600, mb: 0.5, color: '#1D1D1F' }}
+                      >
+                        {result.name || 'Unnamed Place'}
                       </Typography>
-                        <Typography variant="body2" sx={{ mb: 0.5, color: '#6E6E73' }}>
-                          {result.address || 'No address available'}
+                      <Typography variant="body2" sx={{ mb: 0.5, color: '#6E6E73' }}>
+                        {result.address || 'No address available'}
                       </Typography>
                       {result.rating && (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -1739,250 +1739,341 @@ export default function Home() {
                         </Box>
                       )}
                     </Box>
-                    ))
-                  ) : (
-                    <Box
-                      sx={{
-                        p: 3,
-                        textAlign: 'center',
-                      }}
-                    >
-                      <Typography variant="body2" sx={{ color: '#6E6E73', mb: 0.5 }}>
-                        No results found
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#8E8E93' }}>
-                        Try a different search term or select more stations
-                      </Typography>
-                    </Box>
-                  )}
-                </Box>
-              )}
-            </Box>
-
-          {/* Restaurants Category */}
-          <Box sx={{ position: 'relative' }}>
-                <Button
-              variant={selectedCategory === 'restaurants' ? 'contained' : 'outlined'}
-              onClick={() => {
-                if (selectedCategory === 'restaurants') {
-                  setSelectedCategory(null);
-                } else {
-                  setSelectedCategory('restaurants');
-                }
-              }}
-              endIcon={selectedCategory === 'restaurants' ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-                  sx={{ 
-                    textTransform: 'none',
-                borderRadius: 3,
-                px: 2.5,
-                py: 1,
-                fontWeight: 500,
-                backgroundColor: selectedCategory === 'restaurants' ? '#007AFF' : 'white',
-                borderColor: '#E5E5EA',
-                color: selectedCategory === 'restaurants' ? 'white' : '#1D1D1F',
-                '&:hover': {
-                  backgroundColor: selectedCategory === 'restaurants' ? '#0056CC' : '#F5F5F7',
-                  borderColor: '#007AFF',
-                },
-              }}
-            >
-              🍽️ Restaurants
-            </Button>
-            
-            {/* Restaurants Dropdown */}
-            {selectedCategory === 'restaurants' && (
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: 'calc(100% + 8px)',
-                  left: 0,
-                  backgroundColor: 'white',
-                  borderRadius: 2,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                  p: 2,
-                  minWidth: 200,
-                  zIndex: 1000,
-                }}
-              >
-                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                  Cuisine Type
-                </Typography>
-                {['Italian', 'Japanese', 'Chinese', 'Mexican', 'American', 'Indian', 'Thai', 'Mediterranean'].map((cuisine) => (
+                  ))
+                ) : (
                   <Box
-                    key={cuisine}
-                    onClick={() => handleCategoryFilterClick('restaurants', cuisine)}
                     sx={{
-                      py: 0.75,
-                      px: 1,
-                      cursor: 'pointer',
-                      borderRadius: 1,
-                    '&:hover': {
-                      backgroundColor: '#F5F5F7',
-                    },
-                  }}
-                  >
-                    <Typography variant="body2">{cuisine}</Typography>
-                  </Box>
-                ))}
-              </Box>
-            )}
-          </Box>
-
-          {/* Things to Do Category */}
-          <Box sx={{ position: 'relative' }}>
-            <Button
-              variant={selectedCategory === 'things-to-do' ? 'contained' : 'outlined'}
-              onClick={() => {
-                if (selectedCategory === 'things-to-do') {
-                  setSelectedCategory(null);
-                } else {
-                  setSelectedCategory('things-to-do');
-                }
-              }}
-              endIcon={selectedCategory === 'things-to-do' ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-              sx={{
-                textTransform: 'none',
-                borderRadius: 3,
-                px: 2.5,
-                py: 1,
-                fontWeight: 500,
-                backgroundColor: selectedCategory === 'things-to-do' ? '#007AFF' : 'white',
-                borderColor: '#E5E5EA',
-                color: selectedCategory === 'things-to-do' ? 'white' : '#1D1D1F',
-                '&:hover': {
-                  backgroundColor: selectedCategory === 'things-to-do' ? '#0056CC' : '#F5F5F7',
-                  borderColor: '#007AFF',
-                },
-              }}
-            >
-              🎯 Things to Do
-                </Button>
-            
-            {/* Things to Do Dropdown */}
-            {selectedCategory === 'things-to-do' && (
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: 'calc(100% + 8px)',
-                  left: 0,
-                  backgroundColor: 'white',
-                  borderRadius: 2,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                  p: 2,
-                  minWidth: 200,
-                  zIndex: 1000,
-                }}
-              >
-                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                  Activity Type
-                </Typography>
-                {['Outdoor Activities', 'Entertainment', 'Sports', 'Shopping', 'Nightlife', 'Tours', 'Parks', 'Beaches'].map((activity) => (
-                  <Box
-                    key={activity}
-                    onClick={() => handleCategoryFilterClick('things to do', activity)}
-                    sx={{
-                      py: 0.75,
-                      px: 1,
-                      cursor: 'pointer',
-                      borderRadius: 1,
-                      '&:hover': {
-                        backgroundColor: '#F5F5F7',
-                      },
+                      p: 3,
+                      textAlign: 'center',
                     }}
                   >
-                    <Typography variant="body2">{activity}</Typography>
+                    <Typography variant="body2" sx={{ color: '#6E6E73', mb: 0.5 }}>
+                      No results found
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#8E8E93' }}>
+                      Try a different search term or select more stations
+                    </Typography>
                   </Box>
-                ))}
+                )}
               </Box>
             )}
-          </Box>
+        </Box>
 
-          {/* Museums Category */}
-              <Button
-            variant={selectedCategory === 'museums' ? 'contained' : 'outlined'}
+        {/* Restaurants Category */}
+        <Box sx={{ position: 'relative' }}>
+          <Button
+            variant={selectedCategory === 'restaurants' ? 'contained' : 'outlined'}
             onClick={() => {
-              if (selectedStations.size === 0) {
-                alert('Please select at least one station on the map first!');
-                return;
-              }
-              
-              if (selectedCategory === 'museums') {
+              if (selectedCategory === 'restaurants') {
                 setSelectedCategory(null);
               } else {
-                setSelectedCategory('museums');
-                // Search for museums
-                const searchTerm = 'museums';
-                setSearchQuery(searchTerm);
-                handleSearch(searchTerm);
+                setSelectedCategory('restaurants');
               }
             }}
-                sx={{
-                  textTransform: 'none',
+            endIcon={
+              selectedCategory === 'restaurants' ? (
+                <ExpandLessIcon fontSize="small" />
+              ) : (
+                <ExpandMoreIcon fontSize="small" />
+              )
+            }
+            sx={{
+              textTransform: 'none',
               borderRadius: 3,
               px: 2.5,
               py: 1,
               fontWeight: 500,
-              backgroundColor: selectedCategory === 'museums' ? '#007AFF' : 'white',
+              backgroundColor: selectedCategory === 'restaurants' ? '#007AFF' : 'white',
               borderColor: '#E5E5EA',
-              color: selectedCategory === 'museums' ? 'white' : '#1D1D1F',
+              color: selectedCategory === 'restaurants' ? 'white' : '#1D1D1F',
               '&:hover': {
-                backgroundColor: selectedCategory === 'museums' ? '#0056CC' : '#F5F5F7',
+                backgroundColor: selectedCategory === 'restaurants' ? '#0056CC' : '#F5F5F7',
                 borderColor: '#007AFF',
               },
             }}
           >
-            🏛️ Museums
-              </Button>
+            🍽️ Restaurants
+          </Button>
 
-          {/* Clear Results Button */}
-          {searchResults.length > 0 && (
-            <Button
-              variant="outlined"
-              onClick={handleClearSearch}
-              startIcon={<CloseIcon fontSize="small" />}
+          {/* Restaurants Dropdown */}
+          {selectedCategory === 'restaurants' && (
+            <Box
               sx={{
-                textTransform: 'none',
-                borderRadius: 3,
-                px: 2.5,
-                py: 1,
-                fontWeight: 500,
+                position: 'absolute',
+                top: 'calc(100% + 8px)',
+                left: 0,
                 backgroundColor: 'white',
-                borderColor: '#E5E5EA',
-                color: '#1D1D1F',
-                ml: 'auto',
-                '&:hover': {
-                  backgroundColor: '#FEF2F2',
-                  borderColor: '#EF4444',
-                  color: '#EF4444',
-                },
+                borderRadius: 2,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                p: 2,
+                minWidth: 200,
+                zIndex: 1000,
               }}
             >
-              Clear Results
-            </Button>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Cuisine Type
+              </Typography>
+              {[
+                'Italian',
+                'Japanese',
+                'Chinese',
+                'Mexican',
+                'American',
+                'Indian',
+                'Thai',
+                'Mediterranean',
+              ].map((cuisine) => (
+                <Box
+                  key={cuisine}
+                  onClick={() => handleCategoryFilterClick('restaurants', cuisine)}
+                  sx={{
+                    py: 0.75,
+                    px: 1,
+                    cursor: 'pointer',
+                    borderRadius: 1,
+                    '&:hover': {
+                      backgroundColor: '#F5F5F7',
+                    },
+                  }}
+                >
+                  <Typography variant="body2">{cuisine}</Typography>
+                </Box>
+              ))}
+            </Box>
           )}
         </Box>
 
-        <Box
-          sx={{
-            display: 'flex',
-            height: '100vh',
-            overflow: 'hidden',
-            pt: '56px', // Merged header bar
-          }}
-        >
-          {/* Thin Left Bar with Hamburger */}
-          <Box
+        {/* Things to Do Category */}
+        <Box sx={{ position: 'relative' }}>
+          <Button
+            variant={selectedCategory === 'things-to-do' ? 'contained' : 'outlined'}
+            onClick={() => {
+              if (selectedCategory === 'things-to-do') {
+                setSelectedCategory(null);
+              } else {
+                setSelectedCategory('things-to-do');
+              }
+            }}
+            endIcon={
+              selectedCategory === 'things-to-do' ? (
+                <ExpandLessIcon fontSize="small" />
+              ) : (
+                <ExpandMoreIcon fontSize="small" />
+              )
+            }
             sx={{
-              width: 56,
-              flexShrink: 0,
-              backgroundColor: 'white',
-              borderRight: '1px solid #E5E5EA',
-              display: 'flex',
-              flexDirection: 'column',
-              height: '100%',
+              textTransform: 'none',
+              borderRadius: 3,
+              px: 2.5,
+              py: 1,
+              fontWeight: 500,
+              backgroundColor: selectedCategory === 'things-to-do' ? '#007AFF' : 'white',
+              borderColor: '#E5E5EA',
+              color: selectedCategory === 'things-to-do' ? 'white' : '#1D1D1F',
+              '&:hover': {
+                backgroundColor: selectedCategory === 'things-to-do' ? '#0056CC' : '#F5F5F7',
+                borderColor: '#007AFF',
+              },
             }}
           >
-            {/* Hamburger Button */}
+            🎯 Things to Do
+          </Button>
+
+          {/* Things to Do Dropdown */}
+          {selectedCategory === 'things-to-do' && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 'calc(100% + 8px)',
+                left: 0,
+                backgroundColor: 'white',
+                borderRadius: 2,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                p: 2,
+                minWidth: 200,
+                zIndex: 1000,
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Activity Type
+              </Typography>
+              {[
+                'Outdoor Activities',
+                'Entertainment',
+                'Sports',
+                'Shopping',
+                'Nightlife',
+                'Tours',
+                'Parks',
+                'Beaches',
+              ].map((activity) => (
+                <Box
+                  key={activity}
+                  onClick={() => handleCategoryFilterClick('things to do', activity)}
+                  sx={{
+                    py: 0.75,
+                    px: 1,
+                    cursor: 'pointer',
+                    borderRadius: 1,
+                    '&:hover': {
+                      backgroundColor: '#F5F5F7',
+                    },
+                  }}
+                >
+                  <Typography variant="body2">{activity}</Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </Box>
+
+        {/* Museums Category */}
+        <Button
+          variant={selectedCategory === 'museums' ? 'contained' : 'outlined'}
+          onClick={() => {
+            if (selectedStations.size === 0) {
+              alert('Please select at least one station on the map first!');
+              return;
+            }
+
+            if (selectedCategory === 'museums') {
+              setSelectedCategory(null);
+            } else {
+              setSelectedCategory('museums');
+              // Search for museums
+              const searchTerm = 'museums';
+              setSearchQuery(searchTerm);
+              handleSearch(searchTerm);
+            }
+          }}
+          sx={{
+            textTransform: 'none',
+            borderRadius: 3,
+            px: 2.5,
+            py: 1,
+            fontWeight: 500,
+            backgroundColor: selectedCategory === 'museums' ? '#007AFF' : 'white',
+            borderColor: '#E5E5EA',
+            color: selectedCategory === 'museums' ? 'white' : '#1D1D1F',
+            '&:hover': {
+              backgroundColor: selectedCategory === 'museums' ? '#0056CC' : '#F5F5F7',
+              borderColor: '#007AFF',
+            },
+          }}
+        >
+          🏛️ Museums
+        </Button>
+
+        {/* Clear Results Button */}
+        {searchResults.length > 0 && (
+          <Button
+            variant="outlined"
+            onClick={handleClearSearch}
+            startIcon={<CloseIcon fontSize="small" />}
+            sx={{
+              textTransform: 'none',
+              borderRadius: 3,
+              px: 2.5,
+              py: 1,
+              fontWeight: 500,
+              backgroundColor: 'white',
+              borderColor: '#E5E5EA',
+              color: '#1D1D1F',
+              ml: 'auto',
+              '&:hover': {
+                backgroundColor: '#FEF2F2',
+                borderColor: '#EF4444',
+                color: '#EF4444',
+              },
+            }}
+          >
+            Clear Results
+          </Button>
+        )}
+      </Box>
+
+      <Box
+        sx={{
+          display: 'flex',
+          height: '100vh',
+          overflow: 'hidden',
+          pt: '56px', // Merged header bar
+        }}
+      >
+        {/* Thin Left Bar with Hamburger */}
+        <Box
+          sx={{
+            width: 56,
+            flexShrink: 0,
+            backgroundColor: 'white',
+            borderRight: '1px solid #E5E5EA',
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+          }}
+        >
+          {/* Hamburger Button */}
+          <Box
+            sx={{
+              py: 1,
+              px: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderBottom: '1px solid #E5E5EA',
+            }}
+          >
+            <IconButton
+              onClick={toggleSidebar}
+              sx={{
+                color: '#1D1D1F',
+                '&:hover': {
+                  backgroundColor: '#F5F5F7',
+                },
+              }}
+            >
+              <MenuIcon />
+            </IconButton>
+          </Box>
+
+          {/* List Icons */}
+          <Box
+            sx={{
+              flexGrow: 1,
+              overflow: 'auto',
+              py: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 0.5,
+            }}
+          >
+            {savedLists.map((list) => (
+              <Tooltip key={list.id} title={list.name} placement="right" arrow>
+                <IconButton
+                  onClick={() => {
+                    setSelectedList(list);
+                    setSidebarOpen(true);
+                  }}
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    fontSize: '1.5rem',
+                    border: selectedList?.id === list.id ? '2px solid #007AFF' : 'none',
+                    backgroundColor: selectedList?.id === list.id ? '#F5F5F7' : 'transparent',
+                    '&:hover': {
+                      backgroundColor: '#F5F5F7',
+                    },
+                  }}
+                >
+                  {list.icon}
+                </IconButton>
+              </Tooltip>
+            ))}
+          </Box>
+
+          {/* User Avatar at Bottom */}
+          {user && (
             <Box
               sx={{
                 py: 1,
@@ -1990,123 +2081,62 @@ export default function Home() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderBottom: '1px solid #E5E5EA',
+                borderTop: '1px solid #E5E5EA',
               }}
             >
-              <IconButton
-                onClick={toggleSidebar}
-                sx={{
-                  color: '#1D1D1F',
-                  '&:hover': {
-                    backgroundColor: '#F5F5F7',
-              },
-            }}
-          >
-                <MenuIcon />
-              </IconButton>
-            </Box>
-
-            {/* List Icons */}
-            <Box
-              sx={{
-                flexGrow: 1,
-                overflow: 'auto',
-                py: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 0.5,
-              }}
-            >
-              {savedLists.map((list) => (
-                <Tooltip key={list.id} title={list.name} placement="right" arrow>
-                  <IconButton
-                    onClick={() => {
-                      setSelectedList(list);
-                      setSidebarOpen(true);
-                    }}
+              <Tooltip title={user.email} placement="right" arrow>
+                <IconButton
+                  onClick={handleMenuOpen}
+                  sx={{
+                    p: 0,
+                    '&:hover': {
+                      backgroundColor: 'transparent',
+                    },
+                  }}
+                >
+                  <Avatar
                     sx={{
                       width: 40,
                       height: 40,
-                      fontSize: '1.5rem',
-                      border: selectedList?.id === list.id ? '2px solid #007AFF' : 'none',
-                      backgroundColor: selectedList?.id === list.id ? '#F5F5F7' : 'transparent',
+                      bgcolor: '#007AFF',
+                      fontSize: '1rem',
                       '&:hover': {
-                        backgroundColor: '#F5F5F7',
+                        opacity: 0.8,
                       },
                     }}
                   >
-                    {list.icon}
-                  </IconButton>
-                </Tooltip>
-              ))}
+                    {user.email?.charAt(0).toUpperCase()}
+                  </Avatar>
+                </IconButton>
+              </Tooltip>
             </Box>
+          )}
+        </Box>
 
-            {/* User Avatar at Bottom */}
-            {user && (
-              <Box
-                sx={{
-                  py: 1,
-                  px: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderTop: '1px solid #E5E5EA',
-                }}
-              >
-                <Tooltip title={user.email} placement="right" arrow>
-                  <IconButton
-                    onClick={handleMenuOpen}
-                    sx={{
-                      p: 0,
-                      '&:hover': {
-                        backgroundColor: 'transparent',
-                      },
-                    }}
-                  >
-                    <Avatar 
-                      sx={{ 
-                        width: 40, 
-                        height: 40, 
-                        bgcolor: '#007AFF', 
-                        fontSize: '1rem',
-                        '&:hover': {
-                          opacity: 0.8,
-                        },
-                      }}
-                    >
-                      {user.email?.charAt(0).toUpperCase()}
-                    </Avatar>
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            )}
-          </Box>
-
-          {/* Saved Lists Panel - Overlays the map when open */}
-          {sidebarOpen && (
+        {/* Saved Lists Panel - Overlays the map when open */}
+        {sidebarOpen && (
+          <Box
+            sx={{
+              position: 'fixed',
+              left: 56,
+              top: '56px',
+              bottom: 0,
+              width: 320,
+              backgroundColor: 'white',
+              borderRight: '1px solid #E5E5EA',
+              display: 'flex',
+              flexDirection: 'column',
+              zIndex: (theme) => theme.zIndex.drawer - 1,
+              boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
+            }}
+          >
+            {/* Panel Header */}
             <Box
               sx={{
-                position: 'fixed',
-                left: 56,
-                top: '56px',
-                bottom: 0,
-                width: 320,
-                backgroundColor: 'white',
-                borderRight: '1px solid #E5E5EA',
-                display: 'flex',
-                flexDirection: 'column',
-                zIndex: (theme) => theme.zIndex.drawer - 1,
-                boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
-              }}
-            >
-              {/* Panel Header */}
-              <Box
-                sx={{
-                  py: 1,
-                  px: 2,
-                  background: 'white',
-                  borderBottom: '1px solid #E5E5EA',
+                py: 1,
+                px: 2,
+                background: 'white',
+                borderBottom: '1px solid #E5E5EA',
               }}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -2266,20 +2296,20 @@ export default function Home() {
                           <EditIcon sx={{ fontSize: 14, color: '#8E8E93' }} />
                         </Box>
                       )
-                      ) : null}
+                    ) : null}
                   </Typography>
                 </Box>
               </Box>
             </Box>
 
-              {/* Panel Content */}
+            {/* Panel Content */}
             <Box
               sx={{
                 flexGrow: 1,
                 overflow: 'auto',
                 p: { xs: 1.5, sm: 2 },
                 position: 'relative',
-                  zIndex: 1,
+                zIndex: 1,
               }}
             >
               {loading ? (
@@ -2322,13 +2352,13 @@ export default function Home() {
                         >
                           <EditIcon fontSize="small" />
                         </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDeleteList(selectedList.id)}
-                        sx={{ color: 'error.main' }}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteList(selectedList.id)}
+                          sx={{ color: 'error.main' }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
                       </>
                     )}
                   </Box>
@@ -2350,9 +2380,9 @@ export default function Home() {
                             onClick={() => {
                               // Center map on this location
                               if (item.latitude && item.longitude) {
-                                setMapCenter({ 
-                                  lat: parseFloat(item.latitude), 
-                                  lng: parseFloat(item.longitude) 
+                                setMapCenter({
+                                  lat: parseFloat(item.latitude),
+                                  lng: parseFloat(item.longitude),
                                 });
                                 // Zoom in to show the location better
                                 setMapZoom(16);
@@ -2375,10 +2405,7 @@ export default function Home() {
                             <ListItemIcon>
                               <PlaceIcon sx={{ color: selectedList.color }} />
                             </ListItemIcon>
-                            <ListItemText
-                              primary={item.name}
-                              secondary={item.address}
-                            />
+                            <ListItemText primary={item.name} secondary={item.address} />
                             <IconButton
                               size="small"
                               onClick={(e) => {
@@ -2445,16 +2472,16 @@ export default function Home() {
                               >
                                 <EditIcon fontSize="small" />
                               </IconButton>
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteList(list.id);
-                              }}
-                              sx={{ color: 'error.main' }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteList(list.id);
+                                }}
+                                sx={{ color: 'error.main' }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
                             </>
                           )}
                         </ListItem>
@@ -2465,11 +2492,11 @@ export default function Home() {
               )}
             </Box>
 
-              {/* Panel Footer */}
+            {/* Panel Footer */}
             <Box
               sx={{
-                  background: 'white',
-                  borderTop: '1px solid #E5E5EA',
+                background: 'white',
+                borderTop: '1px solid #E5E5EA',
                 p: { xs: 2, sm: 3 },
               }}
             >
@@ -2508,102 +2535,114 @@ export default function Home() {
                 Create New List
               </Button>
             </Box>
+          </Box>
+        )}
+
+        {/* Google Map Background */}
+        <Box sx={{ flexGrow: 1, position: 'relative' }}>
+          {loadError && (
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100%',
+              }}
+            >
+              <Typography color="error">Error loading Google Maps</Typography>
             </Box>
           )}
-
-          {/* Google Map Background */}
-          <Box sx={{ flexGrow: 1, position: 'relative' }}>
-            {loadError && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  height: '100%',
-                }}
-              >
-                <Typography color="error">Error loading Google Maps</Typography>
-              </Box>
-            )}
-            {!isGoogleMapsLoaded && !loadError && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  height: '100%',
-                }}
-              >
-                <CircularProgress />
-              </Box>
-            )}
-            {isGoogleMapsLoaded && !loadError && !mapCenter && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  height: '100%',
-                  backgroundColor: '#f5f5f5',
-                }}
-              >
-                <Typography variant="h6" color="text.secondary">
-                  Select or create a trip to view on the map
-                </Typography>
-              </Box>
-            )}
-            {isGoogleMapsLoaded && !loadError && mapCenter && (
-              <GoogleMap
-                mapContainerStyle={{
-                  width: '100%',
-                  height: '100vh',
-                }}
-                center={mapCenter}
-                zoom={mapZoom}
-                options={{
-                  styles: [
-                    {
-                      featureType: 'water',
-                      elementType: 'geometry',
-                      stylers: [{ color: '#a2daf2' }],
-                    },
-                  ],
-                }}
-                onLoad={(map) => {
-                  mapInstanceRef.current = map;
-                  setMapReady(true);
-                }}
-              >
-                {/* Transit Stations (Markers) */}
-                {transitDataLoaded && transitStations.map((station, index) => {
+          {!isGoogleMapsLoaded && !loadError && (
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100%',
+              }}
+            >
+              <CircularProgress />
+            </Box>
+          )}
+          {isGoogleMapsLoaded && !loadError && !mapCenter && (
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '100%',
+                backgroundColor: '#f5f5f5',
+              }}
+            >
+              <Typography variant="h6" color="text.secondary">
+                Select or create a trip to view on the map
+              </Typography>
+            </Box>
+          )}
+          {isGoogleMapsLoaded && !loadError && mapCenter && (
+            <GoogleMap
+              mapContainerStyle={{
+                width: '100%',
+                height: '100vh',
+              }}
+              center={mapCenter}
+              zoom={mapZoom}
+              options={{
+                styles: [
+                  {
+                    featureType: 'water',
+                    elementType: 'geometry',
+                    stylers: [{ color: '#a2daf2' }],
+                  },
+                ],
+              }}
+              onLoad={(map) => {
+                mapInstanceRef.current = map;
+                setMapReady(true);
+              }}
+            >
+              {/* Transit Stations (Markers) */}
+              {transitDataLoaded &&
+                transitStations.map((station, index) => {
                   const coords = station.geometry.coordinates;
                   if (!coords || coords.length < 2) {
                     return null;
                   }
-                  
+
                   return (
                     <Marker
                       key={`station-${index}`}
                       position={{ lat: coords[0], lng: coords[1] }}
                       icon={{
-                        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
-                            <circle cx="10" cy="10" r="6" fill="white" stroke="${selectedStations.has(index) ? '#007AFF' : '#1D1D1F'}" stroke-width="${selectedStations.has(index) ? '2' : '1.5'}"/>
-                            <circle cx="10" cy="10" r="3.5" fill="transparent" stroke="none"/>
+                        url:
+                          'data:image/svg+xml;charset=UTF-8,' +
+                          encodeURIComponent(`
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="32" viewBox="0 0 24 32">
+                            <path d="M12 0C5.373 0 0 5.373 0 12c0 12 12 20 12 20s12-8 12-20c0-6.627-5.373-12-12-12z" fill="red"/>
+                            <circle cx="12" cy="12" r="4" fill="white"/>
                           </svg>
                         `),
-                        scaledSize: new google.maps.Size(selectedStations.has(index) ? 22 : 20, selectedStations.has(index) ? 22 : 20),
-                        anchor: new google.maps.Point(selectedStations.has(index) ? 11 : 10, selectedStations.has(index) ? 11 : 10),
+                        scaledSize: new google.maps.Size(
+                          selectedStations.has(index) ? 28 : 24,
+                          selectedStations.has(index) ? 36 : 32
+                        ),
+                        anchor: new google.maps.Point(
+                          selectedStations.has(index) ? 14 : 12,
+                          selectedStations.has(index) ? 32 : 30
+                        ),
                       }}
-                      title={station.properties?.Name || station.properties?.name || 'Transit Station'}
+                      title={
+                        station.properties?.Name || station.properties?.name || 'Transit Station'
+                      }
                       onClick={(e) => handleStationClick(index, e)}
                       zIndex={999}
                     />
                   );
                 })}
 
-                {/* Saved Places Markers - Only show places from selected list */}
-                {selectedList && savedPlaces
+              {/* Saved Places Markers - Only show places from selected list */}
+              {selectedList &&
+                savedPlaces
                   .filter((place) => place.list_id === selectedList.id)
                   .map((place) => (
                     <Marker
@@ -2611,7 +2650,9 @@ export default function Home() {
                       position={{ lat: place.latitude, lng: place.longitude }}
                       onClick={() => setSelectedItem(place)}
                       icon={{
-                        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                        url:
+                          'data:image/svg+xml;charset=UTF-8,' +
+                          encodeURIComponent(`
                           <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="${selectedList.color || '#007AFF'}">
                             <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                           </svg>
@@ -2623,977 +2664,1000 @@ export default function Home() {
                     />
                   ))}
 
-                {/* Search Result Markers */}
-                {searchResults.map((result, index) => (
-                  <Marker
-                    key={`search-result-${result.place_id || index}`}
-                    position={{ lat: result.latitude, lng: result.longitude }}
-                    icon={{
-                      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+              {/* Search Result Markers */}
+              {searchResults.map((result, index) => (
+                <Marker
+                  key={`search-result-${result.place_id || index}`}
+                  position={{ lat: result.latitude, lng: result.longitude }}
+                  icon={{
+                    url:
+                      'data:image/svg+xml;charset=UTF-8,' +
+                      encodeURIComponent(`
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#FF6B6B">
                           <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                         </svg>
                       `),
-                      scaledSize: new google.maps.Size(32, 32),
-                      anchor: new google.maps.Point(16, 32),
-                    }}
-                    title={result.name}
-                    onClick={() => setSelectedSearchResult(result)}
-                    zIndex={998}
-                  />
-                ))}
+                    scaledSize: new google.maps.Size(32, 32),
+                    anchor: new google.maps.Point(16, 32),
+                  }}
+                  title={result.name}
+                  onClick={() => setSelectedSearchResult(result)}
+                  zIndex={998}
+                />
+              ))}
 
-                {/* Info Window for selected search result */}
-                {selectedSearchResult && (
-                  <InfoWindow
-                    position={{
-                      lat: selectedSearchResult.latitude,
-                      lng: selectedSearchResult.longitude,
-                    }}
-                    onCloseClick={() => setSelectedSearchResult(null)}
-                  >
-                    <Box sx={{ p: 1, minWidth: 250 }}>
-                      <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        {selectedSearchResult.name}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        {selectedSearchResult.address}
-                      </Typography>
-                      {selectedSearchResult.rating && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-                          <StarIcon sx={{ fontSize: 18, color: 'warning.main' }} />
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {selectedSearchResult.rating}
+              {/* Info Window for selected search result */}
+              {selectedSearchResult && (
+                <InfoWindow
+                  position={{
+                    lat: selectedSearchResult.latitude,
+                    lng: selectedSearchResult.longitude,
+                  }}
+                  onCloseClick={() => setSelectedSearchResult(null)}
+                >
+                  <Box sx={{ p: 1, minWidth: 250 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
+                      {selectedSearchResult.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      {selectedSearchResult.address}
+                    </Typography>
+                    {selectedSearchResult.rating && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                        <StarIcon sx={{ fontSize: 18, color: 'warning.main' }} />
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {selectedSearchResult.rating}
+                        </Typography>
+                        {selectedSearchResult.user_ratings_total > 0 && (
+                          <Typography variant="body2" color="text.secondary">
+                            ({selectedSearchResult.user_ratings_total} reviews)
                           </Typography>
-                          {selectedSearchResult.user_ratings_total > 0 && (
-                            <Typography variant="body2" color="text.secondary">
-                              ({selectedSearchResult.user_ratings_total} reviews)
-                            </Typography>
-                          )}
-                        </Box>
-                      )}
-                      <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          startIcon={<DirectionsIcon />}
-                          onClick={() => {
-                            window.open(
-                              `https://www.google.com/maps/dir/?api=1&destination=${selectedSearchResult.latitude},${selectedSearchResult.longitude}`,
-                              '_blank'
-                            );
-                          }}
-                        >
-                          Directions
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="contained"
-                          startIcon={<StarIcon />}
-                          onClick={() => {
-                            setPlaceToSave(selectedSearchResult);
-                            setSaveToListDialogOpen(true);
-                          }}
-                        >
-                          Save to List
-                        </Button>
+                        )}
                       </Box>
-                    </Box>
-                  </InfoWindow>
-                )}
-
-                {/* Info Window for selected item */}
-                {selectedItem && (
-                  <InfoWindow
-                    position={{
-                      lat: selectedItem.latitude,
-                      lng: selectedItem.longitude,
-                    }}
-                    onCloseClick={() => setSelectedItem(null)}
-                  >
-                    <Box sx={{ p: 1, minWidth: 250 }}>
-                      <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        {selectedItem.name}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        {selectedItem.address}
-                      </Typography>
-                      {selectedItem.rating && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-                          <StarIcon sx={{ fontSize: 18, color: 'warning.main' }} />
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {selectedItem.rating}
-                          </Typography>
-                        </Box>
-                      )}
+                    )}
+                    <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<DirectionsIcon />}
+                        onClick={() => {
+                          window.open(
+                            `https://www.google.com/maps/dir/?api=1&destination=${selectedSearchResult.latitude},${selectedSearchResult.longitude}`,
+                            '_blank'
+                          );
+                        }}
+                      >
+                        Directions
+                      </Button>
                       <Button
                         size="small"
                         variant="contained"
                         startIcon={<StarIcon />}
-                        onClick={() => handleSavePlace(selectedItem)}
-                        sx={{ mt: 1 }}
+                        onClick={() => {
+                          setPlaceToSave(selectedSearchResult);
+                          setSaveToListDialogOpen(true);
+                        }}
                       >
-                        Save to Another List
+                        Save to List
                       </Button>
                     </Box>
-                  </InfoWindow>
-                )}
-              </GoogleMap>
-            )}
+                  </Box>
+                </InfoWindow>
+              )}
 
-          </Box>
-        </Box>
-
-        {/* AI Chat Bot - Overlaid on top of everything */}
-        <ChatBot
-          itinerary={[]}
-          onItineraryUpdate={() => {}}
-          currentTrip={currentTrip}
-        />
-
-        {/* Login Modal */}
-        <LoginModal
-          open={loginModalOpen}
-          onClose={() => setLoginModalOpen(false)}
-          onLoginSuccess={handleLoginSuccess}
-        />
-
-        {/* Trip Selector Modal */}
-        <TripSelector
-          open={tripSelectorOpen}
-          onClose={() => setTripSelectorOpen(false)}
-          trips={trips}
-          currentTrip={currentTrip}
-          onTripSelect={handleTripSelect}
-          onTripCreated={handleTripCreated}
-        />
-
-        {/* Create List Dialog */}
-        <Dialog
-          open={createListDialogOpen}
-          onClose={() => {
-            setCreateListDialogOpen(false);
-            setNewListName('');
-            setNewListIcon('📌');
-            setNewListColor('#4285F4');
-          }}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle>Create New List</DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-              <TextField
-                label="List Name"
-                value={newListName}
-                onChange={(e) => setNewListName(e.target.value)}
-                fullWidth
-                required
-                placeholder="e.g., Coffee Shops, Restaurants to Try"
-              />
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                <FormControl sx={{ width: 200 }}>
-                  <InputLabel>Icon</InputLabel>
-                  <Select
-                  value={newListIcon}
-                  onChange={(e) => setNewListIcon(e.target.value)}
-                    label="Icon"
-                    renderValue={(value) => (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography sx={{ fontSize: '1.5rem' }}>{value}</Typography>
+              {/* Info Window for selected item */}
+              {selectedItem && (
+                <InfoWindow
+                  position={{
+                    lat: selectedItem.latitude,
+                    lng: selectedItem.longitude,
+                  }}
+                  onCloseClick={() => setSelectedItem(null)}
+                >
+                  <Box sx={{ p: 1, minWidth: 250 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
+                      {selectedItem.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      {selectedItem.address}
+                    </Typography>
+                    {selectedItem.rating && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                        <StarIcon sx={{ fontSize: 18, color: 'warning.main' }} />
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {selectedItem.rating}
+                        </Typography>
                       </Box>
                     )}
-                  >
-                    <MenuItem value="📌">📌 Pin</MenuItem>
-                    <MenuItem value="⭐">⭐ Star</MenuItem>
-                    <MenuItem value="❤️">❤️ Heart</MenuItem>
-                    <MenuItem value="🔥">🔥 Fire</MenuItem>
-                    <MenuItem value="💡">💡 Light Bulb</MenuItem>
-                    <MenuItem value="🎯">🎯 Target</MenuItem>
-                    <MenuItem value="🌟">🌟 Star</MenuItem>
-                    <MenuItem value="✨">✨ Sparkles</MenuItem>
-                    <MenuItem value="🎨">🎨 Art</MenuItem>
-                    <MenuItem value="🎭">🎭 Theater</MenuItem>
-                    <MenuItem value="🎪">🎪 Circus</MenuItem>
-                    <MenuItem value="🎬">🎬 Movie</MenuItem>
-                    <MenuItem value="🎤">🎤 Microphone</MenuItem>
-                    <MenuItem value="🎧">🎧 Headphones</MenuItem>
-                    <MenuItem value="🎮">🎮 Game</MenuItem>
-                    <MenuItem value="🏀">🏀 Basketball</MenuItem>
-                    <MenuItem value="⚽">⚽ Soccer</MenuItem>
-                    <MenuItem value="🎾">🎾 Tennis</MenuItem>
-                    <MenuItem value="🏈">🏈 Football</MenuItem>
-                    <MenuItem value="🏊">🏊 Swimming</MenuItem>
-                    <MenuItem value="🏄">🏄 Surfing</MenuItem>
-                    <MenuItem value="🚴">🚴 Cycling</MenuItem>
-                    <MenuItem value="🏔️">🏔️ Mountain</MenuItem>
-                    <MenuItem value="⛰️">⛰️ Mountain</MenuItem>
-                    <MenuItem value="🌋">🌋 Volcano</MenuItem>
-                    <MenuItem value="🗻">🗻 Mountain</MenuItem>
-                    <MenuItem value="🏕️">🏕️ Camping</MenuItem>
-                    <MenuItem value="⛺">⛺ Tent</MenuItem>
-                    <MenuItem value="🌄">🌄 Sunrise</MenuItem>
-                    <MenuItem value="🌅">🌅 Sunset</MenuItem>
-                    <MenuItem value="🌆">🌆 Cityscape</MenuItem>
-                    <MenuItem value="🌇">🌇 City Sunset</MenuItem>
-                    <MenuItem value="🌉">🌉 Bridge</MenuItem>
-                    <MenuItem value="🎆">🎆 Fireworks</MenuItem>
-                    <MenuItem value="🎇">🎇 Sparkler</MenuItem>
-                    <MenuItem value="🌠">🌠 Shooting Star</MenuItem>
-                    <MenuItem value="🗼">🗼 Tower</MenuItem>
-                    <MenuItem value="🗽">🗽 Statue</MenuItem>
-                    <MenuItem value="⛲">⛲ Fountain</MenuItem>
-                    <MenuItem value="🎢">🎢 Roller Coaster</MenuItem>
-                    <MenuItem value="🎡">🎡 Ferris Wheel</MenuItem>
-                    <MenuItem value="🎠">🎠 Carousel</MenuItem>
-                    <MenuItem value="🏛️">🏛️ Museum</MenuItem>
-                    <MenuItem value="🏗️">🏗️ Construction</MenuItem>
-                    <MenuItem value="🏘️">🏘️ Houses</MenuItem>
-                    <MenuItem value="🏚️">🏚️ House</MenuItem>
-                    <MenuItem value="🏠">🏠 Home</MenuItem>
-                    <MenuItem value="🏡">🏡 Garden</MenuItem>
-                    <MenuItem value="🏢">🏢 Office</MenuItem>
-                    <MenuItem value="🏣">🏣 Post Office</MenuItem>
-                    <MenuItem value="🏤">🏤 Post Office</MenuItem>
-                    <MenuItem value="🏥">🏥 Hospital</MenuItem>
-                    <MenuItem value="🏦">🏦 Bank</MenuItem>
-                    <MenuItem value="🏨">🏨 Hotel</MenuItem>
-                    <MenuItem value="🏩">🏩 Love Hotel</MenuItem>
-                    <MenuItem value="🏪">🏪 Store</MenuItem>
-                    <MenuItem value="🏫">🏫 School</MenuItem>
-                    <MenuItem value="🏬">🏬 Department Store</MenuItem>
-                    <MenuItem value="🏭">🏭 Factory</MenuItem>
-                    <MenuItem value="🏯">🏯 Castle</MenuItem>
-                    <MenuItem value="🏰">🏰 Castle</MenuItem>
-                    <MenuItem value="⛪">⛪ Church</MenuItem>
-                    <MenuItem value="🕌">🕌 Mosque</MenuItem>
-                    <MenuItem value="🕍">🕍 Synagogue</MenuItem>
-                    <MenuItem value="⛩️">⛩️ Shrine</MenuItem>
-                    <MenuItem value="🕋">🕋 Kaaba</MenuItem>
-                    <MenuItem value="⛲">⛲ Fountain</MenuItem>
-                    <MenuItem value="⛽">⛽ Gas Station</MenuItem>
-                    <MenuItem value="🚏">🚏 Bus Stop</MenuItem>
-                    <MenuItem value="🚦">🚦 Traffic Light</MenuItem>
-                    <MenuItem value="🚧">🚧 Construction</MenuItem>
-                    <MenuItem value="⚓">⚓ Anchor</MenuItem>
-                    <MenuItem value="⛵">⛵ Sailboat</MenuItem>
-                    <MenuItem value="🛶">🛶 Canoe</MenuItem>
-                    <MenuItem value="🚤">🚤 Speedboat</MenuItem>
-                    <MenuItem value="🛥️">🛥️ Motorboat</MenuItem>
-                    <MenuItem value="⛴️">⛴️ Ferry</MenuItem>
-                    <MenuItem value="🛳️">🛳️ Passenger Ship</MenuItem>
-                    <MenuItem value="🚢">🚢 Ship</MenuItem>
-                    <MenuItem value="✈️">✈️ Airplane</MenuItem>
-                    <MenuItem value="🛩️">🛩️ Small Airplane</MenuItem>
-                    <MenuItem value="🛫">🛫 Departure</MenuItem>
-                    <MenuItem value="🛬">🛬 Arrival</MenuItem>
-                    <MenuItem value="🪂">🪂 Parachute</MenuItem>
-                    <MenuItem value="💺">💺 Seat</MenuItem>
-                    <MenuItem value="🚁">🚁 Helicopter</MenuItem>
-                    <MenuItem value="🚟">🚟 Suspension Railway</MenuItem>
-                    <MenuItem value="🚠">🚠 Cable Car</MenuItem>
-                    <MenuItem value="🚡">🚡 Aerial Tramway</MenuItem>
-                    <MenuItem value="🛰️">🛰️ Satellite</MenuItem>
-                    <MenuItem value="🚀">🚀 Rocket</MenuItem>
-                    <MenuItem value="🛸">🛸 UFO</MenuItem>
-                    <MenuItem value="🛎️">🛎️ Bellhop</MenuItem>
-                    <MenuItem value="🧳">🧳 Luggage</MenuItem>
-                    <MenuItem value="⌛">⌛ Hourglass</MenuItem>
-                    <MenuItem value="⏳">⏳ Hourglass</MenuItem>
-                    <MenuItem value="⌚">⌚ Watch</MenuItem>
-                    <MenuItem value="⏰">⏰ Alarm Clock</MenuItem>
-                    <MenuItem value="⏱️">⏱️ Stopwatch</MenuItem>
-                    <MenuItem value="⏲️">⏲️ Timer</MenuItem>
-                    <MenuItem value="🕰️">🕰️ Mantelpiece Clock</MenuItem>
-                    <MenuItem value="🕛">🕛 Twelve O'Clock</MenuItem>
-                    <MenuItem value="🕧">🕧 Twelve-Thirty</MenuItem>
-                    <MenuItem value="🕐">🕐 One O'Clock</MenuItem>
-                    <MenuItem value="🕜">🕜 One-Thirty</MenuItem>
-                    <MenuItem value="🕑">🕑 Two O'Clock</MenuItem>
-                    <MenuItem value="🕝">🕝 Two-Thirty</MenuItem>
-                    <MenuItem value="🕒">🕒 Three O'Clock</MenuItem>
-                    <MenuItem value="🕞">🕞 Three-Thirty</MenuItem>
-                    <MenuItem value="🕓">🕓 Four O'Clock</MenuItem>
-                    <MenuItem value="🕟">🕟 Four-Thirty</MenuItem>
-                    <MenuItem value="🕔">🕔 Five O'Clock</MenuItem>
-                    <MenuItem value="🕠">🕠 Five-Thirty</MenuItem>
-                    <MenuItem value="🕕">🕕 Six O'Clock</MenuItem>
-                    <MenuItem value="🕡">🕡 Six-Thirty</MenuItem>
-                    <MenuItem value="🕖">🕖 Seven O'Clock</MenuItem>
-                    <MenuItem value="🕢">🕢 Seven-Thirty</MenuItem>
-                    <MenuItem value="🕗">🕗 Eight O'Clock</MenuItem>
-                    <MenuItem value="🕣">🕣 Eight-Thirty</MenuItem>
-                    <MenuItem value="🕘">🕘 Nine O'Clock</MenuItem>
-                    <MenuItem value="🕤">🕤 Nine-Thirty</MenuItem>
-                    <MenuItem value="🕙">🕙 Ten O'Clock</MenuItem>
-                    <MenuItem value="🕥">🕥 Ten-Thirty</MenuItem>
-                    <MenuItem value="🕚">🕚 Eleven O'Clock</MenuItem>
-                    <MenuItem value="🕦">🕦 Eleven-Thirty</MenuItem>
-                    <MenuItem value="🌑">🌑 New Moon</MenuItem>
-                    <MenuItem value="🌒">🌒 Waxing Crescent</MenuItem>
-                    <MenuItem value="🌓">🌓 First Quarter</MenuItem>
-                    <MenuItem value="🌔">🌔 Waxing Gibbous</MenuItem>
-                    <MenuItem value="🌕">🌕 Full Moon</MenuItem>
-                    <MenuItem value="🌖">🌖 Waning Gibbous</MenuItem>
-                    <MenuItem value="🌗">🌗 Last Quarter</MenuItem>
-                    <MenuItem value="🌘">🌘 Waning Crescent</MenuItem>
-                    <MenuItem value="🌙">🌙 Crescent Moon</MenuItem>
-                    <MenuItem value="🌚">🌚 New Moon Face</MenuItem>
-                    <MenuItem value="🌛">🌛 First Quarter Face</MenuItem>
-                    <MenuItem value="🌜">🌜 Last Quarter Face</MenuItem>
-                    <MenuItem value="🌡️">🌡️ Thermometer</MenuItem>
-                    <MenuItem value="☀️">☀️ Sun</MenuItem>
-                    <MenuItem value="🌝">🌝 Full Moon Face</MenuItem>
-                    <MenuItem value="🌞">🌞 Sun Face</MenuItem>
-                    <MenuItem value="🪐">🪐 Ringed Planet</MenuItem>
-                    <MenuItem value="⭐">⭐ Star</MenuItem>
-                    <MenuItem value="🌟">🌟 Glowing Star</MenuItem>
-                    <MenuItem value="🌠">🌠 Shooting Star</MenuItem>
-                    <MenuItem value="☁️">☁️ Cloud</MenuItem>
-                    <MenuItem value="⛅">⛅ Sun Behind Cloud</MenuItem>
-                    <MenuItem value="⛈️">⛈️ Cloud Lightning</MenuItem>
-                    <MenuItem value="🌤️">🌤️ Sun Behind Small Cloud</MenuItem>
-                    <MenuItem value="🌥️">🌥️ Sun Behind Large Cloud</MenuItem>
-                    <MenuItem value="🌦️">🌦️ Sun Behind Rain Cloud</MenuItem>
-                    <MenuItem value="🌧️">🌧️ Cloud Rain</MenuItem>
-                    <MenuItem value="🌨️">🌨️ Cloud Snow</MenuItem>
-                    <MenuItem value="🌩️">🌩️ Cloud Lightning</MenuItem>
-                    <MenuItem value="🌪️">🌪️ Tornado</MenuItem>
-                    <MenuItem value="🌫️">🌫️ Fog</MenuItem>
-                    <MenuItem value="🌬️">🌬️ Wind Face</MenuItem>
-                    <MenuItem value="🌀">🌀 Cyclone</MenuItem>
-                    <MenuItem value="🌈">🌈 Rainbow</MenuItem>
-                    <MenuItem value="🌂">🌂 Closed Umbrella</MenuItem>
-                    <MenuItem value="☂️">☂️ Umbrella</MenuItem>
-                    <MenuItem value="☔">☔ Umbrella Rain</MenuItem>
-                    <MenuItem value="⛱️">⛱️ Umbrella Ground</MenuItem>
-                    <MenuItem value="⚡">⚡ Lightning</MenuItem>
-                    <MenuItem value="❄️">❄️ Snowflake</MenuItem>
-                    <MenuItem value="☃️">☃️ Snowman</MenuItem>
-                    <MenuItem value="⛄">⛄ Snowman</MenuItem>
-                    <MenuItem value="☄️">☄️ Comet</MenuItem>
-                    <MenuItem value="🔥">🔥 Fire</MenuItem>
-                    <MenuItem value="💧">💧 Droplet</MenuItem>
-                    <MenuItem value="🌊">🌊 Water Wave</MenuItem>
-                    <MenuItem value="🎄">🎄 Christmas Tree</MenuItem>
-                    <MenuItem value="✨">✨ Sparkles</MenuItem>
-                    <MenuItem value="🎋">🎋 Tanabata Tree</MenuItem>
-                    <MenuItem value="🎍">🎍 Pine Decoration</MenuItem>
-                    <MenuItem value="🍀">🍀 Four Leaf Clover</MenuItem>
-                    <MenuItem value="🍁">🍁 Maple Leaf</MenuItem>
-                    <MenuItem value="🍂">🍂 Fallen Leaf</MenuItem>
-                    <MenuItem value="🍃">🍃 Leaf Fluttering</MenuItem>
-                    <MenuItem value="🍇">🍇 Grapes</MenuItem>
-                    <MenuItem value="🍈">🍈 Melon</MenuItem>
-                    <MenuItem value="🍉">🍉 Watermelon</MenuItem>
-                    <MenuItem value="🍊">🍊 Tangerine</MenuItem>
-                    <MenuItem value="🍋">🍋 Lemon</MenuItem>
-                    <MenuItem value="🍌">🍌 Banana</MenuItem>
-                    <MenuItem value="🍍">🍍 Pineapple</MenuItem>
-                    <MenuItem value="🥭">🥭 Mango</MenuItem>
-                    <MenuItem value="🍎">🍎 Red Apple</MenuItem>
-                    <MenuItem value="🍏">🍏 Green Apple</MenuItem>
-                    <MenuItem value="🍐">🍐 Pear</MenuItem>
-                    <MenuItem value="🍑">🍑 Peach</MenuItem>
-                    <MenuItem value="🍒">🍒 Cherries</MenuItem>
-                    <MenuItem value="🍓">🍓 Strawberry</MenuItem>
-                    <MenuItem value="🥝">🥝 Kiwi</MenuItem>
-                    <MenuItem value="🍅">🍅 Tomato</MenuItem>
-                    <MenuItem value="🥥">🥥 Coconut</MenuItem>
-                    <MenuItem value="🥑">🥑 Avocado</MenuItem>
-                    <MenuItem value="🍆">🍆 Eggplant</MenuItem>
-                    <MenuItem value="🥔">🥔 Potato</MenuItem>
-                    <MenuItem value="🥕">🥕 Carrot</MenuItem>
-                    <MenuItem value="🌽">🌽 Ear of Corn</MenuItem>
-                    <MenuItem value="🌶️">🌶️ Hot Pepper</MenuItem>
-                    <MenuItem value="🥒">🥒 Cucumber</MenuItem>
-                    <MenuItem value="🥬">🥬 Leafy Green</MenuItem>
-                    <MenuItem value="🥦">🥦 Broccoli</MenuItem>
-                    <MenuItem value="🧄">🧄 Garlic</MenuItem>
-                    <MenuItem value="🧅">🧅 Onion</MenuItem>
-                    <MenuItem value="🍄">🍄 Mushroom</MenuItem>
-                    <MenuItem value="🥜">🥜 Peanuts</MenuItem>
-                    <MenuItem value="🌰">🌰 Chestnut</MenuItem>
-                    <MenuItem value="🍞">🍞 Bread</MenuItem>
-                    <MenuItem value="🥐">🥐 Croissant</MenuItem>
-                    <MenuItem value="🥖">🥖 Baguette</MenuItem>
-                    <MenuItem value="🫓">🫓 Flatbread</MenuItem>
-                    <MenuItem value="🥨">🥨 Pretzel</MenuItem>
-                    <MenuItem value="🥯">🥯 Bagel</MenuItem>
-                    <MenuItem value="🥞">🥞 Pancakes</MenuItem>
-                    <MenuItem value="🧇">🧇 Waffle</MenuItem>
-                    <MenuItem value="🧀">🧀 Cheese</MenuItem>
-                    <MenuItem value="🍖">🍖 Meat on Bone</MenuItem>
-                    <MenuItem value="🍗">🍗 Poultry Leg</MenuItem>
-                    <MenuItem value="🥩">🥩 Cut of Meat</MenuItem>
-                    <MenuItem value="🥓">🥓 Bacon</MenuItem>
-                    <MenuItem value="🍔">🍔 Hamburger</MenuItem>
-                    <MenuItem value="🍟">🍟 French Fries</MenuItem>
-                    <MenuItem value="🍕">🍕 Pizza</MenuItem>
-                    <MenuItem value="🌭">🌭 Hot Dog</MenuItem>
-                    <MenuItem value="🥪">🥪 Sandwich</MenuItem>
-                    <MenuItem value="🌮">🌮 Taco</MenuItem>
-                    <MenuItem value="🌯">🌯 Burrito</MenuItem>
-                    <MenuItem value="🫔">🫔 Tamale</MenuItem>
-                    <MenuItem value="🥙">🥙 Stuffed Flatbread</MenuItem>
-                    <MenuItem value="🧆">🧆 Falafel</MenuItem>
-                    <MenuItem value="🥚">🥚 Egg</MenuItem>
-                    <MenuItem value="🍳">🍳 Cooking</MenuItem>
-                    <MenuItem value="🥘">🥘 Shallow Pan of Food</MenuItem>
-                    <MenuItem value="🍲">🍲 Pot of Food</MenuItem>
-                    <MenuItem value="🫕">🫕 Fondue</MenuItem>
-                    <MenuItem value="🥣">🥣 Bowl with Spoon</MenuItem>
-                    <MenuItem value="🥗">🥗 Green Salad</MenuItem>
-                    <MenuItem value="🍿">🍿 Popcorn</MenuItem>
-                    <MenuItem value="🧈">🧈 Butter</MenuItem>
-                    <MenuItem value="🧂">🧂 Salt</MenuItem>
-                    <MenuItem value="🥫">🥫 Canned Food</MenuItem>
-                    <MenuItem value="🍱">🍱 Bento Box</MenuItem>
-                    <MenuItem value="🍘">🍘 Rice Cracker</MenuItem>
-                    <MenuItem value="🍙">🍙 Rice Ball</MenuItem>
-                    <MenuItem value="🍚">🍚 Cooked Rice</MenuItem>
-                    <MenuItem value="🍛">🍛 Curry Rice</MenuItem>
-                    <MenuItem value="🍜">🍜 Steaming Bowl</MenuItem>
-                    <MenuItem value="🍝">🍝 Spaghetti</MenuItem>
-                    <MenuItem value="🍠">🍠 Roasted Sweet Potato</MenuItem>
-                    <MenuItem value="🍢">🍢 Oden</MenuItem>
-                    <MenuItem value="🍣">🍣 Sushi</MenuItem>
-                    <MenuItem value="🍤">🍤 Fried Shrimp</MenuItem>
-                    <MenuItem value="🍥">🍥 Fish Cake</MenuItem>
-                    <MenuItem value="🥮">🥮 Moon Cake</MenuItem>
-                    <MenuItem value="🍡">🍡 Dango</MenuItem>
-                    <MenuItem value="🥟">🥟 Dumpling</MenuItem>
-                    <MenuItem value="🥠">🥠 Fortune Cookie</MenuItem>
-                    <MenuItem value="🥡">🥡 Takeout Box</MenuItem>
-                    <MenuItem value="🦀">🦀 Crab</MenuItem>
-                    <MenuItem value="🦞">🦞 Lobster</MenuItem>
-                    <MenuItem value="🦐">🦐 Shrimp</MenuItem>
-                    <MenuItem value="🦑">🦑 Squid</MenuItem>
-                    <MenuItem value="🦪">🦪 Oyster</MenuItem>
-                    <MenuItem value="🍦">🍦 Soft Ice Cream</MenuItem>
-                    <MenuItem value="🍧">🍧 Shaved Ice</MenuItem>
-                    <MenuItem value="🍨">🍨 Ice Cream</MenuItem>
-                    <MenuItem value="🍩">🍩 Doughnut</MenuItem>
-                    <MenuItem value="🍪">🍪 Cookie</MenuItem>
-                    <MenuItem value="🎂">🎂 Birthday Cake</MenuItem>
-                    <MenuItem value="🍰">🍰 Shortcake</MenuItem>
-                    <MenuItem value="🧁">🧁 Cupcake</MenuItem>
-                    <MenuItem value="🥧">🥧 Pie</MenuItem>
-                    <MenuItem value="🍫">🍫 Chocolate Bar</MenuItem>
-                    <MenuItem value="🍬">🍬 Candy</MenuItem>
-                    <MenuItem value="🍭">🍭 Lollipop</MenuItem>
-                    <MenuItem value="🍮">🍮 Custard</MenuItem>
-                    <MenuItem value="🍯">🍯 Honey Pot</MenuItem>
-                    <MenuItem value="🍼">🍼 Baby Bottle</MenuItem>
-                    <MenuItem value="🥛">🥛 Glass of Milk</MenuItem>
-                    <MenuItem value="☕">☕ Hot Beverage</MenuItem>
-                    <MenuItem value="🫖">🫖 Teapot</MenuItem>
-                    <MenuItem value="🍵">🍵 Teacup</MenuItem>
-                    <MenuItem value="🍶">🍶 Sake</MenuItem>
-                    <MenuItem value="🍾">🍾 Bottle with Popping Cork</MenuItem>
-                    <MenuItem value="🍷">🍷 Wine Glass</MenuItem>
-                    <MenuItem value="🍸">🍸 Cocktail Glass</MenuItem>
-                    <MenuItem value="🍹">🍹 Tropical Drink</MenuItem>
-                    <MenuItem value="🍺">🍺 Beer Mug</MenuItem>
-                    <MenuItem value="🍻">🍻 Clinking Beer Mugs</MenuItem>
-                    <MenuItem value="🥂">🥂 Clinking Glasses</MenuItem>
-                    <MenuItem value="🥃">🥃 Tumbler Glass</MenuItem>
-                    <MenuItem value="🥤">🥤 Cup with Straw</MenuItem>
-                    <MenuItem value="🧋">🧋 Bubble Tea</MenuItem>
-                    <MenuItem value="🧃">🧃 Beverage Box</MenuItem>
-                    <MenuItem value="🧉">🧉 Mate</MenuItem>
-                    <MenuItem value="🧊">🧊 Ice</MenuItem>
-                    <MenuItem value="🥢">🥢 Chopsticks</MenuItem>
-                    <MenuItem value="🍽️">🍽️ Fork and Knife</MenuItem>
-                    <MenuItem value="🍴">🍴 Fork and Knife</MenuItem>
-                    <MenuItem value="🥄">🥄 Spoon</MenuItem>
-                    <MenuItem value="🔪">🔪 Kitchen Knife</MenuItem>
-                    <MenuItem value="🏺">🏺 Amphora</MenuItem>
-                  </Select>
-                </FormControl>
-                <TextField
-                  label="Color"
-                  type="color"
-                  value={newListColor}
-                  onChange={(e) => setNewListColor(e.target.value)}
-                  sx={{ width: 100 }}
-                />
-              </Box>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      startIcon={<StarIcon />}
+                      onClick={() => handleSavePlace(selectedItem)}
+                      sx={{ mt: 1 }}
+                    >
+                      Save to Another List
+                    </Button>
+                  </Box>
+                </InfoWindow>
+              )}
+            </GoogleMap>
+          )}
+        </Box>
+      </Box>
+
+      {/* Login Modal */}
+      <LoginModal
+        open={loginModalOpen}
+        onClose={() => setLoginModalOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+      />
+
+      {/* Trip Selector Modal */}
+      <TripSelector
+        open={tripSelectorOpen}
+        onClose={() => setTripSelectorOpen(false)}
+        trips={trips}
+        currentTrip={currentTrip}
+        onTripSelect={handleTripSelect}
+        onTripCreated={handleTripCreated}
+      />
+
+      {/* Create List Dialog */}
+      <Dialog
+        open={createListDialogOpen}
+        onClose={() => {
+          setCreateListDialogOpen(false);
+          setNewListName('');
+          setNewListIcon('📌');
+          setNewListColor('#4285F4');
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Create New List</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <TextField
+              label="List Name"
+              value={newListName}
+              onChange={(e) => setNewListName(e.target.value)}
+              fullWidth
+              required
+              placeholder="e.g., Coffee Shops, Restaurants to Try"
+            />
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+              <FormControl sx={{ width: 200 }}>
+                <InputLabel>Icon</InputLabel>
+                <Select
+                  value={newListIcon}
+                  onChange={(e) => setNewListIcon(e.target.value)}
+                  label="Icon"
+                  renderValue={(value) => (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography sx={{ fontSize: '1.5rem' }}>{value}</Typography>
+                    </Box>
+                  )}
+                >
+                  <MenuItem value="📌">📌 Pin</MenuItem>
+                  <MenuItem value="⭐">⭐ Star</MenuItem>
+                  <MenuItem value="❤️">❤️ Heart</MenuItem>
+                  <MenuItem value="🔥">🔥 Fire</MenuItem>
+                  <MenuItem value="💡">💡 Light Bulb</MenuItem>
+                  <MenuItem value="🎯">🎯 Target</MenuItem>
+                  <MenuItem value="🌟">🌟 Star</MenuItem>
+                  <MenuItem value="✨">✨ Sparkles</MenuItem>
+                  <MenuItem value="🎨">🎨 Art</MenuItem>
+                  <MenuItem value="🎭">🎭 Theater</MenuItem>
+                  <MenuItem value="🎪">🎪 Circus</MenuItem>
+                  <MenuItem value="🎬">🎬 Movie</MenuItem>
+                  <MenuItem value="🎤">🎤 Microphone</MenuItem>
+                  <MenuItem value="🎧">🎧 Headphones</MenuItem>
+                  <MenuItem value="🎮">🎮 Game</MenuItem>
+                  <MenuItem value="🏀">🏀 Basketball</MenuItem>
+                  <MenuItem value="⚽">⚽ Soccer</MenuItem>
+                  <MenuItem value="🎾">🎾 Tennis</MenuItem>
+                  <MenuItem value="🏈">🏈 Football</MenuItem>
+                  <MenuItem value="🏊">🏊 Swimming</MenuItem>
+                  <MenuItem value="🏄">🏄 Surfing</MenuItem>
+                  <MenuItem value="🚴">🚴 Cycling</MenuItem>
+                  <MenuItem value="🏔️">🏔️ Mountain</MenuItem>
+                  <MenuItem value="⛰️">⛰️ Mountain</MenuItem>
+                  <MenuItem value="🌋">🌋 Volcano</MenuItem>
+                  <MenuItem value="🗻">🗻 Mountain</MenuItem>
+                  <MenuItem value="🏕️">🏕️ Camping</MenuItem>
+                  <MenuItem value="⛺">⛺ Tent</MenuItem>
+                  <MenuItem value="🌄">🌄 Sunrise</MenuItem>
+                  <MenuItem value="🌅">🌅 Sunset</MenuItem>
+                  <MenuItem value="🌆">🌆 Cityscape</MenuItem>
+                  <MenuItem value="🌇">🌇 City Sunset</MenuItem>
+                  <MenuItem value="🌉">🌉 Bridge</MenuItem>
+                  <MenuItem value="🎆">🎆 Fireworks</MenuItem>
+                  <MenuItem value="🎇">🎇 Sparkler</MenuItem>
+                  <MenuItem value="🌠">🌠 Shooting Star</MenuItem>
+                  <MenuItem value="🗼">🗼 Tower</MenuItem>
+                  <MenuItem value="🗽">🗽 Statue</MenuItem>
+                  <MenuItem value="⛲">⛲ Fountain</MenuItem>
+                  <MenuItem value="🎢">🎢 Roller Coaster</MenuItem>
+                  <MenuItem value="🎡">🎡 Ferris Wheel</MenuItem>
+                  <MenuItem value="🎠">🎠 Carousel</MenuItem>
+                  <MenuItem value="🏛️">🏛️ Museum</MenuItem>
+                  <MenuItem value="🏗️">🏗️ Construction</MenuItem>
+                  <MenuItem value="🏘️">🏘️ Houses</MenuItem>
+                  <MenuItem value="🏚️">🏚️ House</MenuItem>
+                  <MenuItem value="🏠">🏠 Home</MenuItem>
+                  <MenuItem value="🏡">🏡 Garden</MenuItem>
+                  <MenuItem value="🏢">🏢 Office</MenuItem>
+                  <MenuItem value="🏣">🏣 Post Office</MenuItem>
+                  <MenuItem value="🏤">🏤 Post Office</MenuItem>
+                  <MenuItem value="🏥">🏥 Hospital</MenuItem>
+                  <MenuItem value="🏦">🏦 Bank</MenuItem>
+                  <MenuItem value="🏨">🏨 Hotel</MenuItem>
+                  <MenuItem value="🏩">🏩 Love Hotel</MenuItem>
+                  <MenuItem value="🏪">🏪 Store</MenuItem>
+                  <MenuItem value="🏫">🏫 School</MenuItem>
+                  <MenuItem value="🏬">🏬 Department Store</MenuItem>
+                  <MenuItem value="🏭">🏭 Factory</MenuItem>
+                  <MenuItem value="🏯">🏯 Castle</MenuItem>
+                  <MenuItem value="🏰">🏰 Castle</MenuItem>
+                  <MenuItem value="⛪">⛪ Church</MenuItem>
+                  <MenuItem value="🕌">🕌 Mosque</MenuItem>
+                  <MenuItem value="🕍">🕍 Synagogue</MenuItem>
+                  <MenuItem value="⛩️">⛩️ Shrine</MenuItem>
+                  <MenuItem value="🕋">🕋 Kaaba</MenuItem>
+                  <MenuItem value="⛲">⛲ Fountain</MenuItem>
+                  <MenuItem value="⛽">⛽ Gas Station</MenuItem>
+                  <MenuItem value="🚏">🚏 Bus Stop</MenuItem>
+                  <MenuItem value="🚦">🚦 Traffic Light</MenuItem>
+                  <MenuItem value="🚧">🚧 Construction</MenuItem>
+                  <MenuItem value="⚓">⚓ Anchor</MenuItem>
+                  <MenuItem value="⛵">⛵ Sailboat</MenuItem>
+                  <MenuItem value="🛶">🛶 Canoe</MenuItem>
+                  <MenuItem value="🚤">🚤 Speedboat</MenuItem>
+                  <MenuItem value="🛥️">🛥️ Motorboat</MenuItem>
+                  <MenuItem value="⛴️">⛴️ Ferry</MenuItem>
+                  <MenuItem value="🛳️">🛳️ Passenger Ship</MenuItem>
+                  <MenuItem value="🚢">🚢 Ship</MenuItem>
+                  <MenuItem value="✈️">✈️ Airplane</MenuItem>
+                  <MenuItem value="🛩️">🛩️ Small Airplane</MenuItem>
+                  <MenuItem value="🛫">🛫 Departure</MenuItem>
+                  <MenuItem value="🛬">🛬 Arrival</MenuItem>
+                  <MenuItem value="🪂">🪂 Parachute</MenuItem>
+                  <MenuItem value="💺">💺 Seat</MenuItem>
+                  <MenuItem value="🚁">🚁 Helicopter</MenuItem>
+                  <MenuItem value="🚟">🚟 Suspension Railway</MenuItem>
+                  <MenuItem value="🚠">🚠 Cable Car</MenuItem>
+                  <MenuItem value="🚡">🚡 Aerial Tramway</MenuItem>
+                  <MenuItem value="🛰️">🛰️ Satellite</MenuItem>
+                  <MenuItem value="🚀">🚀 Rocket</MenuItem>
+                  <MenuItem value="🛸">🛸 UFO</MenuItem>
+                  <MenuItem value="🛎️">🛎️ Bellhop</MenuItem>
+                  <MenuItem value="🧳">🧳 Luggage</MenuItem>
+                  <MenuItem value="⌛">⌛ Hourglass</MenuItem>
+                  <MenuItem value="⏳">⏳ Hourglass</MenuItem>
+                  <MenuItem value="⌚">⌚ Watch</MenuItem>
+                  <MenuItem value="⏰">⏰ Alarm Clock</MenuItem>
+                  <MenuItem value="⏱️">⏱️ Stopwatch</MenuItem>
+                  <MenuItem value="⏲️">⏲️ Timer</MenuItem>
+                  <MenuItem value="🕰️">🕰️ Mantelpiece Clock</MenuItem>
+                  <MenuItem value="🕛">🕛 Twelve O'Clock</MenuItem>
+                  <MenuItem value="🕧">🕧 Twelve-Thirty</MenuItem>
+                  <MenuItem value="🕐">🕐 One O'Clock</MenuItem>
+                  <MenuItem value="🕜">🕜 One-Thirty</MenuItem>
+                  <MenuItem value="🕑">🕑 Two O'Clock</MenuItem>
+                  <MenuItem value="🕝">🕝 Two-Thirty</MenuItem>
+                  <MenuItem value="🕒">🕒 Three O'Clock</MenuItem>
+                  <MenuItem value="🕞">🕞 Three-Thirty</MenuItem>
+                  <MenuItem value="🕓">🕓 Four O'Clock</MenuItem>
+                  <MenuItem value="🕟">🕟 Four-Thirty</MenuItem>
+                  <MenuItem value="🕔">🕔 Five O'Clock</MenuItem>
+                  <MenuItem value="🕠">🕠 Five-Thirty</MenuItem>
+                  <MenuItem value="🕕">🕕 Six O'Clock</MenuItem>
+                  <MenuItem value="🕡">🕡 Six-Thirty</MenuItem>
+                  <MenuItem value="🕖">🕖 Seven O'Clock</MenuItem>
+                  <MenuItem value="🕢">🕢 Seven-Thirty</MenuItem>
+                  <MenuItem value="🕗">🕗 Eight O'Clock</MenuItem>
+                  <MenuItem value="🕣">🕣 Eight-Thirty</MenuItem>
+                  <MenuItem value="🕘">🕘 Nine O'Clock</MenuItem>
+                  <MenuItem value="🕤">🕤 Nine-Thirty</MenuItem>
+                  <MenuItem value="🕙">🕙 Ten O'Clock</MenuItem>
+                  <MenuItem value="🕥">🕥 Ten-Thirty</MenuItem>
+                  <MenuItem value="🕚">🕚 Eleven O'Clock</MenuItem>
+                  <MenuItem value="🕦">🕦 Eleven-Thirty</MenuItem>
+                  <MenuItem value="🌑">🌑 New Moon</MenuItem>
+                  <MenuItem value="🌒">🌒 Waxing Crescent</MenuItem>
+                  <MenuItem value="🌓">🌓 First Quarter</MenuItem>
+                  <MenuItem value="🌔">🌔 Waxing Gibbous</MenuItem>
+                  <MenuItem value="🌕">🌕 Full Moon</MenuItem>
+                  <MenuItem value="🌖">🌖 Waning Gibbous</MenuItem>
+                  <MenuItem value="🌗">🌗 Last Quarter</MenuItem>
+                  <MenuItem value="🌘">🌘 Waning Crescent</MenuItem>
+                  <MenuItem value="🌙">🌙 Crescent Moon</MenuItem>
+                  <MenuItem value="🌚">🌚 New Moon Face</MenuItem>
+                  <MenuItem value="🌛">🌛 First Quarter Face</MenuItem>
+                  <MenuItem value="🌜">🌜 Last Quarter Face</MenuItem>
+                  <MenuItem value="🌡️">🌡️ Thermometer</MenuItem>
+                  <MenuItem value="☀️">☀️ Sun</MenuItem>
+                  <MenuItem value="🌝">🌝 Full Moon Face</MenuItem>
+                  <MenuItem value="🌞">🌞 Sun Face</MenuItem>
+                  <MenuItem value="🪐">🪐 Ringed Planet</MenuItem>
+                  <MenuItem value="⭐">⭐ Star</MenuItem>
+                  <MenuItem value="🌟">🌟 Glowing Star</MenuItem>
+                  <MenuItem value="🌠">🌠 Shooting Star</MenuItem>
+                  <MenuItem value="☁️">☁️ Cloud</MenuItem>
+                  <MenuItem value="⛅">⛅ Sun Behind Cloud</MenuItem>
+                  <MenuItem value="⛈️">⛈️ Cloud Lightning</MenuItem>
+                  <MenuItem value="🌤️">🌤️ Sun Behind Small Cloud</MenuItem>
+                  <MenuItem value="🌥️">🌥️ Sun Behind Large Cloud</MenuItem>
+                  <MenuItem value="🌦️">🌦️ Sun Behind Rain Cloud</MenuItem>
+                  <MenuItem value="🌧️">🌧️ Cloud Rain</MenuItem>
+                  <MenuItem value="🌨️">🌨️ Cloud Snow</MenuItem>
+                  <MenuItem value="🌩️">🌩️ Cloud Lightning</MenuItem>
+                  <MenuItem value="🌪️">🌪️ Tornado</MenuItem>
+                  <MenuItem value="🌫️">🌫️ Fog</MenuItem>
+                  <MenuItem value="🌬️">🌬️ Wind Face</MenuItem>
+                  <MenuItem value="🌀">🌀 Cyclone</MenuItem>
+                  <MenuItem value="🌈">🌈 Rainbow</MenuItem>
+                  <MenuItem value="🌂">🌂 Closed Umbrella</MenuItem>
+                  <MenuItem value="☂️">☂️ Umbrella</MenuItem>
+                  <MenuItem value="☔">☔ Umbrella Rain</MenuItem>
+                  <MenuItem value="⛱️">⛱️ Umbrella Ground</MenuItem>
+                  <MenuItem value="⚡">⚡ Lightning</MenuItem>
+                  <MenuItem value="❄️">❄️ Snowflake</MenuItem>
+                  <MenuItem value="☃️">☃️ Snowman</MenuItem>
+                  <MenuItem value="⛄">⛄ Snowman</MenuItem>
+                  <MenuItem value="☄️">☄️ Comet</MenuItem>
+                  <MenuItem value="🔥">🔥 Fire</MenuItem>
+                  <MenuItem value="💧">💧 Droplet</MenuItem>
+                  <MenuItem value="🌊">🌊 Water Wave</MenuItem>
+                  <MenuItem value="🎄">🎄 Christmas Tree</MenuItem>
+                  <MenuItem value="✨">✨ Sparkles</MenuItem>
+                  <MenuItem value="🎋">🎋 Tanabata Tree</MenuItem>
+                  <MenuItem value="🎍">🎍 Pine Decoration</MenuItem>
+                  <MenuItem value="🍀">🍀 Four Leaf Clover</MenuItem>
+                  <MenuItem value="🍁">🍁 Maple Leaf</MenuItem>
+                  <MenuItem value="🍂">🍂 Fallen Leaf</MenuItem>
+                  <MenuItem value="🍃">🍃 Leaf Fluttering</MenuItem>
+                  <MenuItem value="🍇">🍇 Grapes</MenuItem>
+                  <MenuItem value="🍈">🍈 Melon</MenuItem>
+                  <MenuItem value="🍉">🍉 Watermelon</MenuItem>
+                  <MenuItem value="🍊">🍊 Tangerine</MenuItem>
+                  <MenuItem value="🍋">🍋 Lemon</MenuItem>
+                  <MenuItem value="🍌">🍌 Banana</MenuItem>
+                  <MenuItem value="🍍">🍍 Pineapple</MenuItem>
+                  <MenuItem value="🥭">🥭 Mango</MenuItem>
+                  <MenuItem value="🍎">🍎 Red Apple</MenuItem>
+                  <MenuItem value="🍏">🍏 Green Apple</MenuItem>
+                  <MenuItem value="🍐">🍐 Pear</MenuItem>
+                  <MenuItem value="🍑">🍑 Peach</MenuItem>
+                  <MenuItem value="🍒">🍒 Cherries</MenuItem>
+                  <MenuItem value="🍓">🍓 Strawberry</MenuItem>
+                  <MenuItem value="🥝">🥝 Kiwi</MenuItem>
+                  <MenuItem value="🍅">🍅 Tomato</MenuItem>
+                  <MenuItem value="🥥">🥥 Coconut</MenuItem>
+                  <MenuItem value="🥑">🥑 Avocado</MenuItem>
+                  <MenuItem value="🍆">🍆 Eggplant</MenuItem>
+                  <MenuItem value="🥔">🥔 Potato</MenuItem>
+                  <MenuItem value="🥕">🥕 Carrot</MenuItem>
+                  <MenuItem value="🌽">🌽 Ear of Corn</MenuItem>
+                  <MenuItem value="🌶️">🌶️ Hot Pepper</MenuItem>
+                  <MenuItem value="🥒">🥒 Cucumber</MenuItem>
+                  <MenuItem value="🥬">🥬 Leafy Green</MenuItem>
+                  <MenuItem value="🥦">🥦 Broccoli</MenuItem>
+                  <MenuItem value="🧄">🧄 Garlic</MenuItem>
+                  <MenuItem value="🧅">🧅 Onion</MenuItem>
+                  <MenuItem value="🍄">🍄 Mushroom</MenuItem>
+                  <MenuItem value="🥜">🥜 Peanuts</MenuItem>
+                  <MenuItem value="🌰">🌰 Chestnut</MenuItem>
+                  <MenuItem value="🍞">🍞 Bread</MenuItem>
+                  <MenuItem value="🥐">🥐 Croissant</MenuItem>
+                  <MenuItem value="🥖">🥖 Baguette</MenuItem>
+                  <MenuItem value="🫓">🫓 Flatbread</MenuItem>
+                  <MenuItem value="🥨">🥨 Pretzel</MenuItem>
+                  <MenuItem value="🥯">🥯 Bagel</MenuItem>
+                  <MenuItem value="🥞">🥞 Pancakes</MenuItem>
+                  <MenuItem value="🧇">🧇 Waffle</MenuItem>
+                  <MenuItem value="🧀">🧀 Cheese</MenuItem>
+                  <MenuItem value="🍖">🍖 Meat on Bone</MenuItem>
+                  <MenuItem value="🍗">🍗 Poultry Leg</MenuItem>
+                  <MenuItem value="🥩">🥩 Cut of Meat</MenuItem>
+                  <MenuItem value="🥓">🥓 Bacon</MenuItem>
+                  <MenuItem value="🍔">🍔 Hamburger</MenuItem>
+                  <MenuItem value="🍟">🍟 French Fries</MenuItem>
+                  <MenuItem value="🍕">🍕 Pizza</MenuItem>
+                  <MenuItem value="🌭">🌭 Hot Dog</MenuItem>
+                  <MenuItem value="🥪">🥪 Sandwich</MenuItem>
+                  <MenuItem value="🌮">🌮 Taco</MenuItem>
+                  <MenuItem value="🌯">🌯 Burrito</MenuItem>
+                  <MenuItem value="🫔">🫔 Tamale</MenuItem>
+                  <MenuItem value="🥙">🥙 Stuffed Flatbread</MenuItem>
+                  <MenuItem value="🧆">🧆 Falafel</MenuItem>
+                  <MenuItem value="🥚">🥚 Egg</MenuItem>
+                  <MenuItem value="🍳">🍳 Cooking</MenuItem>
+                  <MenuItem value="🥘">🥘 Shallow Pan of Food</MenuItem>
+                  <MenuItem value="🍲">🍲 Pot of Food</MenuItem>
+                  <MenuItem value="🫕">🫕 Fondue</MenuItem>
+                  <MenuItem value="🥣">🥣 Bowl with Spoon</MenuItem>
+                  <MenuItem value="🥗">🥗 Green Salad</MenuItem>
+                  <MenuItem value="🍿">🍿 Popcorn</MenuItem>
+                  <MenuItem value="🧈">🧈 Butter</MenuItem>
+                  <MenuItem value="🧂">🧂 Salt</MenuItem>
+                  <MenuItem value="🥫">🥫 Canned Food</MenuItem>
+                  <MenuItem value="🍱">🍱 Bento Box</MenuItem>
+                  <MenuItem value="🍘">🍘 Rice Cracker</MenuItem>
+                  <MenuItem value="🍙">🍙 Rice Ball</MenuItem>
+                  <MenuItem value="🍚">🍚 Cooked Rice</MenuItem>
+                  <MenuItem value="🍛">🍛 Curry Rice</MenuItem>
+                  <MenuItem value="🍜">🍜 Steaming Bowl</MenuItem>
+                  <MenuItem value="🍝">🍝 Spaghetti</MenuItem>
+                  <MenuItem value="🍠">🍠 Roasted Sweet Potato</MenuItem>
+                  <MenuItem value="🍢">🍢 Oden</MenuItem>
+                  <MenuItem value="🍣">🍣 Sushi</MenuItem>
+                  <MenuItem value="🍤">🍤 Fried Shrimp</MenuItem>
+                  <MenuItem value="🍥">🍥 Fish Cake</MenuItem>
+                  <MenuItem value="🥮">🥮 Moon Cake</MenuItem>
+                  <MenuItem value="🍡">🍡 Dango</MenuItem>
+                  <MenuItem value="🥟">🥟 Dumpling</MenuItem>
+                  <MenuItem value="🥠">🥠 Fortune Cookie</MenuItem>
+                  <MenuItem value="🥡">🥡 Takeout Box</MenuItem>
+                  <MenuItem value="🦀">🦀 Crab</MenuItem>
+                  <MenuItem value="🦞">🦞 Lobster</MenuItem>
+                  <MenuItem value="🦐">🦐 Shrimp</MenuItem>
+                  <MenuItem value="🦑">🦑 Squid</MenuItem>
+                  <MenuItem value="🦪">🦪 Oyster</MenuItem>
+                  <MenuItem value="🍦">🍦 Soft Ice Cream</MenuItem>
+                  <MenuItem value="🍧">🍧 Shaved Ice</MenuItem>
+                  <MenuItem value="🍨">🍨 Ice Cream</MenuItem>
+                  <MenuItem value="🍩">🍩 Doughnut</MenuItem>
+                  <MenuItem value="🍪">🍪 Cookie</MenuItem>
+                  <MenuItem value="🎂">🎂 Birthday Cake</MenuItem>
+                  <MenuItem value="🍰">🍰 Shortcake</MenuItem>
+                  <MenuItem value="🧁">🧁 Cupcake</MenuItem>
+                  <MenuItem value="🥧">🥧 Pie</MenuItem>
+                  <MenuItem value="🍫">🍫 Chocolate Bar</MenuItem>
+                  <MenuItem value="🍬">🍬 Candy</MenuItem>
+                  <MenuItem value="🍭">🍭 Lollipop</MenuItem>
+                  <MenuItem value="🍮">🍮 Custard</MenuItem>
+                  <MenuItem value="🍯">🍯 Honey Pot</MenuItem>
+                  <MenuItem value="🍼">🍼 Baby Bottle</MenuItem>
+                  <MenuItem value="🥛">🥛 Glass of Milk</MenuItem>
+                  <MenuItem value="☕">☕ Hot Beverage</MenuItem>
+                  <MenuItem value="🫖">🫖 Teapot</MenuItem>
+                  <MenuItem value="🍵">🍵 Teacup</MenuItem>
+                  <MenuItem value="🍶">🍶 Sake</MenuItem>
+                  <MenuItem value="🍾">🍾 Bottle with Popping Cork</MenuItem>
+                  <MenuItem value="🍷">🍷 Wine Glass</MenuItem>
+                  <MenuItem value="🍸">🍸 Cocktail Glass</MenuItem>
+                  <MenuItem value="🍹">🍹 Tropical Drink</MenuItem>
+                  <MenuItem value="🍺">🍺 Beer Mug</MenuItem>
+                  <MenuItem value="🍻">🍻 Clinking Beer Mugs</MenuItem>
+                  <MenuItem value="🥂">🥂 Clinking Glasses</MenuItem>
+                  <MenuItem value="🥃">🥃 Tumbler Glass</MenuItem>
+                  <MenuItem value="🥤">🥤 Cup with Straw</MenuItem>
+                  <MenuItem value="🧋">🧋 Bubble Tea</MenuItem>
+                  <MenuItem value="🧃">🧃 Beverage Box</MenuItem>
+                  <MenuItem value="🧉">🧉 Mate</MenuItem>
+                  <MenuItem value="🧊">🧊 Ice</MenuItem>
+                  <MenuItem value="🥢">🥢 Chopsticks</MenuItem>
+                  <MenuItem value="🍽️">🍽️ Fork and Knife</MenuItem>
+                  <MenuItem value="🍴">🍴 Fork and Knife</MenuItem>
+                  <MenuItem value="🥄">🥄 Spoon</MenuItem>
+                  <MenuItem value="🔪">🔪 Kitchen Knife</MenuItem>
+                  <MenuItem value="🏺">🏺 Amphora</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                label="Color"
+                type="color"
+                value={newListColor}
+                onChange={(e) => setNewListColor(e.target.value)}
+                sx={{ width: 100 }}
+              />
             </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => {
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
               setCreateListDialogOpen(false);
               setNewListName('');
               setNewListIcon('📌');
               setNewListColor('#4285F4');
-            }}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateList} variant="contained" disabled={!newListName.trim()}>
-              Create List
-            </Button>
-          </DialogActions>
-        </Dialog>
+            }}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleCreateList} variant="contained" disabled={!newListName.trim()}>
+            Create List
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-        {/* Edit List Dialog */}
-        <Dialog
-          open={editListDialogOpen}
-          onClose={() => {
-            setEditListDialogOpen(false);
-            setEditingList(null);
-            setNewListName('');
-            setNewListIcon('📌');
-            setNewListColor('#4285F4');
-          }}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle>Edit List</DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-              <TextField
-                label="List Name"
-                value={newListName}
-                onChange={(e) => setNewListName(e.target.value)}
-                fullWidth
-                required
-                placeholder="e.g., Coffee Shops, Restaurants to Try"
-              />
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                <FormControl sx={{ width: 200 }}>
-                  <InputLabel>Icon</InputLabel>
-                  <Select
-                    value={newListIcon}
-                    onChange={(e) => setNewListIcon(e.target.value)}
-                    label="Icon"
-                    renderValue={(value) => (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography sx={{ fontSize: '1.5rem' }}>{value}</Typography>
-                      </Box>
-                    )}
-                  >
-                    <MenuItem value="📌">📌 Pin</MenuItem>
-                    <MenuItem value="⭐">⭐ Star</MenuItem>
-                    <MenuItem value="❤️">❤️ Heart</MenuItem>
-                    <MenuItem value="🔥">🔥 Fire</MenuItem>
-                    <MenuItem value="💡">💡 Light Bulb</MenuItem>
-                    <MenuItem value="🎯">🎯 Target</MenuItem>
-                    <MenuItem value="🌟">🌟 Star</MenuItem>
-                    <MenuItem value="✨">✨ Sparkles</MenuItem>
-                    <MenuItem value="🎨">🎨 Art</MenuItem>
-                    <MenuItem value="🎭">🎭 Theater</MenuItem>
-                    <MenuItem value="🎪">🎪 Circus</MenuItem>
-                    <MenuItem value="🎬">🎬 Movie</MenuItem>
-                    <MenuItem value="🎤">🎤 Microphone</MenuItem>
-                    <MenuItem value="🎧">🎧 Headphones</MenuItem>
-                    <MenuItem value="🎮">🎮 Game</MenuItem>
-                    <MenuItem value="🏀">🏀 Basketball</MenuItem>
-                    <MenuItem value="⚽">⚽ Soccer</MenuItem>
-                    <MenuItem value="🎾">🎾 Tennis</MenuItem>
-                    <MenuItem value="🏈">🏈 Football</MenuItem>
-                    <MenuItem value="🏊">🏊 Swimming</MenuItem>
-                    <MenuItem value="🏄">🏄 Surfing</MenuItem>
-                    <MenuItem value="🚴">🚴 Cycling</MenuItem>
-                    <MenuItem value="🏔️">🏔️ Mountain</MenuItem>
-                    <MenuItem value="⛰️">⛰️ Mountain</MenuItem>
-                    <MenuItem value="🌋">🌋 Volcano</MenuItem>
-                    <MenuItem value="🗻">🗻 Mountain</MenuItem>
-                    <MenuItem value="🏕️">🏕️ Camping</MenuItem>
-                    <MenuItem value="⛺">⛺ Tent</MenuItem>
-                    <MenuItem value="🌄">🌄 Sunrise</MenuItem>
-                    <MenuItem value="🌅">🌅 Sunset</MenuItem>
-                    <MenuItem value="🌆">🌆 Cityscape</MenuItem>
-                    <MenuItem value="🌇">🌇 City Sunset</MenuItem>
-                    <MenuItem value="🌉">🌉 Bridge</MenuItem>
-                    <MenuItem value="🎆">🎆 Fireworks</MenuItem>
-                    <MenuItem value="🎇">🎇 Sparkler</MenuItem>
-                    <MenuItem value="🌠">🌠 Shooting Star</MenuItem>
-                    <MenuItem value="🗼">🗼 Tower</MenuItem>
-                    <MenuItem value="🗽">🗽 Statue</MenuItem>
-                    <MenuItem value="⛲">⛲ Fountain</MenuItem>
-                    <MenuItem value="🎢">🎢 Roller Coaster</MenuItem>
-                    <MenuItem value="🎡">🎡 Ferris Wheel</MenuItem>
-                    <MenuItem value="🎠">🎠 Carousel</MenuItem>
-                    <MenuItem value="🏛️">🏛️ Museum</MenuItem>
-                    <MenuItem value="🏗️">🏗️ Construction</MenuItem>
-                    <MenuItem value="🏘️">🏘️ Houses</MenuItem>
-                    <MenuItem value="🏚️">🏚️ House</MenuItem>
-                    <MenuItem value="🏠">🏠 Home</MenuItem>
-                    <MenuItem value="🏡">🏡 Garden</MenuItem>
-                    <MenuItem value="🏢">🏢 Office</MenuItem>
-                    <MenuItem value="🏣">🏣 Post Office</MenuItem>
-                    <MenuItem value="🏤">🏤 Post Office</MenuItem>
-                    <MenuItem value="🏥">🏥 Hospital</MenuItem>
-                    <MenuItem value="🏦">🏦 Bank</MenuItem>
-                    <MenuItem value="🏨">🏨 Hotel</MenuItem>
-                    <MenuItem value="🏩">🏩 Love Hotel</MenuItem>
-                    <MenuItem value="🏪">🏪 Convenience Store</MenuItem>
-                    <MenuItem value="🏫">🏫 School</MenuItem>
-                    <MenuItem value="🏬">🏬 Department Store</MenuItem>
-                    <MenuItem value="🏭">🏭 Factory</MenuItem>
-                    <MenuItem value="🏯">🏯 Japanese Castle</MenuItem>
-                    <MenuItem value="🏰">🏰 Castle</MenuItem>
-                    <MenuItem value="💒">💒 Wedding</MenuItem>
-                    <MenuItem value="🗼">🗼 Tokyo Tower</MenuItem>
-                    <MenuItem value="🗽">🗽 Statue of Liberty</MenuItem>
-                    <MenuItem value="⛪">⛪ Church</MenuItem>
-                    <MenuItem value="🕌">🕌 Mosque</MenuItem>
-                    <MenuItem value="🕍">🕍 Synagogue</MenuItem>
-                    <MenuItem value="⛩️">⛩️ Shinto Shrine</MenuItem>
-                    <MenuItem value="🕋">🕋 Kaaba</MenuItem>
-                    <MenuItem value="⛲">⛲ Fountain</MenuItem>
-                    <MenuItem value="⛺">⛺ Tent</MenuItem>
-                    <MenuItem value="🌁">🌁 Foggy</MenuItem>
-                    <MenuItem value="🌃">🌃 Night with Stars</MenuItem>
-                    <MenuItem value="🏙️">🏙️ Cityscape</MenuItem>
-                    <MenuItem value="🌄">🌄 Sunrise Over Mountains</MenuItem>
-                    <MenuItem value="🌅">🌅 Sunrise</MenuItem>
-                    <MenuItem value="🌆">🌆 Cityscape at Dusk</MenuItem>
-                    <MenuItem value="🌇">🌇 Sunset Over Buildings</MenuItem>
-                    <MenuItem value="🌉">🌉 Bridge at Night</MenuItem>
-                    <MenuItem value="♨️">♨️ Hot Springs</MenuItem>
-                    <MenuItem value="🎠">🎠 Carousel Horse</MenuItem>
-                    <MenuItem value="🎡">🎡 Ferris Wheel</MenuItem>
-                    <MenuItem value="🎢">🎢 Roller Coaster</MenuItem>
-                    <MenuItem value="💈">💈 Barber Pole</MenuItem>
-                    <MenuItem value="🎪">🎪 Circus Tent</MenuItem>
-                    <MenuItem value="🚂">🚂 Locomotive</MenuItem>
-                    <MenuItem value="🚃">🚃 Railway Car</MenuItem>
-                    <MenuItem value="🚄">🚄 High-Speed Train</MenuItem>
-                    <MenuItem value="🚅">🚅 Bullet Train</MenuItem>
-                    <MenuItem value="🚆">🚆 Train</MenuItem>
-                    <MenuItem value="🚇">🚇 Metro</MenuItem>
-                    <MenuItem value="🚈">🚈 Light Rail</MenuItem>
-                    <MenuItem value="🚉">🚉 Station</MenuItem>
-                    <MenuItem value="🚊">🚊 Tram</MenuItem>
-                    <MenuItem value="🚝">🚝 Monorail</MenuItem>
-                    <MenuItem value="🚞">🚞 Mountain Railway</MenuItem>
-                    <MenuItem value="🚋">🚋 Tram Car</MenuItem>
-                    <MenuItem value="🚌">🚌 Bus</MenuItem>
-                    <MenuItem value="🚍">🚍 Oncoming Bus</MenuItem>
-                    <MenuItem value="🚎">🚎 Trolleybus</MenuItem>
-                    <MenuItem value="🚐">🚐 Minibus</MenuItem>
-                    <MenuItem value="🚑">🚑 Ambulance</MenuItem>
-                    <MenuItem value="🚒">🚒 Fire Engine</MenuItem>
-                    <MenuItem value="🚓">🚓 Police Car</MenuItem>
-                    <MenuItem value="🚔">🚔 Oncoming Police Car</MenuItem>
-                    <MenuItem value="🚕">🚕 Taxi</MenuItem>
-                    <MenuItem value="🚖">🚖 Oncoming Taxi</MenuItem>
-                    <MenuItem value="🚗">🚗 Automobile</MenuItem>
-                    <MenuItem value="🚘">🚘 Oncoming Automobile</MenuItem>
-                    <MenuItem value="🚙">🚙 Sport Utility Vehicle</MenuItem>
-                    <MenuItem value="🚚">🚚 Delivery Truck</MenuItem>
-                    <MenuItem value="🚛">🚛 Articulated Lorry</MenuItem>
-                    <MenuItem value="🚜">🚜 Tractor</MenuItem>
-                    <MenuItem value="🏎️">🏎️ Racing Car</MenuItem>
-                    <MenuItem value="🏍️">🏍️ Motorcycle</MenuItem>
-                    <MenuItem value="🛵">🛵 Motor Scooter</MenuItem>
-                    <MenuItem value="🦽">🦽 Manual Wheelchair</MenuItem>
-                    <MenuItem value="🦼">🦼 Motorized Wheelchair</MenuItem>
-                    <MenuItem value="🛺">🛺 Auto Rickshaw</MenuItem>
-                    <MenuItem value="🚲">🚲 Bicycle</MenuItem>
-                    <MenuItem value="🛴">🛴 Kick Scooter</MenuItem>
-                    <MenuItem value="🛹">🛹 Skateboard</MenuItem>
-                    <MenuItem value="🛼">🛼 Roller Skate</MenuItem>
-                    <MenuItem value="🚁">🚁 Helicopter</MenuItem>
-                    <MenuItem value="🚟">🚟 Suspension Railway</MenuItem>
-                    <MenuItem value="🚠">🚠 Mountain Cableway</MenuItem>
-                    <MenuItem value="🚡">🚡 Aerial Tramway</MenuItem>
-                    <MenuItem value="🛩️">🛩️ Small Airplane</MenuItem>
-                    <MenuItem value="✈️">✈️ Airplane</MenuItem>
-                    <MenuItem value="🛫">🛫 Airplane Departure</MenuItem>
-                    <MenuItem value="🛬">🛬 Airplane Arrival</MenuItem>
-                    <MenuItem value="🪂">🪂 Parachute</MenuItem>
-                    <MenuItem value="💺">💺 Seat</MenuItem>
-                    <MenuItem value="🚀">🚀 Rocket</MenuItem>
-                    <MenuItem value="🛸">🛸 Flying Saucer</MenuItem>
-                    <MenuItem value="🛎️">🛎️ Bellhop Bell</MenuItem>
-                    <MenuItem value="🧳">🧳 Luggage</MenuItem>
-                    <MenuItem value="⌛">⌛ Hourglass Done</MenuItem>
-                    <MenuItem value="⏳">⏳ Hourglass Not Done</MenuItem>
-                    <MenuItem value="⌚">⌚ Watch</MenuItem>
-                    <MenuItem value="⏰">⏰ Alarm Clock</MenuItem>
-                    <MenuItem value="⏱️">⏱️ Stopwatch</MenuItem>
-                    <MenuItem value="⏲️">⏲️ Timer Clock</MenuItem>
-                    <MenuItem value="🕛">🕛 Twelve O'Clock</MenuItem>
-                    <MenuItem value="🕧">🕧 Twelve-Thirty</MenuItem>
-                    <MenuItem value="🕐">🕐 One O'Clock</MenuItem>
-                    <MenuItem value="🕜">🕜 One-Thirty</MenuItem>
-                    <MenuItem value="🕑">🕑 Two O'Clock</MenuItem>
-                    <MenuItem value="🕝">🕝 Two-Thirty</MenuItem>
-                    <MenuItem value="🕒">🕒 Three O'Clock</MenuItem>
-                    <MenuItem value="🕞">🕞 Three-Thirty</MenuItem>
-                    <MenuItem value="🕓">🕓 Four O'Clock</MenuItem>
-                    <MenuItem value="🕟">🕟 Four-Thirty</MenuItem>
-                    <MenuItem value="🕔">🕔 Five O'Clock</MenuItem>
-                    <MenuItem value="🕠">🕠 Five-Thirty</MenuItem>
-                    <MenuItem value="🕕">🕕 Six O'Clock</MenuItem>
-                    <MenuItem value="🕡">🕡 Six-Thirty</MenuItem>
-                    <MenuItem value="🕖">🕖 Seven O'Clock</MenuItem>
-                    <MenuItem value="🕢">🕢 Seven-Thirty</MenuItem>
-                    <MenuItem value="🕗">🕗 Eight O'Clock</MenuItem>
-                    <MenuItem value="🕣">🕣 Eight-Thirty</MenuItem>
-                    <MenuItem value="🕘">🕘 Nine O'Clock</MenuItem>
-                    <MenuItem value="🕤">🕤 Nine-Thirty</MenuItem>
-                    <MenuItem value="🕙">🕙 Ten O'Clock</MenuItem>
-                    <MenuItem value="🕥">🕥 Ten-Thirty</MenuItem>
-                    <MenuItem value="🕚">🕚 Eleven O'Clock</MenuItem>
-                    <MenuItem value="🕦">🕦 Eleven-Thirty</MenuItem>
-                    <MenuItem value="🌑">🌑 New Moon</MenuItem>
-                    <MenuItem value="🌒">🌒 Waxing Crescent Moon</MenuItem>
-                    <MenuItem value="🌓">🌓 First Quarter Moon</MenuItem>
-                    <MenuItem value="🌔">🌔 Waxing Gibbous Moon</MenuItem>
-                    <MenuItem value="🌕">🌕 Full Moon</MenuItem>
-                    <MenuItem value="🌖">🌖 Waning Gibbous Moon</MenuItem>
-                    <MenuItem value="🌗">🌗 Last Quarter Moon</MenuItem>
-                    <MenuItem value="🌘">🌘 Waning Crescent Moon</MenuItem>
-                    <MenuItem value="🌙">🌙 Crescent Moon</MenuItem>
-                    <MenuItem value="🌚">🌚 New Moon Face</MenuItem>
-                    <MenuItem value="🌛">🌛 First Quarter Moon Face</MenuItem>
-                    <MenuItem value="🌜">🌜 Last Quarter Moon Face</MenuItem>
-                    <MenuItem value="🌡️">🌡️ Thermometer</MenuItem>
-                    <MenuItem value="☀️">☀️ Sun</MenuItem>
-                    <MenuItem value="🌝">🌝 Full Moon Face</MenuItem>
-                    <MenuItem value="🌞">🌞 Sun with Face</MenuItem>
-                    <MenuItem value="⭐">⭐ Star</MenuItem>
-                    <MenuItem value="🌟">🌟 Glowing Star</MenuItem>
-                    <MenuItem value="🌠">🌠 Shooting Star</MenuItem>
-                    <MenuItem value="☁️">☁️ Cloud</MenuItem>
-                    <MenuItem value="⛅">⛅ Sun Behind Cloud</MenuItem>
-                    <MenuItem value="⛈️">⛈️ Cloud with Lightning and Rain</MenuItem>
-                    <MenuItem value="🌤️">🌤️ Sun Behind Small Cloud</MenuItem>
-                    <MenuItem value="🌥️">🌥️ Sun Behind Large Cloud</MenuItem>
-                    <MenuItem value="🌦️">🌦️ Sun Behind Rain Cloud</MenuItem>
-                    <MenuItem value="🌧️">🌧️ Cloud with Rain</MenuItem>
-                    <MenuItem value="🌨️">🌨️ Cloud with Snow</MenuItem>
-                    <MenuItem value="🌩️">🌩️ Cloud with Lightning</MenuItem>
-                    <MenuItem value="🌪️">🌪️ Tornado</MenuItem>
-                    <MenuItem value="🌫️">🌫️ Fog</MenuItem>
-                    <MenuItem value="🌬️">🌬️ Wind Face</MenuItem>
-                    <MenuItem value="🌀">🌀 Cyclone</MenuItem>
-                    <MenuItem value="🌈">🌈 Rainbow</MenuItem>
-                    <MenuItem value="🌂">🌂 Closed Umbrella</MenuItem>
-                    <MenuItem value="☂️">☂️ Umbrella</MenuItem>
-                    <MenuItem value="☔">☔ Umbrella Rain</MenuItem>
-                    <MenuItem value="⛱️">⛱️ Umbrella Ground</MenuItem>
-                    <MenuItem value="⚡">⚡ Lightning</MenuItem>
-                    <MenuItem value="❄️">❄️ Snowflake</MenuItem>
-                    <MenuItem value="☃️">☃️ Snowman</MenuItem>
-                    <MenuItem value="⛄">⛄ Snowman</MenuItem>
-                    <MenuItem value="☄️">☄️ Comet</MenuItem>
-                    <MenuItem value="🔥">🔥 Fire</MenuItem>
-                    <MenuItem value="💧">💧 Droplet</MenuItem>
-                    <MenuItem value="🌊">🌊 Water Wave</MenuItem>
-                    <MenuItem value="🎄">🎄 Christmas Tree</MenuItem>
-                    <MenuItem value="✨">✨ Sparkles</MenuItem>
-                    <MenuItem value="🎋">🎋 Tanabata Tree</MenuItem>
-                    <MenuItem value="🎍">🎍 Pine Decoration</MenuItem>
-                    <MenuItem value="🍀">🍀 Four Leaf Clover</MenuItem>
-                    <MenuItem value="🍁">🍁 Maple Leaf</MenuItem>
-                    <MenuItem value="🍂">🍂 Fallen Leaf</MenuItem>
-                    <MenuItem value="🍃">🍃 Leaf Fluttering</MenuItem>
-                    <MenuItem value="🍇">🍇 Grapes</MenuItem>
-                    <MenuItem value="🍈">🍈 Melon</MenuItem>
-                    <MenuItem value="🍉">🍉 Watermelon</MenuItem>
-                    <MenuItem value="🍊">🍊 Tangerine</MenuItem>
-                    <MenuItem value="🍋">🍋 Lemon</MenuItem>
-                    <MenuItem value="🍌">🍌 Banana</MenuItem>
-                    <MenuItem value="🍍">🍍 Pineapple</MenuItem>
-                    <MenuItem value="🥭">🥭 Mango</MenuItem>
-                    <MenuItem value="🍎">🍎 Red Apple</MenuItem>
-                    <MenuItem value="🍏">🍏 Green Apple</MenuItem>
-                    <MenuItem value="🍐">🍐 Pear</MenuItem>
-                    <MenuItem value="🍑">🍑 Peach</MenuItem>
-                    <MenuItem value="🍒">🍒 Cherries</MenuItem>
-                    <MenuItem value="🍓">🍓 Strawberry</MenuItem>
-                    <MenuItem value="🥝">🥝 Kiwi</MenuItem>
-                    <MenuItem value="🍅">🍅 Tomato</MenuItem>
-                    <MenuItem value="🥥">🥥 Coconut</MenuItem>
-                    <MenuItem value="🥑">🥑 Avocado</MenuItem>
-                    <MenuItem value="🍆">🍆 Eggplant</MenuItem>
-                    <MenuItem value="🥔">🥔 Potato</MenuItem>
-                    <MenuItem value="🥕">🥕 Carrot</MenuItem>
-                    <MenuItem value="🌽">🌽 Ear of Corn</MenuItem>
-                    <MenuItem value="🌶️">🌶️ Hot Pepper</MenuItem>
-                    <MenuItem value="🥒">🥒 Cucumber</MenuItem>
-                  </Select>
-                </FormControl>
-                <FormControl sx={{ flex: 1 }}>
-                  <InputLabel>Color</InputLabel>
-                  <Select
-                    value={newListColor}
-                    onChange={(e) => setNewListColor(e.target.value)}
-                    label="Color"
-                  >
-                    <MenuItem value="#4285F4">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box sx={{ width: 20, height: 20, bgcolor: '#4285F4', borderRadius: '50%' }} />
-                        <Typography>Blue</Typography>
-                      </Box>
-                    </MenuItem>
-                    <MenuItem value="#EA4335">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box sx={{ width: 20, height: 20, bgcolor: '#EA4335', borderRadius: '50%' }} />
-                        <Typography>Red</Typography>
-                      </Box>
-                    </MenuItem>
-                    <MenuItem value="#FBBC04">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box sx={{ width: 20, height: 20, bgcolor: '#FBBC04', borderRadius: '50%' }} />
-                        <Typography>Yellow</Typography>
-                      </Box>
-                    </MenuItem>
-                    <MenuItem value="#34A853">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box sx={{ width: 20, height: 20, bgcolor: '#34A853', borderRadius: '50%' }} />
-                        <Typography>Green</Typography>
-                      </Box>
-                    </MenuItem>
-                    <MenuItem value="#FF6D00">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box sx={{ width: 20, height: 20, bgcolor: '#FF6D00', borderRadius: '50%' }} />
-                        <Typography>Orange</Typography>
-                      </Box>
-                    </MenuItem>
-                    <MenuItem value="#9C27B0">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box sx={{ width: 20, height: 20, bgcolor: '#9C27B0', borderRadius: '50%' }} />
-                        <Typography>Purple</Typography>
-                      </Box>
-                    </MenuItem>
-                    <MenuItem value="#E91E63">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box sx={{ width: 20, height: 20, bgcolor: '#E91E63', borderRadius: '50%' }} />
-                        <Typography>Pink</Typography>
-                      </Box>
-                    </MenuItem>
-                    <MenuItem value="#00BCD4">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box sx={{ width: 20, height: 20, bgcolor: '#00BCD4', borderRadius: '50%' }} />
-                        <Typography>Cyan</Typography>
-                      </Box>
-                    </MenuItem>
-                    <MenuItem value="#795548">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box sx={{ width: 20, height: 20, bgcolor: '#795548', borderRadius: '50%' }} />
-                        <Typography>Brown</Typography>
-                      </Box>
-                    </MenuItem>
-                    <MenuItem value="#607D8B">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box sx={{ width: 20, height: 20, bgcolor: '#607D8B', borderRadius: '50%' }} />
-                        <Typography>Blue Grey</Typography>
-                      </Box>
-                    </MenuItem>
-                  </Select>
-                </FormControl>
-              </Box>
+      {/* Edit List Dialog */}
+      <Dialog
+        open={editListDialogOpen}
+        onClose={() => {
+          setEditListDialogOpen(false);
+          setEditingList(null);
+          setNewListName('');
+          setNewListIcon('📌');
+          setNewListColor('#4285F4');
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Edit List</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <TextField
+              label="List Name"
+              value={newListName}
+              onChange={(e) => setNewListName(e.target.value)}
+              fullWidth
+              required
+              placeholder="e.g., Coffee Shops, Restaurants to Try"
+            />
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+              <FormControl sx={{ width: 200 }}>
+                <InputLabel>Icon</InputLabel>
+                <Select
+                  value={newListIcon}
+                  onChange={(e) => setNewListIcon(e.target.value)}
+                  label="Icon"
+                  renderValue={(value) => (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography sx={{ fontSize: '1.5rem' }}>{value}</Typography>
+                    </Box>
+                  )}
+                >
+                  <MenuItem value="📌">📌 Pin</MenuItem>
+                  <MenuItem value="⭐">⭐ Star</MenuItem>
+                  <MenuItem value="❤️">❤️ Heart</MenuItem>
+                  <MenuItem value="🔥">🔥 Fire</MenuItem>
+                  <MenuItem value="💡">💡 Light Bulb</MenuItem>
+                  <MenuItem value="🎯">🎯 Target</MenuItem>
+                  <MenuItem value="🌟">🌟 Star</MenuItem>
+                  <MenuItem value="✨">✨ Sparkles</MenuItem>
+                  <MenuItem value="🎨">🎨 Art</MenuItem>
+                  <MenuItem value="🎭">🎭 Theater</MenuItem>
+                  <MenuItem value="🎪">🎪 Circus</MenuItem>
+                  <MenuItem value="🎬">🎬 Movie</MenuItem>
+                  <MenuItem value="🎤">🎤 Microphone</MenuItem>
+                  <MenuItem value="🎧">🎧 Headphones</MenuItem>
+                  <MenuItem value="🎮">🎮 Game</MenuItem>
+                  <MenuItem value="🏀">🏀 Basketball</MenuItem>
+                  <MenuItem value="⚽">⚽ Soccer</MenuItem>
+                  <MenuItem value="🎾">🎾 Tennis</MenuItem>
+                  <MenuItem value="🏈">🏈 Football</MenuItem>
+                  <MenuItem value="🏊">🏊 Swimming</MenuItem>
+                  <MenuItem value="🏄">🏄 Surfing</MenuItem>
+                  <MenuItem value="🚴">🚴 Cycling</MenuItem>
+                  <MenuItem value="🏔️">🏔️ Mountain</MenuItem>
+                  <MenuItem value="⛰️">⛰️ Mountain</MenuItem>
+                  <MenuItem value="🌋">🌋 Volcano</MenuItem>
+                  <MenuItem value="🗻">🗻 Mountain</MenuItem>
+                  <MenuItem value="🏕️">🏕️ Camping</MenuItem>
+                  <MenuItem value="⛺">⛺ Tent</MenuItem>
+                  <MenuItem value="🌄">🌄 Sunrise</MenuItem>
+                  <MenuItem value="🌅">🌅 Sunset</MenuItem>
+                  <MenuItem value="🌆">🌆 Cityscape</MenuItem>
+                  <MenuItem value="🌇">🌇 City Sunset</MenuItem>
+                  <MenuItem value="🌉">🌉 Bridge</MenuItem>
+                  <MenuItem value="🎆">🎆 Fireworks</MenuItem>
+                  <MenuItem value="🎇">🎇 Sparkler</MenuItem>
+                  <MenuItem value="🌠">🌠 Shooting Star</MenuItem>
+                  <MenuItem value="🗼">🗼 Tower</MenuItem>
+                  <MenuItem value="🗽">🗽 Statue</MenuItem>
+                  <MenuItem value="⛲">⛲ Fountain</MenuItem>
+                  <MenuItem value="🎢">🎢 Roller Coaster</MenuItem>
+                  <MenuItem value="🎡">🎡 Ferris Wheel</MenuItem>
+                  <MenuItem value="🎠">🎠 Carousel</MenuItem>
+                  <MenuItem value="🏛️">🏛️ Museum</MenuItem>
+                  <MenuItem value="🏗️">🏗️ Construction</MenuItem>
+                  <MenuItem value="🏘️">🏘️ Houses</MenuItem>
+                  <MenuItem value="🏚️">🏚️ House</MenuItem>
+                  <MenuItem value="🏠">🏠 Home</MenuItem>
+                  <MenuItem value="🏡">🏡 Garden</MenuItem>
+                  <MenuItem value="🏢">🏢 Office</MenuItem>
+                  <MenuItem value="🏣">🏣 Post Office</MenuItem>
+                  <MenuItem value="🏤">🏤 Post Office</MenuItem>
+                  <MenuItem value="🏥">🏥 Hospital</MenuItem>
+                  <MenuItem value="🏦">🏦 Bank</MenuItem>
+                  <MenuItem value="🏨">🏨 Hotel</MenuItem>
+                  <MenuItem value="🏩">🏩 Love Hotel</MenuItem>
+                  <MenuItem value="🏪">🏪 Convenience Store</MenuItem>
+                  <MenuItem value="🏫">🏫 School</MenuItem>
+                  <MenuItem value="🏬">🏬 Department Store</MenuItem>
+                  <MenuItem value="🏭">🏭 Factory</MenuItem>
+                  <MenuItem value="🏯">🏯 Japanese Castle</MenuItem>
+                  <MenuItem value="🏰">🏰 Castle</MenuItem>
+                  <MenuItem value="💒">💒 Wedding</MenuItem>
+                  <MenuItem value="🗼">🗼 Tokyo Tower</MenuItem>
+                  <MenuItem value="🗽">🗽 Statue of Liberty</MenuItem>
+                  <MenuItem value="⛪">⛪ Church</MenuItem>
+                  <MenuItem value="🕌">🕌 Mosque</MenuItem>
+                  <MenuItem value="🕍">🕍 Synagogue</MenuItem>
+                  <MenuItem value="⛩️">⛩️ Shinto Shrine</MenuItem>
+                  <MenuItem value="🕋">🕋 Kaaba</MenuItem>
+                  <MenuItem value="⛲">⛲ Fountain</MenuItem>
+                  <MenuItem value="⛺">⛺ Tent</MenuItem>
+                  <MenuItem value="🌁">🌁 Foggy</MenuItem>
+                  <MenuItem value="🌃">🌃 Night with Stars</MenuItem>
+                  <MenuItem value="🏙️">🏙️ Cityscape</MenuItem>
+                  <MenuItem value="🌄">🌄 Sunrise Over Mountains</MenuItem>
+                  <MenuItem value="🌅">🌅 Sunrise</MenuItem>
+                  <MenuItem value="🌆">🌆 Cityscape at Dusk</MenuItem>
+                  <MenuItem value="🌇">🌇 Sunset Over Buildings</MenuItem>
+                  <MenuItem value="🌉">🌉 Bridge at Night</MenuItem>
+                  <MenuItem value="♨️">♨️ Hot Springs</MenuItem>
+                  <MenuItem value="🎠">🎠 Carousel Horse</MenuItem>
+                  <MenuItem value="🎡">🎡 Ferris Wheel</MenuItem>
+                  <MenuItem value="🎢">🎢 Roller Coaster</MenuItem>
+                  <MenuItem value="💈">💈 Barber Pole</MenuItem>
+                  <MenuItem value="🎪">🎪 Circus Tent</MenuItem>
+                  <MenuItem value="🚂">🚂 Locomotive</MenuItem>
+                  <MenuItem value="🚃">🚃 Railway Car</MenuItem>
+                  <MenuItem value="🚄">🚄 High-Speed Train</MenuItem>
+                  <MenuItem value="🚅">🚅 Bullet Train</MenuItem>
+                  <MenuItem value="🚆">🚆 Train</MenuItem>
+                  <MenuItem value="🚇">🚇 Metro</MenuItem>
+                  <MenuItem value="🚈">🚈 Light Rail</MenuItem>
+                  <MenuItem value="🚉">🚉 Station</MenuItem>
+                  <MenuItem value="🚊">🚊 Tram</MenuItem>
+                  <MenuItem value="🚝">🚝 Monorail</MenuItem>
+                  <MenuItem value="🚞">🚞 Mountain Railway</MenuItem>
+                  <MenuItem value="🚋">🚋 Tram Car</MenuItem>
+                  <MenuItem value="🚌">🚌 Bus</MenuItem>
+                  <MenuItem value="🚍">🚍 Oncoming Bus</MenuItem>
+                  <MenuItem value="🚎">🚎 Trolleybus</MenuItem>
+                  <MenuItem value="🚐">🚐 Minibus</MenuItem>
+                  <MenuItem value="🚑">🚑 Ambulance</MenuItem>
+                  <MenuItem value="🚒">🚒 Fire Engine</MenuItem>
+                  <MenuItem value="🚓">🚓 Police Car</MenuItem>
+                  <MenuItem value="🚔">🚔 Oncoming Police Car</MenuItem>
+                  <MenuItem value="🚕">🚕 Taxi</MenuItem>
+                  <MenuItem value="🚖">🚖 Oncoming Taxi</MenuItem>
+                  <MenuItem value="🚗">🚗 Automobile</MenuItem>
+                  <MenuItem value="🚘">🚘 Oncoming Automobile</MenuItem>
+                  <MenuItem value="🚙">🚙 Sport Utility Vehicle</MenuItem>
+                  <MenuItem value="🚚">🚚 Delivery Truck</MenuItem>
+                  <MenuItem value="🚛">🚛 Articulated Lorry</MenuItem>
+                  <MenuItem value="🚜">🚜 Tractor</MenuItem>
+                  <MenuItem value="🏎️">🏎️ Racing Car</MenuItem>
+                  <MenuItem value="🏍️">🏍️ Motorcycle</MenuItem>
+                  <MenuItem value="🛵">🛵 Motor Scooter</MenuItem>
+                  <MenuItem value="🦽">🦽 Manual Wheelchair</MenuItem>
+                  <MenuItem value="🦼">🦼 Motorized Wheelchair</MenuItem>
+                  <MenuItem value="🛺">🛺 Auto Rickshaw</MenuItem>
+                  <MenuItem value="🚲">🚲 Bicycle</MenuItem>
+                  <MenuItem value="🛴">🛴 Kick Scooter</MenuItem>
+                  <MenuItem value="🛹">🛹 Skateboard</MenuItem>
+                  <MenuItem value="🛼">🛼 Roller Skate</MenuItem>
+                  <MenuItem value="🚁">🚁 Helicopter</MenuItem>
+                  <MenuItem value="🚟">🚟 Suspension Railway</MenuItem>
+                  <MenuItem value="🚠">🚠 Mountain Cableway</MenuItem>
+                  <MenuItem value="🚡">🚡 Aerial Tramway</MenuItem>
+                  <MenuItem value="🛩️">🛩️ Small Airplane</MenuItem>
+                  <MenuItem value="✈️">✈️ Airplane</MenuItem>
+                  <MenuItem value="🛫">🛫 Airplane Departure</MenuItem>
+                  <MenuItem value="🛬">🛬 Airplane Arrival</MenuItem>
+                  <MenuItem value="🪂">🪂 Parachute</MenuItem>
+                  <MenuItem value="💺">💺 Seat</MenuItem>
+                  <MenuItem value="🚀">🚀 Rocket</MenuItem>
+                  <MenuItem value="🛸">🛸 Flying Saucer</MenuItem>
+                  <MenuItem value="🛎️">🛎️ Bellhop Bell</MenuItem>
+                  <MenuItem value="🧳">🧳 Luggage</MenuItem>
+                  <MenuItem value="⌛">⌛ Hourglass Done</MenuItem>
+                  <MenuItem value="⏳">⏳ Hourglass Not Done</MenuItem>
+                  <MenuItem value="⌚">⌚ Watch</MenuItem>
+                  <MenuItem value="⏰">⏰ Alarm Clock</MenuItem>
+                  <MenuItem value="⏱️">⏱️ Stopwatch</MenuItem>
+                  <MenuItem value="⏲️">⏲️ Timer Clock</MenuItem>
+                  <MenuItem value="🕛">🕛 Twelve O'Clock</MenuItem>
+                  <MenuItem value="🕧">🕧 Twelve-Thirty</MenuItem>
+                  <MenuItem value="🕐">🕐 One O'Clock</MenuItem>
+                  <MenuItem value="🕜">🕜 One-Thirty</MenuItem>
+                  <MenuItem value="🕑">🕑 Two O'Clock</MenuItem>
+                  <MenuItem value="🕝">🕝 Two-Thirty</MenuItem>
+                  <MenuItem value="🕒">🕒 Three O'Clock</MenuItem>
+                  <MenuItem value="🕞">🕞 Three-Thirty</MenuItem>
+                  <MenuItem value="🕓">🕓 Four O'Clock</MenuItem>
+                  <MenuItem value="🕟">🕟 Four-Thirty</MenuItem>
+                  <MenuItem value="🕔">🕔 Five O'Clock</MenuItem>
+                  <MenuItem value="🕠">🕠 Five-Thirty</MenuItem>
+                  <MenuItem value="🕕">🕕 Six O'Clock</MenuItem>
+                  <MenuItem value="🕡">🕡 Six-Thirty</MenuItem>
+                  <MenuItem value="🕖">🕖 Seven O'Clock</MenuItem>
+                  <MenuItem value="🕢">🕢 Seven-Thirty</MenuItem>
+                  <MenuItem value="🕗">🕗 Eight O'Clock</MenuItem>
+                  <MenuItem value="🕣">🕣 Eight-Thirty</MenuItem>
+                  <MenuItem value="🕘">🕘 Nine O'Clock</MenuItem>
+                  <MenuItem value="🕤">🕤 Nine-Thirty</MenuItem>
+                  <MenuItem value="🕙">🕙 Ten O'Clock</MenuItem>
+                  <MenuItem value="🕥">🕥 Ten-Thirty</MenuItem>
+                  <MenuItem value="🕚">🕚 Eleven O'Clock</MenuItem>
+                  <MenuItem value="🕦">🕦 Eleven-Thirty</MenuItem>
+                  <MenuItem value="🌑">🌑 New Moon</MenuItem>
+                  <MenuItem value="🌒">🌒 Waxing Crescent Moon</MenuItem>
+                  <MenuItem value="🌓">🌓 First Quarter Moon</MenuItem>
+                  <MenuItem value="🌔">🌔 Waxing Gibbous Moon</MenuItem>
+                  <MenuItem value="🌕">🌕 Full Moon</MenuItem>
+                  <MenuItem value="🌖">🌖 Waning Gibbous Moon</MenuItem>
+                  <MenuItem value="🌗">🌗 Last Quarter Moon</MenuItem>
+                  <MenuItem value="🌘">🌘 Waning Crescent Moon</MenuItem>
+                  <MenuItem value="🌙">🌙 Crescent Moon</MenuItem>
+                  <MenuItem value="🌚">🌚 New Moon Face</MenuItem>
+                  <MenuItem value="🌛">🌛 First Quarter Moon Face</MenuItem>
+                  <MenuItem value="🌜">🌜 Last Quarter Moon Face</MenuItem>
+                  <MenuItem value="🌡️">🌡️ Thermometer</MenuItem>
+                  <MenuItem value="☀️">☀️ Sun</MenuItem>
+                  <MenuItem value="🌝">🌝 Full Moon Face</MenuItem>
+                  <MenuItem value="🌞">🌞 Sun with Face</MenuItem>
+                  <MenuItem value="⭐">⭐ Star</MenuItem>
+                  <MenuItem value="🌟">🌟 Glowing Star</MenuItem>
+                  <MenuItem value="🌠">🌠 Shooting Star</MenuItem>
+                  <MenuItem value="☁️">☁️ Cloud</MenuItem>
+                  <MenuItem value="⛅">⛅ Sun Behind Cloud</MenuItem>
+                  <MenuItem value="⛈️">⛈️ Cloud with Lightning and Rain</MenuItem>
+                  <MenuItem value="🌤️">🌤️ Sun Behind Small Cloud</MenuItem>
+                  <MenuItem value="🌥️">🌥️ Sun Behind Large Cloud</MenuItem>
+                  <MenuItem value="🌦️">🌦️ Sun Behind Rain Cloud</MenuItem>
+                  <MenuItem value="🌧️">🌧️ Cloud with Rain</MenuItem>
+                  <MenuItem value="🌨️">🌨️ Cloud with Snow</MenuItem>
+                  <MenuItem value="🌩️">🌩️ Cloud with Lightning</MenuItem>
+                  <MenuItem value="🌪️">🌪️ Tornado</MenuItem>
+                  <MenuItem value="🌫️">🌫️ Fog</MenuItem>
+                  <MenuItem value="🌬️">🌬️ Wind Face</MenuItem>
+                  <MenuItem value="🌀">🌀 Cyclone</MenuItem>
+                  <MenuItem value="🌈">🌈 Rainbow</MenuItem>
+                  <MenuItem value="🌂">🌂 Closed Umbrella</MenuItem>
+                  <MenuItem value="☂️">☂️ Umbrella</MenuItem>
+                  <MenuItem value="☔">☔ Umbrella Rain</MenuItem>
+                  <MenuItem value="⛱️">⛱️ Umbrella Ground</MenuItem>
+                  <MenuItem value="⚡">⚡ Lightning</MenuItem>
+                  <MenuItem value="❄️">❄️ Snowflake</MenuItem>
+                  <MenuItem value="☃️">☃️ Snowman</MenuItem>
+                  <MenuItem value="⛄">⛄ Snowman</MenuItem>
+                  <MenuItem value="☄️">☄️ Comet</MenuItem>
+                  <MenuItem value="🔥">🔥 Fire</MenuItem>
+                  <MenuItem value="💧">💧 Droplet</MenuItem>
+                  <MenuItem value="🌊">🌊 Water Wave</MenuItem>
+                  <MenuItem value="🎄">🎄 Christmas Tree</MenuItem>
+                  <MenuItem value="✨">✨ Sparkles</MenuItem>
+                  <MenuItem value="🎋">🎋 Tanabata Tree</MenuItem>
+                  <MenuItem value="🎍">🎍 Pine Decoration</MenuItem>
+                  <MenuItem value="🍀">🍀 Four Leaf Clover</MenuItem>
+                  <MenuItem value="🍁">🍁 Maple Leaf</MenuItem>
+                  <MenuItem value="🍂">🍂 Fallen Leaf</MenuItem>
+                  <MenuItem value="🍃">🍃 Leaf Fluttering</MenuItem>
+                  <MenuItem value="🍇">🍇 Grapes</MenuItem>
+                  <MenuItem value="🍈">🍈 Melon</MenuItem>
+                  <MenuItem value="🍉">🍉 Watermelon</MenuItem>
+                  <MenuItem value="🍊">🍊 Tangerine</MenuItem>
+                  <MenuItem value="🍋">🍋 Lemon</MenuItem>
+                  <MenuItem value="🍌">🍌 Banana</MenuItem>
+                  <MenuItem value="🍍">🍍 Pineapple</MenuItem>
+                  <MenuItem value="🥭">🥭 Mango</MenuItem>
+                  <MenuItem value="🍎">🍎 Red Apple</MenuItem>
+                  <MenuItem value="🍏">🍏 Green Apple</MenuItem>
+                  <MenuItem value="🍐">🍐 Pear</MenuItem>
+                  <MenuItem value="🍑">🍑 Peach</MenuItem>
+                  <MenuItem value="🍒">🍒 Cherries</MenuItem>
+                  <MenuItem value="🍓">🍓 Strawberry</MenuItem>
+                  <MenuItem value="🥝">🥝 Kiwi</MenuItem>
+                  <MenuItem value="🍅">🍅 Tomato</MenuItem>
+                  <MenuItem value="🥥">🥥 Coconut</MenuItem>
+                  <MenuItem value="🥑">🥑 Avocado</MenuItem>
+                  <MenuItem value="🍆">🍆 Eggplant</MenuItem>
+                  <MenuItem value="🥔">🥔 Potato</MenuItem>
+                  <MenuItem value="🥕">🥕 Carrot</MenuItem>
+                  <MenuItem value="🌽">🌽 Ear of Corn</MenuItem>
+                  <MenuItem value="🌶️">🌶️ Hot Pepper</MenuItem>
+                  <MenuItem value="🥒">🥒 Cucumber</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl sx={{ flex: 1 }}>
+                <InputLabel>Color</InputLabel>
+                <Select
+                  value={newListColor}
+                  onChange={(e) => setNewListColor(e.target.value)}
+                  label="Color"
+                >
+                  <MenuItem value="#4285F4">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{ width: 20, height: 20, bgcolor: '#4285F4', borderRadius: '50%' }}
+                      />
+                      <Typography>Blue</Typography>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="#EA4335">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{ width: 20, height: 20, bgcolor: '#EA4335', borderRadius: '50%' }}
+                      />
+                      <Typography>Red</Typography>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="#FBBC04">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{ width: 20, height: 20, bgcolor: '#FBBC04', borderRadius: '50%' }}
+                      />
+                      <Typography>Yellow</Typography>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="#34A853">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{ width: 20, height: 20, bgcolor: '#34A853', borderRadius: '50%' }}
+                      />
+                      <Typography>Green</Typography>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="#FF6D00">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{ width: 20, height: 20, bgcolor: '#FF6D00', borderRadius: '50%' }}
+                      />
+                      <Typography>Orange</Typography>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="#9C27B0">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{ width: 20, height: 20, bgcolor: '#9C27B0', borderRadius: '50%' }}
+                      />
+                      <Typography>Purple</Typography>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="#E91E63">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{ width: 20, height: 20, bgcolor: '#E91E63', borderRadius: '50%' }}
+                      />
+                      <Typography>Pink</Typography>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="#00BCD4">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{ width: 20, height: 20, bgcolor: '#00BCD4', borderRadius: '50%' }}
+                      />
+                      <Typography>Cyan</Typography>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="#795548">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{ width: 20, height: 20, bgcolor: '#795548', borderRadius: '50%' }}
+                      />
+                      <Typography>Brown</Typography>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="#607D8B">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{ width: 20, height: 20, bgcolor: '#607D8B', borderRadius: '50%' }}
+                      />
+                      <Typography>Blue Grey</Typography>
+                    </Box>
+                  </MenuItem>
+                </Select>
+              </FormControl>
             </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => {
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
               setEditListDialogOpen(false);
               setEditingList(null);
               setNewListName('');
               setNewListIcon('📌');
               setNewListColor('#4285F4');
-            }}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateList} variant="contained" disabled={!newListName.trim()}>
-              Update List
-            </Button>
-          </DialogActions>
-        </Dialog>
+            }}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleUpdateList} variant="contained" disabled={!newListName.trim()}>
+            Update List
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-        {/* Save to List Dialog */}
-        <Dialog
-          open={saveToListDialogOpen}
-          onClose={() => {
-            setSaveToListDialogOpen(false);
-            setPlaceToSave(null);
-          }}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle>
-            Save to List
-            {placeToSave && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontWeight: 'normal' }}>
-                {placeToSave.name}
+      {/* Save to List Dialog */}
+      <Dialog
+        open={saveToListDialogOpen}
+        onClose={() => {
+          setSaveToListDialogOpen(false);
+          setPlaceToSave(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Save to List
+          {placeToSave && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ mt: 0.5, fontWeight: 'normal' }}
+            >
+              {placeToSave.name}
+            </Typography>
+          )}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+            {savedLists.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                No lists available. Create a list to save this place.
               </Typography>
+            ) : (
+              savedLists.map((list) => (
+                <Button
+                  key={list.id}
+                  variant="outlined"
+                  fullWidth
+                  startIcon={<Typography sx={{ fontSize: '1.5rem' }}>{list.icon}</Typography>}
+                  onClick={() => handleAddToSavedList(list.id)}
+                  sx={{
+                    justifyContent: 'flex-start',
+                    textTransform: 'none',
+                  }}
+                >
+                  {list.name}
+                </Button>
+              ))
             )}
-          </DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
-              {savedLists.length === 0 ? (
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  No lists available. Create a list to save this place.
-                </Typography>
-              ) : (
-                savedLists.map((list) => (
-                  <Button
-                    key={list.id}
-                    variant="outlined"
-                    fullWidth
-                    startIcon={<Typography sx={{ fontSize: '1.5rem' }}>{list.icon}</Typography>}
-                    onClick={() => handleAddToSavedList(list.id)}
-                    sx={{
-                      justifyContent: 'flex-start',
-                      textTransform: 'none',
-                    }}
-                  >
-                    {list.name}
-                  </Button>
-                ))
-              )}
-              
-              <Divider sx={{ my: 1 }} />
-              
-              <Button
-                variant="contained"
-                fullWidth
-                startIcon={<AddIcon />}
-                onClick={() => {
-                  setSaveToListDialogOpen(false);
-                  setCreateListDialogOpen(true);
-                }}
-                sx={{
-                  textTransform: 'none',
-                }}
-              >
-                Create New List
-              </Button>
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => {
+
+            <Divider sx={{ my: 1 }} />
+
+            <Button
+              variant="contained"
+              fullWidth
+              startIcon={<AddIcon />}
+              onClick={() => {
+                setSaveToListDialogOpen(false);
+                setCreateListDialogOpen(true);
+              }}
+              sx={{
+                textTransform: 'none',
+              }}
+            >
+              Create New List
+            </Button>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
               setSaveToListDialogOpen(false);
               setPlaceToSave(null);
-            }}>
-              Cancel
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Book Now Snackbar */}
-        <Snackbar
-          open={bookNowSnackbarOpen}
-          autoHideDuration={3000}
-          onClose={handleBookNowSnackbarClose}
-          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        >
-          <Alert
-            onClose={handleBookNowSnackbarClose}
-            severity="info"
-            variant="filled"
-            sx={{ width: '100%' }}
+            }}
           >
-            Coming Soon! Booking feature will be available soon.
-          </Alert>
-        </Snackbar>
-      </DragDropContext>
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Book Now Snackbar */}
+      <Snackbar
+        open={bookNowSnackbarOpen}
+        autoHideDuration={3000}
+        onClose={handleBookNowSnackbarClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleBookNowSnackbarClose}
+          severity="info"
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          Coming Soon! Booking feature will be available soon.
+        </Alert>
+      </Snackbar>
     </ThemeProvider>
   );
 }

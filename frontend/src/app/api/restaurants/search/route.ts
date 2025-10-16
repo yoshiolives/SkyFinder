@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 export const dynamic = 'force-dynamic';
@@ -34,19 +34,14 @@ export async function GET(request: NextRequest) {
 
     // Validate required parameters
     if (!params.location && (!params.latitude || !params.longitude)) {
-      return NextResponse.json(
-        { error: 'Location or coordinates required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Location or coordinates required' }, { status: 400 });
     }
 
     // Get user authentication
     const supabase = createServerSupabaseClient();
 
     // Build query
-    let query = supabase
-      .from('restaurants')
-      .select('*');
+    let query = supabase.from('restaurants').select('*');
 
     // Apply filters
     if (params.cuisine) {
@@ -54,11 +49,11 @@ export async function GET(request: NextRequest) {
     }
 
     if (params.minPrice) {
-      query = query.gte('price_level', parseInt(params.minPrice));
+      query = query.gte('price_level', parseInt(params.minPrice, 10));
     }
 
     if (params.maxPrice) {
-      query = query.lte('price_level', parseInt(params.maxPrice));
+      query = query.lte('price_level', parseInt(params.maxPrice, 10));
     }
 
     if (params.minRating) {
@@ -73,15 +68,18 @@ export async function GET(request: NextRequest) {
     if (params.latitude && params.longitude) {
       const lat = parseFloat(params.latitude);
       const lng = parseFloat(params.longitude);
-      const radius = parseInt(params.radius || '5000'); // in meters
+      const radius = parseInt(params.radius || '5000', 10); // in meters
 
       // Use PostGIS for spatial search
       // Note: This requires the PostGIS extension and function in Supabase
-      const { data: nearbyData, error: nearbyError } = await supabase.rpc('search_nearby_restaurants', {
-        lat,
-        lng,
-        radius_meters: radius,
-      });
+      const { data: nearbyData, error: nearbyError } = await supabase.rpc(
+        'search_nearby_restaurants',
+        {
+          lat,
+          lng,
+          radius_meters: radius,
+        }
+      );
 
       if (!nearbyError && nearbyData) {
         // If we have nearby data, return it directly
@@ -103,10 +101,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Database error:', error);
-      return NextResponse.json(
-        { error: 'Failed to search restaurants' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to search restaurants' }, { status: 500 });
     }
 
     // If no results in database, return empty array
@@ -117,10 +112,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Search error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-

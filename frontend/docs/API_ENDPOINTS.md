@@ -1,310 +1,221 @@
-# SkyFinder API Endpoints
+# API Endpoints
 
-Complete API reference for the SkyFinder restaurant finder application.
+Hey! Here are all the API endpoints I built for SkyFinder. I'm still learning about REST APIs, so these might not be perfect, but they work!
 
-## Base URL
+## Authentication Endpoints
 
+### POST /api/auth/login
+Login a user with email and password.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
 ```
-http://localhost:3000/api
+
+**Response:**
+```json
+{
+  "user": { /* user object */ },
+  "session": { /* session object */ },
+  "message": "Logged in successfully"
+}
+```
+
+### POST /api/auth/signup
+Create a new user account.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+```
+
+### POST /api/auth/logout
+Log out the current user.
+
+### GET /api/auth/session
+Get the current user's session info.
+
+## Restaurant Endpoints
+
+### GET /api/restaurants/search
+Search for restaurants with filters.
+
+**Query Parameters:**
+- `location` - City or address to search in
+- `latitude` - Latitude for location-based search
+- `longitude` - Longitude for location-based search
+- `radius` - Search radius in meters (default: 5000)
+- `cuisine` - Filter by cuisine type
+- `minRating` - Minimum rating (1-5)
+- `maxPrice` - Maximum price level (1-4)
+- `openNow` - Only show restaurants open now (true/false)
+
+**Example:**
+```
+GET /api/restaurants/search?location=Vancouver&cuisine=italian&minRating=4
+```
+
+### POST /api/restaurants/fetch
+Fetch restaurants from Google Places API and save to database.
+
+**Request Body:**
+```json
+{
+  "location": "Vancouver, BC",
+  "radius": 5000,
+  "type": "restaurant"
+}
+```
+
+### GET /api/restaurants/favorites
+Get user's favorite restaurants (requires authentication).
+
+## Lists Endpoints
+
+### GET /api/lists
+Get all lists for the current user.
+
+### POST /api/lists
+Create a new list.
+
+**Request Body:**
+```json
+{
+  "name": "My Favorite Places",
+  "description": "Restaurants I want to try"
+}
+```
+
+### GET /api/lists/[id]
+Get a specific list by ID.
+
+### PUT /api/lists/[id]
+Update a list.
+
+### DELETE /api/lists/[id]
+Delete a list.
+
+### GET /api/lists/[id]/items
+Get all restaurants in a specific list.
+
+### POST /api/lists/[id]/items
+Add a restaurant to a list.
+
+**Request Body:**
+```json
+{
+  "restaurant_id": 123
+}
+```
+
+### DELETE /api/lists/[id]/items/[itemId]
+Remove a restaurant from a list.
+
+## Transit Endpoints
+
+### GET /api/transit
+Get all available GeoJSON files for transit data.
+
+**Response:**
+```json
+{
+  "files": [
+    "skytrain-stations.geojson",
+    "rail-lines.geojson",
+    "rail-lines-expo-millennium.geojson"
+  ]
+}
+```
+
+## How I Built These
+
+I used Next.js API routes, which are basically serverless functions. Each file in the `src/app/api/` folder becomes an endpoint.
+
+**Example structure:**
+```
+src/app/api/
+├── auth/
+│   ├── login/route.ts    → /api/auth/login
+│   └── signup/route.ts   → /api/auth/signup
+├── restaurants/
+│   ├── search/route.ts   → /api/restaurants/search
+│   └── fetch/route.ts    → /api/restaurants/fetch
 ```
 
 ## Authentication
 
-Most endpoints require authentication. Include the user's session in cookies or pass the access token in the Authorization header:
+Most endpoints require authentication. I use Supabase's built-in auth system:
 
+1. User logs in and gets a session token
+2. Frontend sends the token in the `Authorization` header
+3. Backend validates the token with Supabase
+4. If valid, the request proceeds
+
+**Example frontend request:**
+```javascript
+const response = await fetch('/api/lists', {
+  headers: {
+    'Authorization': `Bearer ${session.access_token}`
+  }
+});
 ```
-Authorization: Bearer <access_token>
-```
 
----
+## Error Handling
 
-## Restaurant Endpoints
+I tried to make the error responses consistent:
 
-### Fetch Restaurants from Google Places
-
-Fetch restaurants from Google Places API and save them to the database.
-
-**Endpoint:** `POST /api/restaurants/fetch`
-
-**Request Body:**
+**Success (200):**
 ```json
 {
-  "location": "San Francisco, CA",  // Optional: location name
-  "latitude": 37.7749,              // Optional: latitude
-  "longitude": -122.4194,           // Optional: longitude
-  "radius": 5000,                   // Optional: search radius in meters (default: 5000)
-  "keyword": "Italian"              // Optional: keyword to filter results
+  "data": { /* actual data */ }
 }
 ```
 
-**Response:**
+**Error (400/500):**
 ```json
 {
-  "restaurants": [
-    {
-      "id": "uuid",
-      "place_id": "ChIJN1t_tDeuEmsRUsoyG83frY4",
-      "name": "Restaurant Name",
-      "address": "123 Main St, City, State",
-      "latitude": 37.7749,
-      "longitude": -122.4194,
-      "phone": "+1234567890",
-      "website": "https://example.com",
-      "price_level": 2,
-      "rating": 4.5,
-      "user_ratings_total": 1234,
-      "cuisine_types": ["Italian", "Pizza"],
-      "opening_hours": { "open_now": true },
-      "is_open_now": true,
-      "photos": ["photo_reference_1", "photo_reference_2"],
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z"
-    }
-  ],
-  "count": 1,
-  "fetched": 20
+  "error": "Something went wrong"
 }
 ```
 
-**Status Codes:**
-- `200` - Success
-- `400` - Invalid request (location or coordinates required)
-- `404` - Location not found
-- `500` - Server error
+## Things I Learned
+
+- How to use Next.js API routes (they're pretty cool!)
+- Supabase authentication and RLS policies
+- Google Places API integration
+- Error handling in APIs
+- TypeScript for API responses
+
+## Things I Want to Improve
+
+- Better error messages (more specific)
+- Input validation (I'm not great at this yet)
+- Rate limiting (to prevent abuse)
+- API documentation (maybe with Swagger?)
+- Caching (to make it faster)
+
+## Testing the APIs
+
+I use Postman or the browser's developer tools to test these. You can also use curl:
+
+```bash
+# Test login
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"password123"}'
+
+# Test restaurant search
+curl "http://localhost:3000/api/restaurants/search?location=Vancouver"
+```
+
+Let me know if you find any bugs or have suggestions for improvement!
 
 ---
 
-### Search Restaurants
-
-Search restaurants in the database with filters.
-
-**Endpoint:** `GET /api/restaurants/search`
-
-**Query Parameters:**
-- `location` (optional) - Location name
-- `latitude` (optional) - Latitude coordinate
-- `longitude` (optional) - Longitude coordinate
-- `cuisine` (optional) - Filter by cuisine type
-- `minPrice` (optional) - Minimum price level (1-4)
-- `maxPrice` (optional) - Maximum price level (1-4)
-- `minRating` (optional) - Minimum rating (0.0-5.0)
-- `openNow` (optional) - Filter open restaurants (true/false)
-- `radius` (optional) - Search radius in meters (default: 5000)
-
-**Example:**
-```
-GET /api/restaurants/search?latitude=37.7749&longitude=-122.4194&cuisine=Italian&minRating=4.0&openNow=true
-```
-
-**Response:**
-```json
-{
-  "restaurants": [
-    {
-      "id": "uuid",
-      "place_id": "ChIJN1t_tDeuEmsRUsoyG83frY4",
-      "name": "Restaurant Name",
-      "address": "123 Main St, City, State",
-      "latitude": 37.7749,
-      "longitude": -122.4194,
-      "phone": "+1234567890",
-      "website": "https://example.com",
-      "price_level": 2,
-      "rating": 4.5,
-      "user_ratings_total": 1234,
-      "cuisine_types": ["Italian", "Pizza"],
-      "opening_hours": { "open_now": true },
-      "is_open_now": true,
-      "photos": ["photo_reference_1"],
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z"
-    }
-  ],
-  "count": 1
-}
-```
-
-**Status Codes:**
-- `200` - Success
-- `400` - Invalid request (location or coordinates required)
-- `500` - Server error
-
----
-
-## User Favorites Endpoints
-
-### Get User's Favorites
-
-Get all restaurants the user has favorited.
-
-**Endpoint:** `GET /api/restaurants/favorites`
-
-**Headers:**
-```
-Authorization: Bearer <access_token>
-```
-
-**Response:**
-```json
-{
-  "favorites": [
-    {
-      "id": "uuid",
-      "restaurant_id": "uuid",
-      "created_at": "2024-01-01T00:00:00Z",
-      "restaurants": {
-        "id": "uuid",
-        "place_id": "ChIJN1t_tDeuEmsRUsoyG83frY4",
-        "name": "Restaurant Name",
-        "address": "123 Main St",
-        "rating": 4.5,
-        "price_level": 2,
-        "cuisine_types": ["Italian"],
-        "photos": ["photo_ref"]
-      }
-    }
-  ],
-  "count": 1
-}
-```
-
-**Status Codes:**
-- `200` - Success
-- `401` - Unauthorized
-- `500` - Server error
-
----
-
-### Add Restaurant to Favorites
-
-Add a restaurant to the user's favorites.
-
-**Endpoint:** `POST /api/restaurants/favorites`
-
-**Headers:**
-```
-Authorization: Bearer <access_token>
-```
-
-**Request Body:**
-```json
-{
-  "restaurant_id": "uuid"
-}
-```
-
-**Response:**
-```json
-{
-  "favorite": {
-    "id": "uuid",
-    "restaurant_id": "uuid",
-    "created_at": "2024-01-01T00:00:00Z",
-    "restaurants": {
-      "id": "uuid",
-      "name": "Restaurant Name",
-      "rating": 4.5
-    }
-  },
-  "message": "Restaurant added to favorites"
-}
-```
-
-**Status Codes:**
-- `201` - Created
-- `400` - Invalid request (restaurant_id required)
-- `401` - Unauthorized
-- `404` - Restaurant not found
-- `409` - Restaurant already in favorites
-- `500` - Server error
-
----
-
-### Remove Restaurant from Favorites
-
-Remove a restaurant from the user's favorites.
-
-**Endpoint:** `DELETE /api/restaurants/favorites?restaurant_id=<uuid>`
-
-**Headers:**
-```
-Authorization: Bearer <access_token>
-```
-
-**Query Parameters:**
-- `restaurant_id` (required) - UUID of the restaurant
-
-**Example:**
-```
-DELETE /api/restaurants/favorites?restaurant_id=123e4567-e89b-12d3-a456-426614174000
-```
-
-**Response:**
-```json
-{
-  "message": "Restaurant removed from favorites"
-}
-```
-
-**Status Codes:**
-- `200` - Success
-- `400` - Invalid request (restaurant_id required)
-- `401` - Unauthorized
-- `500` - Server error
-
----
-
-## Authentication Endpoints
-
-### Login
-
-**Endpoint:** `POST /api/auth/login`
-
-### Signup
-
-**Endpoint:** `POST /api/auth/signup`
-
-### Logout
-
-**Endpoint:** `POST /api/auth/logout`
-
-### Get Session
-
-**Endpoint:** `GET /api/auth/session`
-
----
-
-## Error Responses
-
-All endpoints may return these error responses:
-
-```json
-{
-  "error": "Error message describing what went wrong"
-}
-```
-
-**Common Status Codes:**
-- `400` - Bad Request (invalid parameters)
-- `401` - Unauthorized (authentication required)
-- `404` - Not Found (resource doesn't exist)
-- `409` - Conflict (duplicate resource)
-- `500` - Internal Server Error
-
----
-
-## Rate Limiting
-
-Currently, there are no rate limits enforced. Consider implementing rate limiting for production use.
-
-## CORS
-
-CORS is enabled for all origins in development. For production, configure CORS to allow only your frontend domain.
-
-## Notes
-
-- All timestamps are in ISO 8601 format (UTC)
-- Price levels: 1 = $, 2 = $$, 3 = $$$, 4 = $$$$
-- Ratings are on a scale of 0.0 to 5.0
-- Photo references need to be used with Google Places Photo API to get actual image URLs
-
+*Written by a CS student who's still figuring out how APIs work*

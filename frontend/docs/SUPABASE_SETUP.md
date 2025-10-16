@@ -1,207 +1,196 @@
-# Supabase Authentication Setup Guide
+# Setting Up Supabase for SkyFinder
 
-This guide will help you set up Supabase authentication for the Travel Itinerary Planner.
+Hey! This is how I set up Supabase for my app. Supabase is basically a backend-as-a-service that gives you a PostgreSQL database plus authentication, which is perfect for beginners like me!
 
-## Prerequisites
+## Why I Chose Supabase
 
-1. A Supabase account (sign up at [https://supabase.com](https://supabase.com))
-2. Node.js and pnpm installed
+- **Beginner-friendly**: Nice dashboard, good documentation
+- **Free tier**: Perfect for learning and small projects
+- **Built-in auth**: Don't have to build user login from scratch
+- **Real-time**: Can get live updates (though I'm not using this yet)
+- **PostgreSQL**: Industry standard database
+- **Row Level Security**: Keeps user data safe automatically
 
-## Setup Steps
+## Step 1: Create Supabase Account
 
-### 1. Create a Supabase Project
+1. Go to [supabase.com](https://supabase.com)
+2. Click "Start your project"
+3. Sign up with GitHub (easier for developers)
+4. Create a new organization if you don't have one
 
-1. Go to [https://app.supabase.com](https://app.supabase.com)
-2. Click "New Project"
-3. Fill in your project details:
-   - Name: `travel-itinerary` (or your preferred name)
-   - Database Password: Choose a strong password
-   - Region: Select the closest region to your users
-4. Click "Create new project"
+## Step 2: Create Your First Project
 
-### 2. Get Your Supabase Credentials
+1. Click "New Project"
+2. Choose your organization
+3. Name it something like "skyfinder-app"
+4. Set a strong database password (you'll need this later!)
+5. Choose a region close to you (I picked US West)
+6. Click "Create new project"
 
-1. Once your project is created, go to **Settings** > **API**
-2. You'll find two important values:
-   - **Project URL** (e.g., `https://xxxxx.supabase.co`)
-   - **Anon/Public Key** (a long string starting with `eyJ...`)
+Wait a few minutes for it to set up (it takes a bit longer the first time).
 
-### 3. Configure Environment Variables
+## Step 3: Get Your Project Credentials
 
-1. In the `frontend` directory, create a `.env.local` file
-2. Add your Supabase credentials:
+Once it's ready:
+1. Go to Settings → API
+2. You'll see two important keys:
+   - **Project URL**: `https://xxxxx.supabase.co`
+   - **anon public key**: Long string starting with `eyJ...`
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_API_KEY=your_supabase_anon_key_here
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+**Important**: Use the "anon public" key, NOT the "service_role" key (that one has admin access and should stay secret).
+
+## Step 4: Set Up Authentication
+
+1. Go to Authentication → Settings
+2. Turn on "Enable email confirmations" if you want users to verify emails
+3. Add your site URL: `http://localhost:3000` (for development)
+4. Add redirect URL: `http://localhost:3000/auth/callback`
+
+## Step 5: Create Database Tables
+
+Go to the SQL Editor and run these commands:
+
+### Restaurants Table
+```sql
+CREATE TABLE restaurants (
+  id SERIAL PRIMARY KEY,
+  place_id VARCHAR(255) UNIQUE NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  address TEXT,
+  latitude DECIMAL(10, 8),
+  longitude DECIMAL(11, 8),
+  phone VARCHAR(50),
+  website TEXT,
+  price_level INTEGER,
+  rating DECIMAL(2, 1),
+  user_ratings_total INTEGER DEFAULT 0,
+  cuisine_types TEXT[],
+  opening_hours JSONB,
+  is_open_now BOOLEAN DEFAULT FALSE,
+  photos TEXT[],
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 ```
 
-Replace the values with your actual credentials.
+### User Lists Table
+```sql
+CREATE TABLE user_lists (
+  id SERIAL PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
 
-### 4. Configure Supabase Authentication
+### List Items Table
+```sql
+CREATE TABLE list_items (
+  id SERIAL PRIMARY KEY,
+  list_id INTEGER REFERENCES user_lists(id) ON DELETE CASCADE,
+  restaurant_id INTEGER REFERENCES restaurants(id) ON DELETE CASCADE,
+  added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(list_id, restaurant_id)
+);
+```
 
-1. In your Supabase dashboard, go to **Authentication** > **Providers**
-2. Enable **Email** authentication
-3. (Optional) Configure other providers like Google, GitHub, etc.
+## Step 6: Set Up Row Level Security (RLS)
 
-### 4.1. Enable Email Confirmation (Recommended)
+This is the cool part - it automatically keeps users' data private:
 
-To require users to verify their email before logging in:
+```sql
+-- Enable RLS on tables
+ALTER TABLE user_lists ENABLE ROW LEVEL SECURITY;
+ALTER TABLE list_items ENABLE ROW LEVEL SECURITY;
 
-1. Go to **Authentication** > **Settings** in your Supabase dashboard
-2. Scroll to **Email Auth**
-3. Enable **Confirm email** (should be enabled by default)
-4. Optionally, enable **Secure email change** and other security features
+-- Users can only see their own lists
+CREATE POLICY "Users can view own lists" ON user_lists
+  FOR SELECT USING (auth.uid() = user_id);
 
-This ensures users must verify their email address before they can log in.
+CREATE POLICY "Users can create own lists" ON user_lists
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
 
-### 5. Email Configuration (Optional but Recommended)
+CREATE POLICY "Users can update own lists" ON user_lists
+  FOR UPDATE USING (auth.uid() = user_id);
 
-For production use, configure custom SMTP settings:
+CREATE POLICY "Users can delete own lists" ON user_lists
+  FOR DELETE USING (auth.uid() = user_id);
 
-1. Go to **Settings** > **Auth** in your Supabase dashboard
-2. Scroll to **SMTP Settings**
-3. Configure your email provider (e.g., SendGrid, AWS SES, etc.)
+-- List items policies (a bit more complex)
+CREATE POLICY "Users can view own list items" ON list_items
+  FOR SELECT USING (
+    list_id IN (
+      SELECT id FROM user_lists WHERE user_id = auth.uid()
+    )
+  );
 
-For development, Supabase provides a default email service, but emails might be slower.
+CREATE POLICY "Users can add to own lists" ON list_items
+  FOR INSERT WITH CHECK (
+    list_id IN (
+      SELECT id FROM user_lists WHERE user_id = auth.uid()
+    )
+  );
 
-### 6. Site URL Configuration
+CREATE POLICY "Users can remove from own lists" ON list_items
+  FOR DELETE USING (
+    list_id IN (
+      SELECT id FROM user_lists WHERE user_id = auth.uid()
+    )
+  );
+```
 
-1. Go to **Authentication** > **URL Configuration**
-2. Add your site URL:
-   - Development: `http://localhost:3000`
-   - Production: Your actual domain
+## Step 7: Test Your Setup
 
-## Features Implemented
+1. Go to Authentication → Users
+2. Click "Add user" and create a test user
+3. Go to Table Editor and try adding a list for that user
+4. Make sure you can only see data for the logged-in user
 
-### 1. Authentication API Routes
+## Common Issues I Ran Into
 
-All authentication goes through Next.js API routes:
+**"Invalid API key" error**: Make sure you're using the anon key, not the service role key
 
-- `POST /api/auth/signup` - Create a new user account (requires email verification)
-- `POST /api/auth/login` - Sign in with email and password (requires verified email)
-- `POST /api/auth/logout` - Sign out the current user
-- `GET /api/auth/session` - Get the current session
-- `GET /auth/callback` - Handle email verification callback from Supabase
+**"RLS policy" errors**: The policies need to be created in the right order (user_lists first, then list_items)
 
-### 2. Login Modal Component
+**"Table doesn't exist"**: Make sure you ran all the CREATE TABLE commands
 
-The `LoginModal` component provides:
-- Toggle between Login and Sign Up forms
-- Email and password fields with validation
-- Password visibility toggle
-- Error and success message handling
-- Responsive design with Material-UI
+**CORS errors**: Make sure you added the right URLs in Authentication settings
 
-### 3. Protected Features
+## Supabase Dashboard Features I Use
 
-The app now includes:
-- User authentication state management
-- Login/logout functionality in the header
-- User email display when logged in
-- Session persistence across page refreshes
-- **Email verification requirement** - Users must verify their email before logging in
-- Automatic redirect handling after email verification
+- **Table Editor**: View and edit data directly (great for testing)
+- **SQL Editor**: Run custom queries
+- **Authentication**: Manage users and settings
+- **API Docs**: Auto-generated docs for your database
+- **Logs**: See what's happening with your app
 
-## Testing the Authentication
+## Pricing
 
-### Email Verification Flow
+- **Free tier**: 500MB database, 50MB file storage, 2GB bandwidth
+- **Pro tier**: $25/month for more storage and features
 
-1. Start the development server:
-   ```bash
-   pnpm dev
-   ```
+For learning and small projects, the free tier is plenty!
 
-2. Open your browser to `http://localhost:3000`
+## Why This Setup Works for Me
 
-3. Click the "Login" button in the header
+- **No server management**: Supabase handles everything
+- **Built-in auth**: Don't have to worry about security
+- **Real-time ready**: Can add live updates later
+- **SQL Editor**: Easy to test queries
+- **Good documentation**: Helpful for beginners
 
-4. Switch to the "Sign Up" tab
+## Things I Want to Learn More About
 
-5. Sign up with a new account:
-   - (Optional) Enter your name
-   - Enter your email
-   - Create a password (minimum 6 characters)
-   - Click "Sign Up"
+- Database indexing for better performance
+- More advanced RLS policies
+- Real-time subscriptions
+- File storage for restaurant photos
+- Database backups and migrations
 
-6. You'll see a message: "Account created! Please check your email to verify your account before logging in."
+This setup took me a while to figure out, but now it's working great! Let me know if you have questions.
 
-7. Check your email inbox for a verification email from Supabase
+---
 
-8. Click the verification link in the email
-   - You'll be redirected back to the app
-   - The app will automatically exchange the verification code for a session
-
-9. You should now be logged in automatically after email verification
-
-10. Test logout by clicking on your email in the header and selecting "Logout"
-
-11. After logging out, try logging back in with your verified credentials
-
-### Testing Without Email Verification (Development Only)
-
-If you want to test without email verification during development:
-
-1. Go to your Supabase dashboard
-2. Navigate to **Authentication** > **Settings**
-3. Scroll to **Email Auth**
-4. Disable **Confirm email**
-5. Users will now be auto-logged in after signup without email verification
-
-## Troubleshooting
-
-### "Invalid API key" error
-- Make sure you're using the **Anon/Public key**, not the service role key
-- Verify the key is correctly set in `.env.local`
-- Restart the development server after changing environment variables
-
-### Email not sending
-- Check your Supabase email settings
-- For development, check the Supabase dashboard under **Authentication** > **Users** for verification status
-- You can manually verify users in the dashboard if needed
-
-### Session not persisting
-- Make sure cookies are enabled in your browser
-- Check browser console for any errors
-- Verify the API routes are working correctly
-
-### "Email not confirmed" error when trying to login
-- Check your email inbox (and spam folder) for the verification email
-- The verification link expires after a certain time - you may need to sign up again
-- In development, you can manually verify users in the Supabase dashboard:
-  - Go to **Authentication** > **Users**
-  - Find your user and click on them
-  - You can manually confirm their email or send a new verification email
-
-### Verification email not redirecting properly
-- Make sure your Site URL is configured correctly in Supabase (**Authentication** > **URL Configuration**)
-- Check that the `emailRedirectTo` URL matches your callback route (`/auth/callback`)
-- Verify that the callback route is correctly handling the verification code
-
-## Next Steps
-
-You can extend the authentication system by:
-
-1. Adding social login providers (Google, GitHub, etc.)
-2. Implementing password reset functionality
-3. Adding email verification requirements
-4. Creating user profiles
-5. Adding role-based access control
-6. Protecting specific routes or features
-
-## Security Best Practices
-
-1. **Never commit `.env.local`** to version control
-2. Use **environment variables** for all sensitive data
-3. Keep the **anon key public**, but the **service role key private**
-4. Implement **rate limiting** for authentication endpoints in production
-5. Use **HTTPS** in production
-6. Enable **Row Level Security (RLS)** in Supabase for database tables
-
-## Resources
-
-- [Supabase Documentation](https://supabase.com/docs)
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Supabase Auth Helpers](https://supabase.com/docs/guides/auth/auth-helpers/nextjs)
-
+*Written by a CS student who spent way too much time reading Supabase docs*

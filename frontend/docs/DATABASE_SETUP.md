@@ -1,268 +1,170 @@
 # Database Setup Guide
 
-This guide will help you set up the SkyFinder database in Supabase.
+Hi! This is how I set up the database for SkyFinder. I used Supabase because it's beginner-friendly and has a nice dashboard.
 
-## Prerequisites
+## What You Need
 
-- A Supabase account and project
-- Access to the Supabase SQL Editor
+- A Supabase account (it's free!)
+- The app running locally
 
-## Step 1: Enable PostGIS Extension
+## Step 1: Create a Supabase Project
 
-PostGIS is required for spatial queries (finding nearby restaurants).
+1. Go to [supabase.com](https://supabase.com)
+2. Click "New Project"
+3. Choose your organization (or create one)
+4. Pick a name like "skyfinder-db"
+5. Set a database password (save this!)
+6. Choose a region close to you
+7. Click "Create new project"
+
+## Step 2: Get Your Project Credentials
+
+Once your project is ready:
+1. Go to Settings → API
+2. Copy these two things:
+   - **Project URL** (looks like `https://xxxxx.supabase.co`)
+   - **anon public key** (long string starting with `eyJ...`)
+
+## Step 3: Create the Database Tables
+
+I created these tables for the app:
+
+### Users Table (handled by Supabase Auth)
+- Supabase automatically creates this when you enable authentication
+- Stores user email, password, etc.
+
+### Restaurants Table
+This stores restaurant info from Google Places API:
 
 ```sql
--- Enable PostGIS extension
-CREATE EXTENSION IF NOT EXISTS postgis;
-```
-
-## Step 2: Create Tables
-
-Run this SQL in your Supabase SQL Editor:
-
-```sql
--- Create restaurants table
-CREATE TABLE IF NOT EXISTS restaurants (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  place_id TEXT UNIQUE NOT NULL,
-  name TEXT NOT NULL,
+CREATE TABLE restaurants (
+  id SERIAL PRIMARY KEY,
+  place_id VARCHAR(255) UNIQUE NOT NULL,
+  name VARCHAR(255) NOT NULL,
   address TEXT,
   latitude DECIMAL(10, 8),
   longitude DECIMAL(11, 8),
-  phone TEXT,
+  phone VARCHAR(50),
   website TEXT,
   price_level INTEGER,
   rating DECIMAL(2, 1),
-  user_ratings_total INTEGER,
+  user_ratings_total INTEGER DEFAULT 0,
   cuisine_types TEXT[],
   opening_hours JSONB,
-  is_open_now BOOLEAN,
+  is_open_now BOOLEAN DEFAULT FALSE,
   photos TEXT[],
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+```
 
--- Create user_favorites table
-CREATE TABLE IF NOT EXISTS user_favorites (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(user_id, restaurant_id)
-);
+### User Lists Table
+For saving favorite restaurants:
 
--- Create user_searches table
-CREATE TABLE IF NOT EXISTS user_searches (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+```sql
+CREATE TABLE user_lists (
+  id SERIAL PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  query TEXT,
-  location TEXT,
-  filters JSONB,
-  results_count INTEGER,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
-## Step 3: Create Indexes
+### List Items Table
+Links restaurants to user lists:
 
 ```sql
--- Indexes for restaurants table
-CREATE INDEX IF NOT EXISTS idx_restaurants_place_id ON restaurants(place_id);
-CREATE INDEX IF NOT EXISTS idx_restaurants_cuisine ON restaurants USING GIN(cuisine_types);
-CREATE INDEX IF NOT EXISTS idx_restaurants_rating ON restaurants(rating DESC);
-
--- Indexes for user_favorites table
-CREATE INDEX IF NOT EXISTS idx_user_favorites_user ON user_favorites(user_id);
-
--- Indexes for user_searches table
-CREATE INDEX IF NOT EXISTS idx_user_searches_user ON user_searches(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_searches_created ON user_searches(created_at DESC);
+CREATE TABLE list_items (
+  id SERIAL PRIMARY KEY,
+  list_id INTEGER REFERENCES user_lists(id) ON DELETE CASCADE,
+  restaurant_id INTEGER REFERENCES restaurants(id) ON DELETE CASCADE,
+  added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(list_id, restaurant_id)
+);
 ```
 
-## Step 4: Create PostGIS Spatial Index
+## Step 4: Set Up Row Level Security (RLS)
 
-```sql
--- Add geometry column for spatial queries
-ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS location_point GEOMETRY(POINT, 4326);
-
--- Create spatial index
-CREATE INDEX IF NOT EXISTS idx_restaurants_location ON restaurants USING GIST(location_point);
-
--- Create trigger to update location_point when lat/lng changes
-CREATE OR REPLACE FUNCTION update_restaurant_location()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.location_point = ST_SetSRID(ST_MakePoint(NEW.longitude, NEW.latitude), 4326);
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_update_location
-BEFORE INSERT OR UPDATE ON restaurants
-FOR EACH ROW
-EXECUTE FUNCTION update_restaurant_location();
-```
-
-## Step 5: Create Spatial Search Function
-
-This function enables efficient nearby restaurant searches:
-
-```sql
-CREATE OR REPLACE FUNCTION search_nearby_restaurants(
-  lat DECIMAL,
-  lng DECIMAL,
-  radius_meters INTEGER
-)
-RETURNS TABLE (
-  id UUID,
-  place_id TEXT,
-  name TEXT,
-  address TEXT,
-  latitude DECIMAL,
-  longitude DECIMAL,
-  phone TEXT,
-  website TEXT,
-  price_level INTEGER,
-  rating DECIMAL,
-  user_ratings_total INTEGER,
-  cuisine_types TEXT[],
-  opening_hours JSONB,
-  is_open_now BOOLEAN,
-  photos TEXT[],
-  created_at TIMESTAMP WITH TIME ZONE,
-  updated_at TIMESTAMP WITH TIME ZONE,
-  distance_meters DECIMAL
-)
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  RETURN QUERY
-  SELECT
-    r.id,
-    r.place_id,
-    r.name,
-    r.address,
-    r.latitude,
-    r.longitude,
-    r.phone,
-    r.website,
-    r.price_level,
-    r.rating,
-    r.user_ratings_total,
-    r.cuisine_types,
-    r.opening_hours,
-    r.is_open_now,
-    r.photos,
-    r.created_at,
-    r.updated_at,
-    ST_Distance(
-      r.location_point::geography,
-      ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography
-    ) AS distance_meters
-  FROM restaurants r
-  WHERE ST_DWithin(
-    r.location_point::geography,
-    ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography,
-    radius_meters
-  )
-  ORDER BY distance_meters ASC;
-END;
-$$;
-```
-
-## Step 6: Create Update Timestamp Function
-
-```sql
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Create trigger for restaurants table
-CREATE TRIGGER update_restaurants_updated_at
-BEFORE UPDATE ON restaurants
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
-```
-
-## Step 7: Enable Row Level Security (RLS)
+This makes sure users can only see their own data:
 
 ```sql
 -- Enable RLS on all tables
-ALTER TABLE restaurants ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_favorites ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_searches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_lists ENABLE ROW LEVEL SECURITY;
+ALTER TABLE list_items ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for restaurants
-CREATE POLICY "Anyone can view restaurants"
-  ON restaurants FOR SELECT
-  USING (true);
+-- Users can only see their own lists
+CREATE POLICY "Users can view own lists" ON user_lists
+  FOR SELECT USING (auth.uid() = user_id);
 
--- RLS Policies for user_favorites
-CREATE POLICY "Users can view own favorites"
-  ON user_favorites FOR SELECT
-  USING (auth.uid() = user_id);
+CREATE POLICY "Users can create own lists" ON user_lists
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can add own favorites"
-  ON user_favorites FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own lists" ON user_lists
+  FOR UPDATE USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can delete own favorites"
-  ON user_favorites FOR DELETE
-  USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own lists" ON user_lists
+  FOR DELETE USING (auth.uid() = user_id);
 
--- RLS Policies for user_searches
-CREATE POLICY "Users can view own searches"
-  ON user_searches FOR SELECT
-  USING (auth.uid() = user_id);
+-- List items policies
+CREATE POLICY "Users can view own list items" ON list_items
+  FOR SELECT USING (
+    list_id IN (
+      SELECT id FROM user_lists WHERE user_id = auth.uid()
+    )
+  );
 
-CREATE POLICY "Users can insert own searches"
-  ON user_searches FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can add to own lists" ON list_items
+  FOR INSERT WITH CHECK (
+    list_id IN (
+      SELECT id FROM user_lists WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can remove from own lists" ON list_items
+  FOR DELETE USING (
+    list_id IN (
+      SELECT id FROM user_lists WHERE user_id = auth.uid()
+    )
+  );
 ```
 
-## Step 8: Verify Setup
+## Step 5: Enable Authentication
 
-Run these queries to verify everything is set up correctly:
+1. Go to Authentication → Settings
+2. Turn on "Enable email confirmations" if you want
+3. Add your site URL: `http://localhost:3000` for development
+4. Add redirect URLs: `http://localhost:3000/auth/callback`
 
-```sql
--- Check if tables exist
-SELECT table_name FROM information_schema.tables 
-WHERE table_schema = 'public' 
-AND table_name IN ('restaurants', 'user_favorites', 'user_searches');
+## Step 6: Create Your Environment File
 
--- Check if PostGIS is enabled
-SELECT PostGIS_version();
+Create a file called `.env.local` in your frontend folder:
 
--- Check if spatial function exists
-SELECT routine_name FROM information_schema.routines 
-WHERE routine_name = 'search_nearby_restaurants';
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_API_KEY=your-anon-key-here
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-google-maps-key
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
 ## Troubleshooting
 
-### PostGIS not available
-If PostGIS is not available in your Supabase project:
-1. Go to Database → Extensions in Supabase dashboard
-2. Enable the "postgis" extension
-3. Run the setup again
+**"Invalid API key" error**: Make sure you copied the anon key correctly (it's the long one, not the service role key)
 
-### RLS policies not working
-Make sure you're authenticated when testing. RLS policies require a valid user session.
+**"RLS policy" errors**: Make sure you ran all the SQL commands above
 
-### Spatial queries not working
-Ensure:
-1. PostGIS extension is enabled
-2. `location_point` column exists and has data
-3. The `search_nearby_restaurants` function is created
+**"Table doesn't exist"**: Make sure you created all the tables in the right order
 
-## Next Steps
+## Why I Chose This Setup
 
-After completing this setup:
-1. Test the restaurant fetch API: `POST /api/restaurants/fetch`
-2. Test the restaurant search API: `GET /api/restaurants/search`
-3. Verify data is being stored correctly in the database
+- **Supabase**: Easy to use, has a nice dashboard, handles auth for me
+- **PostgreSQL**: Reliable, supports JSON data for complex restaurant info
+- **RLS**: Keeps user data secure without writing lots of auth code
+- **JSONB**: Stores restaurant hours and other complex data easily
 
+This setup took me a while to figure out, but now it's working pretty well! Let me know if you run into issues.
+
+---
+
+*Written by a CS student who spent way too long figuring out database permissions*

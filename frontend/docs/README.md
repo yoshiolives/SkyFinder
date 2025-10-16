@@ -1,80 +1,74 @@
-# Documentation
+# SkyFinder - Restaurant Finder Near Transit Stations
 
-Welcome to the SkyFinder documentation! This directory contains comprehensive guides for setting up and using the application.
+Hey! This is my first real web app project. I built this because I was tired of wandering around transit stations looking for good places to eat. Now you can find restaurants within walking distance of any SkyTrain station in Vancouver!
 
-## 📚 Available Documentation
+## What This App Does
 
-### Setup Guides
+- **Find Restaurants**: Search for places to eat near any transit station
+- **See on Map**: View all the restaurants on an interactive Google Map
+- **Save Favorites**: Create lists of your favorite spots
+- **Real-time Search**: Uses Google Places API to find current restaurant info
 
-- **[Supabase Setup](SUPABASE_SETUP.md)**
-  - How to set up Supabase authentication and database
-  - Creating tables and configuring Row Level Security
-  - Email verification setup
-  - Troubleshooting authentication issues
+## How I Built It
 
-- **[Biome Setup](BIOME_SETUP.md)**
-  - Installing and configuring Biome linter/formatter
-  - VS Code integration
-  - Available commands and scripts
-  - Configuration options
+This is a Next.js app (which I'm still learning!) that uses:
+- **Frontend**: React with Material-UI for the interface
+- **Backend**: Next.js API routes (this was new to me!)
+- **Database**: Supabase (PostgreSQL) to store user data
+- **Maps**: Google Maps API to show restaurants and stations
+- **Authentication**: Supabase handles user login/signup
 
-- **[Git Hooks Setup](GIT_HOOKS_SETUP.md)**
-  - Pre-commit hooks with Biome
-  - How lint-staged works
-  - Bypassing hooks (when necessary)
-  - Troubleshooting hooks
+## Project Structure
 
-### Architecture & Data Flow
+```
+src/
+├── app/                    # Next.js pages and API routes
+│   ├── api/               # Backend API endpoints
+│   ├── layout.tsx         # Main app layout
+│   └── page.tsx           # Home page with map and search
+├── components/            # React components I built
+│   ├── LandingPage.tsx    # Marketing page
+│   ├── LoginModal.tsx     # User login/signup
+│   ├── RestaurantCard.tsx # Shows restaurant info
+│   └── TripSelector.tsx   # Station selection
+├── lib/                   # Helper functions
+│   ├── api.ts            # API client for authenticated requests
+│   ├── supabase.ts       # Database connection
+│   └── utils.ts          # Utility functions
+└── services/             # Business logic (mostly empty now)
+```
 
-- **[Data Flow](DATA_FLOW.md)**
-  - How data flows through the application
-  - API endpoints documentation
-  - Authentication flow
-  - Database relationships
-  - State management
+## Getting Started
 
-## 🚀 Quick Start
+1. **Clone the repo** (if you want to run it yourself)
+2. **Install dependencies**: `pnpm install`
+3. **Set up environment variables** (see DATABASE_SETUP.md)
+4. **Run the app**: `pnpm dev`
 
-New to the project? Follow these steps:
+## What I Learned
 
-1. **Read the main [README](../README.md)** - Get an overview of the project
-2. **Set up [Supabase](SUPABASE_SETUP.md)** - Configure authentication and database
-3. **Install [Biome](BIOME_SETUP.md)** extension in VS Code for the best development experience
-4. **Understand the [Data Flow](DATA_FLOW.md)** - Learn how the app works
+- How to use Next.js App Router (it's different from Pages Router!)
+- Building API routes in Next.js
+- Working with Supabase (database + auth)
+- Google Maps integration
+- Material-UI components
+- TypeScript (still learning this one!)
 
-## 🛠️ Development Workflow
+## Things I Want to Improve
 
-1. **Make changes** to your code
-2. **Biome automatically formats** on save (if VS Code extension is installed)
-3. **Commit your changes** - Pre-commit hook runs Biome automatically
-4. **Push to repository** - Code is clean and formatted!
+- Better error handling (I'm not great at this yet)
+- More restaurant filters (price, cuisine type, etc.)
+- Mobile responsiveness (needs work)
+- Performance optimization (the map can be slow sometimes)
 
-## 📖 Documentation Standards
+## Note for Other CS Students
 
-When adding new documentation:
+This was my first time building a full-stack app, so the code might not be perfect. I'm still learning about best practices, but I tried to make it readable and well-commented. Feel free to ask questions or suggest improvements!
 
-- Use clear, descriptive titles
-- Include code examples
-- Add troubleshooting sections
-- Keep it up-to-date
-- Link to related docs
+## Contact
 
-## 🔗 External Resources
-
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Supabase Documentation](https://supabase.com/docs)
-- [Biome Documentation](https://biomejs.dev/)
-- [Material-UI Documentation](https://mui.com/)
-- [Google Maps API](https://developers.google.com/maps)
-
-## 💡 Need Help?
-
-- Check the troubleshooting sections in each guide
-- Review the [Data Flow documentation](DATA_FLOW.md) to understand the architecture
-- Look at the example code in the project
-- Check external resources linked above
+If you have questions about how I built this or want to collaborate, feel free to reach out!
 
 ---
 
-*Last updated: 2025-01-05*
-
+*Built with ❤️ by a CS student who just wanted to find good food near transit stations*

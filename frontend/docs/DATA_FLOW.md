@@ -1,180 +1,183 @@
-# Data Flow Documentation
+# How Data Flows Through SkyFinder
 
-## Overview
+Hi! This is how I designed the data flow for my app. I'm still learning about architecture, so this might not be the "right" way, but it works for me!
 
-The application now fetches trip and itinerary data from Supabase instead of using mock data. Here's how the data flows through the application.
+## The Big Picture
 
-## Architecture
+SkyFinder has a few main parts:
+1. **Frontend** (React components)
+2. **API Routes** (Next.js backend)
+3. **Database** (Supabase/PostgreSQL)
+4. **External APIs** (Google Maps, Google Places)
+
+## User Authentication Flow
 
 ```
-Supabase Database
-    ↓
-Next.js API Routes (/api/trips, /api/itinerary)
-    ↓
-Frontend (page.tsx)
-    ↓
-UI Components
+1. User clicks "Sign In"
+2. LoginModal opens
+3. User enters email/password
+4. Frontend calls /api/auth/login
+5. API route calls Supabase auth
+6. If valid, Supabase returns user + session
+7. Frontend stores session in localStorage
+8. User is now logged in!
 ```
 
-## API Endpoints
+**Code flow:**
+- `LoginModal.tsx` → `api/auth/login/route.ts` → `supabase.auth.signInWithPassword()`
 
-### 1. Trips API (`/api/trips`)
+## Restaurant Search Flow
 
-**GET** - Fetch all trips for the logged-in user
-- Authentication: Required (checks session)
-- Response: `{ trips: [...] }`
-- Ordered by: `start_date` (descending)
+```
+1. User selects transit stations on map
+2. User types search query (optional)
+3. Frontend calls /api/restaurants/search
+4. API route queries Supabase database
+5. If no results, could fetch from Google Places API
+6. Database returns restaurant data
+7. Frontend displays restaurants on map and in list
+```
 
-**POST** - Create a new trip
-- Authentication: Required
-- Body: `{ title, description, destination, start_date, end_date }`
-- Response: `{ trip: {...} }`
+**Code flow:**
+- `page.tsx` (handleSearch) → `api/restaurants/search/route.ts` → Supabase query
 
-### 2. Itinerary API (`/api/itinerary`)
+## Map and Station Data Flow
 
-**GET** - Fetch itinerary items for a specific trip
-- Authentication: Required
-- Query Param: `trip_id`
-- Response: `{ items: [...] }`
-- Ordered by: `date`, then `time`
-- Data transformation: Converts `latitude/longitude` to `coordinates` array format
+```
+1. App loads and calls /api/transit
+2. API reads GeoJSON files from public/data/
+3. Returns list of available transit data files
+4. Frontend loads each GeoJSON file
+5. Parses station coordinates and properties
+6. Renders stations as markers on Google Map
+7. When user clicks station, shows coverage circle
+```
 
-**POST** - Create a new itinerary item
-- Authentication: Required
-- Body: `{ trip_id, date, time, location, address, activity, duration, type, rating, coordinates, notes }`
-- Response: `{ item: {...} }`
+**Code flow:**
+- `page.tsx` (useEffect) → `api/transit/route.ts` → reads GeoJSON files
 
-## Frontend Data Flow
+## Saved Lists Flow
 
-### 1. Initial Load
+```
+1. User clicks "Save" on a restaurant
+2. Frontend calls /api/lists/[id]/items
+3. API route checks user authentication
+4. Validates user owns the list (RLS policy)
+5. Inserts restaurant into list_items table
+6. Returns success/error response
+7. Frontend updates UI to show saved state
+```
+
+**Code flow:**
+- `RestaurantCard.tsx` → `api/lists/[id]/items/route.ts` → Supabase insert
+
+## State Management
+
+I used React hooks for state management (I'm still learning Redux/Zustand):
+
+### Main App State (page.tsx)
+```javascript
+const [user, setUser] = useState(null);           // Current user
+const [transitStations, setTransitStations] = useState([]);  // Station data
+const [selectedStations, setSelectedStations] = useState(new Set());  // Selected stations
+const [searchResults, setSearchResults] = useState([]);      // Restaurant results
+const [savedPlaces, setSavedPlaces] = useState([]);         // User's saved places
+```
+
+### Component State
+Each component manages its own state:
+- `LoginModal` manages form state
+- `TripSelector` manages list selection
+- `RestaurantCard` manages favorite state
+
+## API Client Pattern
+
+I created a helper in `lib/api.ts` that automatically adds authentication headers:
 
 ```javascript
-useEffect(() => {
-  // Check session on mount
-  checkSession() → sets user state
-}, [])
+// This automatically adds the user's token to requests
+const response = await api.get('/api/lists');
+const data = await api.post('/api/restaurants/search', searchParams);
 ```
 
-### 2. When User Logs In
+This way I don't have to remember to add headers everywhere!
 
-```javascript
-useEffect(() => {
-  if (user) {
-    // Fetch trips
-    GET /api/trips
-    
-    // If trips exist, fetch first trip's itinerary
-    GET /api/itinerary?trip_id={firstTrip.id}
-    
-    // Update UI with real data
-  } else {
-    // Show sample data for non-logged-in users
-  }
-}, [user])
+## Error Handling
+
+I tried to handle errors at different levels:
+
+### Frontend
+- Try/catch blocks around API calls
+- Loading states while requests are pending
+- Error messages for users
+
+### API Routes
+- Validate input data
+- Handle database errors
+- Return consistent error responses
+
+### Database
+- RLS policies prevent unauthorized access
+- Constraints prevent invalid data
+
+## Data Caching
+
+Right now I don't have much caching (something I want to improve):
+
+- Restaurant data is fetched fresh each time
+- Transit station data is loaded once when app starts
+- User session is cached in localStorage
+
+## Things I Learned
+
+- How to structure a full-stack app
+- React state management with hooks
+- API design and error handling
+- Database relationships and RLS
+- Authentication flow
+- Google Maps integration
+
+## Things I Want to Improve
+
+- Add proper caching (maybe React Query?)
+- Better error boundaries
+- Optimistic updates for better UX
+- Data validation with a schema library
+- Loading states and skeletons
+- Offline support (maybe with Service Workers?)
+
+## Database Schema Relationships
+
+```
+users (Supabase Auth)
+  ↓ (1:many)
+user_lists
+  ↓ (1:many)
+list_items
+  ↓ (many:1)
+restaurants
 ```
 
-### 3. Authentication States
+This lets users create multiple lists and add the same restaurant to different lists.
 
-- **Not logged in**: Shows sample itinerary data
-- **Logged in, no trips**: Shows empty state
-- **Logged in, has trips**: Shows real data from Supabase
-- **Loading**: Shows loading spinner
+## Security Considerations
 
-## Data Transformation
+- All user data is protected by RLS policies
+- API routes validate authentication
+- Input sanitization (basic, could be better)
+- CORS is handled by Next.js
 
-The API transforms database fields to match the frontend format:
+I'm still learning about security best practices, so there might be improvements needed here.
 
-### Database → Frontend
+## Performance Notes
 
-```javascript
-{
-  latitude: 40.7829,          →  coordinates: [40.7829, -73.9654]
-  longitude: -73.9654
-}
-```
+- The map can be slow with lots of markers (I should optimize this)
+- GeoJSON files are loaded on every page refresh (could cache)
+- Restaurant search could be faster with better indexing
+- Images from Google Places could be optimized
 
-### Frontend → Database
+This is my first real web app, so I'm sure there are better ways to do things. But it works and I learned a lot building it!
 
-```javascript
-{
-  coordinates: [40.7829, -73.9654]  →  latitude: 40.7829,
-                                        longitude: -73.9654
-}
-```
+---
 
-## Security
-
-- All API routes check for valid session using `supabase.auth.getSession()`
-- Row Level Security (RLS) in Supabase ensures users can only access their own data
-- Trip ownership is verified before fetching itinerary items
-
-## Current Behavior
-
-### On Page Load
-1. Check if user is logged in
-2. If logged in:
-   - Fetch all trips
-   - Get the most recent trip (first in list)
-   - Fetch itinerary items for that trip
-   - Display trip title and dates in sidebar header
-3. If not logged in:
-   - Show sample data
-   - Show "Sign in to view your itineraries" message
-
-### After Login
-1. User state updates
-2. Triggers data fetch
-3. UI updates with real data
-
-### After Logout
-1. User state clears
-2. Reverts to sample data
-
-## Component State
-
-```javascript
-const [user, setUser] = useState(null);                // Current user
-const [currentTrip, setCurrentTrip] = useState(null);  // Currently displayed trip
-const [itinerary, setItinerary] = useState([]);        // Itinerary items to display
-const [loading, setLoading] = useState(true);          // Loading state
-```
-
-## Future Enhancements
-
-Possible additions to the data flow:
-
-1. **Trip Selector**: Allow users to switch between multiple trips
-2. **Real-time Updates**: Use Supabase subscriptions for live data sync
-3. **Caching**: Implement client-side caching to reduce API calls
-4. **Pagination**: Load itinerary items in chunks for large trips
-5. **Offline Support**: Store data locally for offline access
-6. **Optimistic Updates**: Update UI immediately, sync with server in background
-
-## Testing
-
-To test the data flow:
-
-1. **Sign up** and create an account
-2. **Run the sample data SQL** in Supabase (with your user ID)
-3. **Refresh the page** - you should see your trip data
-4. **Log out** - you should see sample data
-5. **Log back in** - your trip data should reappear
-
-## Troubleshooting
-
-### Data not loading
-- Check browser console for errors
-- Verify you have trips in the database
-- Check that user_id matches between trips and auth.users
-- Ensure RLS policies are enabled
-
-### "Unauthorized" errors
-- Verify user is logged in
-- Check session is valid
-- Ensure cookies are enabled
-
-### Empty itinerary
-- Check that itinerary_items exist for the trip_id
-- Verify trip_id foreign key is correct
-- Check RLS policies allow reading the items
-
+*Written by a CS student who's still figuring out how to architect web applications*

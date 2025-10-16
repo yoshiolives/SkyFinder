@@ -1,152 +1,104 @@
-# SkyFinder - Transit-Based Location Discovery App
+# SkyFinder - Restaurant Finder Near Transit Stations
 
-> **Location Discovery Platform**: Find restaurants and places near rapid transit stations
+Hey! This is my first real web app project. I built SkyFinder because I was tired of wandering around transit stations looking for good places to eat. Now you can find restaurants within walking distance of any SkyTrain station in Vancouver!
 
-## The Problem
+## What This App Does
 
-Discovering great places near transit stations is **challenging and time-consuming**:
-- Manually searching for restaurants and attractions near each station
-- No centralized way to explore what's available within walking distance
-- Difficulty organizing and saving favorite locations for future reference
-- Limited visibility into what's actually accessible from transit stops
+- **Find Restaurants**: Search for places to eat near any transit station
+- **See on Map**: View all the restaurants on an interactive Google Map  
+- **Save Favorites**: Create lists of your favorite spots
+- **Real-time Search**: Uses Google Places API to find current restaurant info
 
-**Result**: People miss out on great local spots or waste time researching what's available near their transit stops.
+## The Problem I Was Trying to Solve
 
-## Our Solution
+When I was commuting on the SkyTrain, I'd always wonder "what's good to eat near this station?" But I'd end up:
+- Walking around aimlessly looking for restaurants
+- Missing out on great spots because I didn't know they existed
+- Forgetting about places I discovered
+- Wasting time searching for food during my commute
 
-**SkyFinder** is a location discovery platform that helps you find restaurants, cafes, and interesting places within an 800-meter radius of rapid transit stations. Simply select a station and explore what's nearby.
+So I built this app to solve that problem!
 
-### Key Features
+## How It Works
 
-1. **Transit Station Integration**: Interactive map showing all rapid transit stations with real-time data
+1. **Select Transit Stations**: Click on any station on the map
+2. **See Coverage Area**: A circle shows the 800m walking radius
+3. **Find Restaurants**: The app searches for places within that radius
+4. **Save Your Favorites**: Create lists to organize places you want to try
 
-2. **Radius-Based Discovery**: Find places within 800m walking distance of any selected station
+## What I Built This With
 
-3. **Comprehensive Place Data**: Restaurants, cafes, attractions, and other points of interest
+- **Frontend**: Next.js with React and TypeScript
+- **Styling**: Material-UI (I'm still learning CSS, so this helps!)
+- **Database**: Supabase (PostgreSQL with built-in authentication)
+- **Maps**: Google Maps API for showing restaurants and stations
+- **Location Data**: Google Places API for restaurant information
 
-4. **Saved Lists**: Organize and manage your favorite locations with custom lists
+## Getting Started
 
-5. **Interactive Maps**: Visual exploration with Google Maps integration showing exact locations and walking routes
+1. **Clone this repo** (if you want to run it yourself)
+2. **Install dependencies**: `cd frontend && pnpm install`
+3. **Set up environment variables** (see the docs in `frontend/docs/`)
+4. **Run the app**: `pnpm dev`
 
-## Value Proposition
-
-### For Transit Users
-- **Discover Hidden Gems**: Find great places you never knew existed near your regular stops
-- **Save Time**: No more wandering around looking for good restaurants or cafes
-- **Plan Better**: Know what's available before you get off the train
-- **Stay Organized**: Save your favorite spots in custom lists for easy reference
-
-### Key Features
-- 🚇 **Transit Station Map**: Interactive map showing all rapid transit stations
-- 📍 **Radius Search**: Find places within 800m of any selected station
-- 🍽️ **Restaurant Discovery**: Comprehensive database of nearby dining options
-- 📝 **Saved Lists**: Organize favorites into custom collections
-- 🔐 **User Accounts**: Secure authentication and cloud storage for your lists
-- ✨ **Modern UI**: Clean, intuitive interface built with Material-UI
-
-## Technical Architecture
-
-### Frontend
-- **Framework**: Next.js 14 with TypeScript and React 18
-- **UI Library**: Material-UI with custom theming
-- **State Management**: React hooks and context
-- **Map Integration**: Google Maps JavaScript API with react-google-maps
-- **Data Visualization**: GeoJSON integration for transit line data
-
-### Backend & Data
-- **Database**: Supabase (PostgreSQL, Authentication, Real-time)
-- **API Design**: RESTful Next.js API routes
-- **Geospatial Data**: GeoJSON files for transit stations and rail lines
-- **Location Services**: Google Places API for restaurant and place data
-- **Authentication**: Supabase Auth with Row Level Security
-
-### Data Integration
-```typescript
-// Transit station data from GeoJSON
-const stationData = {
-  type: "FeatureCollection",
-  features: [/* station coordinates and properties */]
-};
-
-// Radius-based place search
-const nearbyPlaces = await searchPlaces({
-  center: stationCoordinates,
-  radius: 800, // meters
-  type: 'restaurant'
-});
-```
+Visit `http://localhost:3000` and start finding restaurants near transit stations!
 
 ## Project Structure
 
 ```
-frontend/
-├── src/
-│   ├── app/                      # Next.js app directory
-│   │   ├── api/                  # API routes
-│   │   │   ├── restaurants/      # Restaurant search and favorites
-│   │   │   ├── lists/            # Saved lists management
-│   │   │   ├── transit/          # Transit station data
-│   │   │   └── auth/             # Authentication
-│   │   └── page.tsx              # Main application UI
-│   ├── components/               # React components
-│   │   ├── RestaurantCard.tsx    # Restaurant display component
-│   │   ├── TripSelector.tsx      # Station selection interface
-│   │   └── LandingPage.tsx       # Marketing landing page
-│   ├── services/                 # Business logic
-│   │   └── geminiService.ts      # Future AI integration
-│   └── lib/                      # Utilities and configurations
-├── public/data/                  # GeoJSON transit data
-│   ├── skytrain-stations.geojson
-│   └── rail-lines.geojson
-└── docs/                         # Documentation
+SkyFinder/
+├── frontend/              # The main Next.js app
+│   ├── src/
+│   │   ├── app/          # Pages and API routes
+│   │   ├── components/   # React components I built
+│   │   └── lib/         # Helper functions
+│   ├── docs/            # Documentation (beginner-friendly!)
+│   └── public/          # Static files and GeoJSON data
+└── README.md            # This file
 ```
 
-## Getting Started
+## What I Learned Building This
 
-### Prerequisites
-- Node.js 18+
-- Google Maps API key
-- Supabase account
-- pnpm package manager
+- How to use Next.js App Router (it's different from Pages Router!)
+- Building API routes in Next.js
+- Working with Supabase (database + auth)
+- Google Maps integration with React
+- Material-UI components
+- TypeScript (still learning this one!)
+- Database design and relationships
+- Authentication and security
 
-### Quick Start
-```bash
-# Install dependencies
-cd frontend
-pnpm install
+## Things I Want to Improve
 
-# Configure environment variables
-cp .env.example .env.local
-# Add your API keys (GOOGLE_MAPS_API_KEY, SUPABASE_URL, etc.)
+- Better error handling (I'm not great at this yet)
+- More restaurant filters (price, cuisine type, etc.)
+- Mobile responsiveness (needs work)
+- Performance optimization (the map can be slow sometimes)
+- Add user reviews and ratings
+- Better search functionality
 
-# Run development server
-pnpm dev
-```
+## For Other CS Students
 
-Visit `http://localhost:3000` and start discovering places near transit stations!
+This was my first time building a full-stack app, so the code might not be perfect. I'm still learning about best practices, but I tried to make it readable and well-commented. 
 
-## Innovation & Impact
+The documentation in `frontend/docs/` explains how I built everything, including the mistakes I made and things I learned along the way.
 
-This project demonstrates:
-- **Location-Based Discovery**: Practical solution for transit users to find nearby places
-- **Geospatial Integration**: Real-time mapping with transit data and place search
-- **User-Centric Design**: Intuitive interface for organizing and managing favorite locations
-- **Production-Ready**: Deployed, tested, and ready for real users
+Feel free to:
+- Ask questions about how I built this
+- Suggest improvements
+- Use this as a reference for your own projects
+- Point out things I could do better (I'm still learning!)
 
-## Technologies
+## Contact
 
-- **Frontend**: Next.js 14, React 18, TypeScript, Material-UI
-- **Backend**: Supabase (PostgreSQL, Auth, Real-time)
-- **Maps & Location**: Google Maps API, Google Places API
-- **Data**: GeoJSON for transit stations and rail lines
-- **Package Manager**: pnpm
-- **Deployment**: Vercel-ready with environment configuration
+If you have questions about how I built this or want to collaborate, feel free to reach out!
+
+## License
+
+This project is open source and available under the MIT License.
 
 ---
 
-**SkyFinder** | Discover places near transit stations
+*Built with ❤️ by a CS student who just wanted to find good food near transit stations*
 
-
-
-
-
+*P.S. - If you're in Vancouver, try the sushi near Commercial-Broadway station! 🍣*

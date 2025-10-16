@@ -1,221 +1,502 @@
-# API Endpoints
+# API Endpoints Documentation
 
-Hey! Here are all the API endpoints I built for SkyFinder. I'm still learning about REST APIs, so these might not be perfect, but they work!
+This document describes all API endpoints available in the SkyFinder application.
 
 ## Authentication Endpoints
 
-### POST /api/auth/login
-Login a user with email and password.
+### POST `/api/auth/signup`
+Creates a new user account.
 
 **Request Body:**
 ```json
 {
   "email": "user@example.com",
-  "password": "password123"
+  "password": "securepassword"
 }
 ```
 
 **Response:**
 ```json
 {
-  "user": { /* user object */ },
-  "session": { /* session object */ },
-  "message": "Logged in successfully"
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com"
+  }
 }
 ```
 
-### POST /api/auth/signup
-Create a new user account.
+**Error Responses:**
+- `400`: Invalid email or password format
+- `409`: Email already exists
+- `500`: Server error
+
+### POST `/api/auth/login`
+Authenticates a user and returns session data.
 
 **Request Body:**
 ```json
 {
   "email": "user@example.com",
-  "password": "password123"
+  "password": "securepassword"
 }
 ```
 
-### POST /api/auth/logout
-Log out the current user.
+**Response:**
+```json
+{
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com"
+  },
+  "session": {
+    "access_token": "jwt-token",
+    "refresh_token": "refresh-token"
+  }
+}
+```
 
-### GET /api/auth/session
-Get the current user's session info.
+**Error Responses:**
+- `400`: Invalid credentials
+- `401`: Authentication failed
+- `500`: Server error
+
+### POST `/api/auth/logout`
+Terminates the current user session.
+
+**Headers:**
+- `Authorization: Bearer <access_token>`
+
+**Response:**
+```json
+{
+  "message": "Logged out successfully"
+}
+```
+
+### GET `/api/auth/session`
+Retrieves the current user session information.
+
+**Headers:**
+- `Authorization: Bearer <access_token>`
+
+**Response:**
+```json
+{
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com"
+  }
+}
+```
+
+**Error Responses:**
+- `401`: Invalid or expired token
+- `500`: Server error
 
 ## Restaurant Endpoints
 
-### GET /api/restaurants/search
-Search for restaurants with filters.
+### GET `/api/restaurants/search`
+Searches for restaurants near a specified location.
 
 **Query Parameters:**
-- `location` - City or address to search in
-- `latitude` - Latitude for location-based search
-- `longitude` - Longitude for location-based search
-- `radius` - Search radius in meters (default: 5000)
-- `cuisine` - Filter by cuisine type
-- `minRating` - Minimum rating (1-5)
-- `maxPrice` - Maximum price level (1-4)
-- `openNow` - Only show restaurants open now (true/false)
+- `lat`: Latitude coordinate (required)
+- `lng`: Longitude coordinate (required)
+- `radius`: Search radius in meters (optional, default: 800)
 
-**Example:**
+**Example Request:**
 ```
-GET /api/restaurants/search?location=Vancouver&cuisine=italian&minRating=4
+GET /api/restaurants/search?lat=49.2827&lng=-123.1207&radius=800
 ```
-
-### POST /api/restaurants/fetch
-Fetch restaurants from Google Places API and save to database.
-
-**Request Body:**
-```json
-{
-  "location": "Vancouver, BC",
-  "radius": 5000,
-  "type": "restaurant"
-}
-```
-
-### GET /api/restaurants/favorites
-Get user's favorite restaurants (requires authentication).
-
-## Lists Endpoints
-
-### GET /api/lists
-Get all lists for the current user.
-
-### POST /api/lists
-Create a new list.
-
-**Request Body:**
-```json
-{
-  "name": "My Favorite Places",
-  "description": "Restaurants I want to try"
-}
-```
-
-### GET /api/lists/[id]
-Get a specific list by ID.
-
-### PUT /api/lists/[id]
-Update a list.
-
-### DELETE /api/lists/[id]
-Delete a list.
-
-### GET /api/lists/[id]/items
-Get all restaurants in a specific list.
-
-### POST /api/lists/[id]/items
-Add a restaurant to a list.
-
-**Request Body:**
-```json
-{
-  "restaurant_id": 123
-}
-```
-
-### DELETE /api/lists/[id]/items/[itemId]
-Remove a restaurant from a list.
-
-## Transit Endpoints
-
-### GET /api/transit
-Get all available GeoJSON files for transit data.
 
 **Response:**
 ```json
 {
-  "files": [
-    "skytrain-stations.geojson",
-    "rail-lines.geojson",
-    "rail-lines-expo-millennium.geojson"
+  "restaurants": [
+    {
+      "id": 1,
+      "place_id": "ChIJ...",
+      "name": "Restaurant Name",
+      "address": "123 Main St",
+      "latitude": 49.2827,
+      "longitude": -123.1207,
+      "phone": "(604) 555-0123",
+      "website": "https://restaurant.com",
+      "price_level": 2,
+      "rating": 4.5,
+      "user_ratings_total": 150,
+      "cuisine_types": ["Italian", "Pizza"],
+      "opening_hours": {...},
+      "is_open_now": true,
+      "photos": ["photo_ref_1", "photo_ref_2"]
+    }
+  ],
+  "total": 1
+}
+```
+
+**Error Responses:**
+- `400`: Invalid coordinates or parameters
+- `500`: Server error or Google Places API error
+
+### GET `/api/restaurants/fetch`
+Retrieves detailed information for a specific restaurant.
+
+**Query Parameters:**
+- `place_id`: Google Places ID (required)
+
+**Example Request:**
+```
+GET /api/restaurants/fetch?place_id=ChIJ...
+```
+
+**Response:**
+```json
+{
+  "restaurant": {
+    "id": 1,
+    "place_id": "ChIJ...",
+    "name": "Restaurant Name",
+    "address": "123 Main St",
+    "latitude": 49.2827,
+    "longitude": -123.1207,
+    "phone": "(604) 555-0123",
+    "website": "https://restaurant.com",
+    "price_level": 2,
+    "rating": 4.5,
+    "user_ratings_total": 150,
+    "cuisine_types": ["Italian", "Pizza"],
+    "opening_hours": {
+      "monday": "11:00-22:00",
+      "tuesday": "11:00-22:00"
+    },
+    "is_open_now": true,
+    "photos": ["photo_ref_1", "photo_ref_2"]
+  }
+}
+```
+
+**Error Responses:**
+- `400`: Invalid place_id
+- `404`: Restaurant not found
+- `500`: Server error
+
+### GET `/api/restaurants/favorites`
+Retrieves restaurants from user's favorite lists.
+
+**Headers:**
+- `Authorization: Bearer <access_token>`
+
+**Query Parameters:**
+- `list_id`: Optional list ID to filter favorites
+
+**Response:**
+```json
+{
+  "restaurants": [
+    {
+      "id": 1,
+      "place_id": "ChIJ...",
+      "name": "Restaurant Name",
+      "address": "123 Main St",
+      "latitude": 49.2827,
+      "longitude": -123.1207,
+      "rating": 4.5,
+      "list_name": "My Favorites"
+    }
   ]
 }
 ```
 
-## How I Built These
+**Error Responses:**
+- `401`: Authentication required
+- `500`: Server error
 
-I used Next.js API routes, which are basically serverless functions. Each file in the `src/app/api/` folder becomes an endpoint.
+## List Management Endpoints
 
-**Example structure:**
+### GET `/api/lists`
+Retrieves all user-created lists.
+
+**Headers:**
+- `Authorization: Bearer <access_token>`
+
+**Response:**
+```json
+{
+  "lists": [
+    {
+      "id": 1,
+      "name": "My Favorites",
+      "description": "Restaurants I want to try",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z",
+      "restaurant_count": 5
+    }
+  ]
+}
 ```
-src/app/api/
-├── auth/
-│   ├── login/route.ts    → /api/auth/login
-│   └── signup/route.ts   → /api/auth/signup
-├── restaurants/
-│   ├── search/route.ts   → /api/restaurants/search
-│   └── fetch/route.ts    → /api/restaurants/fetch
+
+**Error Responses:**
+- `401`: Authentication required
+- `500`: Server error
+
+### POST `/api/lists`
+Creates a new restaurant list.
+
+**Headers:**
+- `Authorization: Bearer <access_token>`
+
+**Request Body:**
+```json
+{
+  "name": "New List Name",
+  "description": "Optional description"
+}
+```
+
+**Response:**
+```json
+{
+  "list": {
+    "id": 1,
+    "name": "New List Name",
+    "description": "Optional description",
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+**Error Responses:**
+- `400`: Invalid list data
+- `401`: Authentication required
+- `500`: Server error
+
+### GET `/api/lists/[id]`
+Retrieves a specific list with its restaurants.
+
+**Headers:**
+- `Authorization: Bearer <access_token>`
+
+**Response:**
+```json
+{
+  "list": {
+    "id": 1,
+    "name": "My Favorites",
+    "description": "Restaurants I want to try",
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  "restaurants": [
+    {
+      "id": 1,
+      "place_id": "ChIJ...",
+      "name": "Restaurant Name",
+      "address": "123 Main St",
+      "rating": 4.5
+    }
+  ]
+}
+```
+
+**Error Responses:**
+- `401`: Authentication required
+- `403`: List not accessible
+- `404`: List not found
+- `500`: Server error
+
+### PUT `/api/lists/[id]`
+Updates an existing list.
+
+**Headers:**
+- `Authorization: Bearer <access_token>`
+
+**Request Body:**
+```json
+{
+  "name": "Updated List Name",
+  "description": "Updated description"
+}
+```
+
+**Response:**
+```json
+{
+  "list": {
+    "id": 1,
+    "name": "Updated List Name",
+    "description": "Updated description",
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T12:00:00Z"
+  }
+}
+```
+
+**Error Responses:**
+- `400`: Invalid list data
+- `401`: Authentication required
+- `403`: List not accessible
+- `404`: List not found
+- `500`: Server error
+
+### DELETE `/api/lists/[id]`
+Deletes a list and all its items.
+
+**Headers:**
+- `Authorization: Bearer <access_token>`
+
+**Response:**
+```json
+{
+  "message": "List deleted successfully"
+}
+```
+
+**Error Responses:**
+- `401`: Authentication required
+- `403`: List not accessible
+- `404`: List not found
+- `500`: Server error
+
+## List Items Endpoints
+
+### GET `/api/lists/items`
+Retrieves all restaurant items across user's lists.
+
+**Headers:**
+- `Authorization: Bearer <access_token>`
+
+**Query Parameters:**
+- `list_id`: Optional list ID filter
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "list_id": 1,
+      "restaurant_id": 1,
+      "restaurant": {
+        "name": "Restaurant Name",
+        "address": "123 Main St",
+        "rating": 4.5
+      },
+      "added_at": "2024-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+### POST `/api/lists/items`
+Adds a restaurant to a list.
+
+**Headers:**
+- `Authorization: Bearer <access_token>`
+
+**Request Body:**
+```json
+{
+  "list_id": 1,
+  "restaurant_id": 1
+}
+```
+
+**Response:**
+```json
+{
+  "item": {
+    "id": 1,
+    "list_id": 1,
+    "restaurant_id": 1,
+    "added_at": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+**Error Responses:**
+- `400`: Invalid item data or duplicate entry
+- `401`: Authentication required
+- `403`: List not accessible
+- `404`: List or restaurant not found
+- `500`: Server error
+
+### DELETE `/api/lists/[id]/items/[itemId]`
+Removes a restaurant from a list.
+
+**Headers:**
+- `Authorization: Bearer <access_token>`
+
+**Response:**
+```json
+{
+  "message": "Item removed successfully"
+}
+```
+
+**Error Responses:**
+- `401`: Authentication required
+- `403`: Item not accessible
+- `404`: Item not found
+- `500`: Server error
+
+## Transit Data Endpoints
+
+### GET `/api/transit`
+Retrieves transit station data.
+
+**Response:**
+```json
+{
+  "stations": [
+    {
+      "type": "Feature",
+      "properties": {
+        "Name": "Commercial-Broadway",
+        "Line": "Expo Line"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-123.0696, 49.2625]
+      }
+    }
+  ]
+}
+```
+
+## Error Response Format
+
+All endpoints return errors in the following format:
+
+```json
+{
+  "error": "Error message description",
+  "code": "ERROR_CODE",
+  "details": "Additional error details"
+}
 ```
 
 ## Authentication
 
-Most endpoints require authentication. I use Supabase's built-in auth system:
-
-1. User logs in and gets a session token
-2. Frontend sends the token in the `Authorization` header
-3. Backend validates the token with Supabase
-4. If valid, the request proceeds
-
-**Example frontend request:**
-```javascript
-const response = await fetch('/api/lists', {
-  headers: {
-    'Authorization': `Bearer ${session.access_token}`
-  }
-});
+Most endpoints require authentication via the `Authorization` header:
+```
+Authorization: Bearer <access_token>
 ```
 
-## Error Handling
+The access token is obtained through the login endpoint and should be included in all authenticated requests.
 
-I tried to make the error responses consistent:
+## Rate Limiting
 
-**Success (200):**
-```json
-{
-  "data": { /* actual data */ }
-}
-```
+API endpoints are subject to rate limiting to ensure fair usage:
+- Authentication endpoints: 10 requests per minute
+- Restaurant search: 100 requests per minute
+- List management: 50 requests per minute
 
-**Error (400/500):**
-```json
-{
-  "error": "Something went wrong"
-}
-```
+## Data Validation
 
-## Things I Learned
-
-- How to use Next.js API routes (they're pretty cool!)
-- Supabase authentication and RLS policies
-- Google Places API integration
-- Error handling in APIs
-- TypeScript for API responses
-
-## Things I Want to Improve
-
-- Better error messages (more specific)
-- Input validation (I'm not great at this yet)
-- Rate limiting (to prevent abuse)
-- API documentation (maybe with Swagger?)
-- Caching (to make it faster)
-
-## Testing the APIs
-
-I use Postman or the browser's developer tools to test these. You can also use curl:
-
-```bash
-# Test login
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"password123"}'
-
-# Test restaurant search
-curl "http://localhost:3000/api/restaurants/search?location=Vancouver"
-```
-
-Let me know if you find any bugs or have suggestions for improvement!
-
----
-
-*Written by a CS student who's still figuring out how APIs work*
+All input data is validated according to the following rules:
+- Email addresses must be valid format
+- Passwords must be at least 8 characters
+- Coordinates must be valid latitude/longitude values
+- List names must be 1-255 characters
+- All required fields must be provided

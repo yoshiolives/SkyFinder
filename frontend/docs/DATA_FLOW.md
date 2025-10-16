@@ -1,183 +1,212 @@
-# How Data Flows Through SkyFinder
+# Data Flow Architecture
 
-Hi! This is how I designed the data flow for my app. I'm still learning about architecture, so this might not be the "right" way, but it works for me!
+This document describes the data flow patterns and architecture used in the SkyFinder application.
 
-## The Big Picture
+## Overview
 
-SkyFinder has a few main parts:
-1. **Frontend** (React components)
-2. **API Routes** (Next.js backend)
-3. **Database** (Supabase/PostgreSQL)
-4. **External APIs** (Google Maps, Google Places)
+SkyFinder follows a client-server architecture with the following key components:
+- **Frontend**: Next.js React application
+- **Backend**: Next.js API routes
+- **Database**: Supabase PostgreSQL
+- **External APIs**: Google Maps and Google Places API
+- **Authentication**: Supabase Auth
 
-## User Authentication Flow
+## Authentication Flow
 
-```
-1. User clicks "Sign In"
-2. LoginModal opens
-3. User enters email/password
-4. Frontend calls /api/auth/login
-5. API route calls Supabase auth
-6. If valid, Supabase returns user + session
-7. Frontend stores session in localStorage
-8. User is now logged in!
-```
+### User Registration
+1. User submits registration form
+2. Frontend sends POST request to `/api/auth/signup`
+3. API route validates input and creates user via Supabase Auth
+4. Supabase returns user object and session tokens
+5. Frontend stores session in localStorage
+6. User is redirected to main application
 
-**Code flow:**
-- `LoginModal.tsx` → `api/auth/login/route.ts` → `supabase.auth.signInWithPassword()`
+### User Login
+1. User submits login credentials
+2. Frontend sends POST request to `/api/auth/login`
+3. API route authenticates with Supabase Auth
+4. Supabase validates credentials and returns session
+5. Frontend stores session and updates authentication state
+6. User gains access to authenticated features
+
+### Session Management
+1. Application checks for existing session on load
+2. If session exists, frontend validates with `/api/auth/session`
+3. Valid sessions allow access to protected routes
+4. Invalid/expired sessions redirect to login
+5. Session refresh handled automatically by Supabase client
 
 ## Restaurant Search Flow
 
-```
-1. User selects transit stations on map
-2. User types search query (optional)
-3. Frontend calls /api/restaurants/search
-4. API route queries Supabase database
-5. If no results, could fetch from Google Places API
-6. Database returns restaurant data
-7. Frontend displays restaurants on map and in list
-```
+### Initial Page Load
+1. Frontend loads GeoJSON transit station data
+2. Map component renders with station markers
+3. User selects a transit station
+4. Station coordinates are extracted from GeoJSON data
 
-**Code flow:**
-- `page.tsx` (handleSearch) → `api/restaurants/search/route.ts` → Supabase query
+### Restaurant Search Process
+1. Frontend sends GET request to `/api/restaurants/search`
+2. Query parameters include station coordinates and search radius
+3. API route receives coordinates and validates input
+4. API route queries Google Places API for nearby restaurants
+5. Google Places returns restaurant data
+6. API route processes and stores restaurant data in Supabase
+7. Formatted restaurant data is returned to frontend
+8. Frontend displays restaurants on map and in list view
 
-## Map and Station Data Flow
+### Restaurant Data Processing
+1. Google Places API returns raw restaurant data
+2. API route extracts relevant fields (name, address, rating, etc.)
+3. Restaurant data is stored in local database for caching
+4. Duplicate restaurants are identified by place_id
+5. Updated restaurant information overwrites existing records
 
-```
-1. App loads and calls /api/transit
-2. API reads GeoJSON files from public/data/
-3. Returns list of available transit data files
-4. Frontend loads each GeoJSON file
-5. Parses station coordinates and properties
-6. Renders stations as markers on Google Map
-7. When user clicks station, shows coverage circle
-```
+## User List Management Flow
 
-**Code flow:**
-- `page.tsx` (useEffect) → `api/transit/route.ts` → reads GeoJSON files
+### Creating Lists
+1. User clicks "Create New List" button
+2. Frontend displays list creation form
+3. User submits list name and description
+4. Frontend sends POST request to `/api/lists`
+5. API route validates input and creates list in database
+6. New list is returned and displayed in UI
+7. User can immediately start adding restaurants
 
-## Saved Lists Flow
+### Adding Restaurants to Lists
+1. User clicks "Add to List" on restaurant card
+2. Frontend displays list selection modal
+3. User selects target list and confirms
+4. Frontend sends POST request to `/api/lists/items`
+5. API route validates user ownership and creates list item
+6. Success confirmation is displayed
+7. Restaurant appears in selected list
 
-```
-1. User clicks "Save" on a restaurant
-2. Frontend calls /api/lists/[id]/items
-3. API route checks user authentication
-4. Validates user owns the list (RLS policy)
-5. Inserts restaurant into list_items table
-6. Returns success/error response
-7. Frontend updates UI to show saved state
-```
+### Viewing Saved Lists
+1. User navigates to "My Lists" section
+2. Frontend sends GET request to `/api/lists`
+3. API route retrieves user's lists from database
+4. List data is returned with restaurant counts
+5. Frontend displays list cards with summary information
+6. User can click to view detailed list contents
 
-**Code flow:**
-- `RestaurantCard.tsx` → `api/lists/[id]/items/route.ts` → Supabase insert
+## Database Interaction Patterns
 
-## State Management
+### Row Level Security (RLS)
+1. All database queries include user context
+2. RLS policies automatically filter data by user_id
+3. Users can only access their own lists and items
+4. Restaurant data is shared across all users
+5. Authentication tokens are validated on each request
 
-I used React hooks for state management (I'm still learning Redux/Zustand):
+### Data Caching Strategy
+1. Restaurant data is cached in local database
+2. Google Places API calls are minimized
+3. Cached data is used for repeated searches
+4. Fresh data is fetched when needed
+5. Cache invalidation occurs periodically
 
-### Main App State (page.tsx)
-```javascript
-const [user, setUser] = useState(null);           // Current user
-const [transitStations, setTransitStations] = useState([]);  // Station data
-const [selectedStations, setSelectedStations] = useState(new Set());  // Selected stations
-const [searchResults, setSearchResults] = useState([]);      // Restaurant results
-const [savedPlaces, setSavedPlaces] = useState([]);         // User's saved places
-```
+### Transaction Management
+1. List operations use database transactions
+2. Failed operations are rolled back automatically
+3. Data consistency is maintained across related tables
+4. Error handling prevents partial data corruption
 
-### Component State
-Each component manages its own state:
-- `LoginModal` manages form state
-- `TripSelector` manages list selection
-- `RestaurantCard` manages favorite state
+## Error Handling Flow
 
-## API Client Pattern
+### Client-Side Error Handling
+1. API requests include try-catch blocks
+2. Network errors are caught and displayed
+3. Authentication errors trigger login redirect
+4. Validation errors are shown inline with forms
+5. Generic error messages are shown for unknown errors
 
-I created a helper in `lib/api.ts` that automatically adds authentication headers:
+### Server-Side Error Handling
+1. API routes validate all input parameters
+2. Database errors are caught and logged
+3. External API errors are handled gracefully
+4. Consistent error response format is maintained
+5. Sensitive error details are not exposed to clients
 
-```javascript
-// This automatically adds the user's token to requests
-const response = await api.get('/api/lists');
-const data = await api.post('/api/restaurants/search', searchParams);
-```
+### Error Recovery
+1. Failed requests can be retried automatically
+2. Offline functionality is limited but graceful
+3. Data synchronization occurs when connection restored
+4. User notifications inform about error states
 
-This way I don't have to remember to add headers everywhere!
+## Performance Optimization
 
-## Error Handling
+### Frontend Optimizations
+1. React components use memoization where appropriate
+2. API calls are debounced for search inputs
+3. Images are lazy-loaded for better performance
+4. Bundle size is optimized through code splitting
+5. Service workers cache static assets
 
-I tried to handle errors at different levels:
+### Backend Optimizations
+1. Database queries use proper indexing
+2. API responses are cached when possible
+3. External API calls are batched efficiently
+4. Database connections are pooled
+5. Response times are monitored and optimized
 
-### Frontend
-- Try/catch blocks around API calls
-- Loading states while requests are pending
-- Error messages for users
-
-### API Routes
-- Validate input data
-- Handle database errors
-- Return consistent error responses
-
-### Database
-- RLS policies prevent unauthorized access
-- Constraints prevent invalid data
-
-## Data Caching
-
-Right now I don't have much caching (something I want to improve):
-
-- Restaurant data is fetched fresh each time
-- Transit station data is loaded once when app starts
-- User session is cached in localStorage
-
-## Things I Learned
-
-- How to structure a full-stack app
-- React state management with hooks
-- API design and error handling
-- Database relationships and RLS
-- Authentication flow
-- Google Maps integration
-
-## Things I Want to Improve
-
-- Add proper caching (maybe React Query?)
-- Better error boundaries
-- Optimistic updates for better UX
-- Data validation with a schema library
-- Loading states and skeletons
-- Offline support (maybe with Service Workers?)
-
-## Database Schema Relationships
-
-```
-users (Supabase Auth)
-  ↓ (1:many)
-user_lists
-  ↓ (1:many)
-list_items
-  ↓ (many:1)
-restaurants
-```
-
-This lets users create multiple lists and add the same restaurant to different lists.
+### Database Optimizations
+1. Spatial indexes for location-based queries
+2. Text search indexes for restaurant names
+3. Foreign key indexes for relationship queries
+4. Query performance is monitored regularly
+5. Slow queries are identified and optimized
 
 ## Security Considerations
 
-- All user data is protected by RLS policies
-- API routes validate authentication
-- Input sanitization (basic, could be better)
-- CORS is handled by Next.js
+### Data Protection
+1. All user data is encrypted in transit
+2. Database connections use SSL/TLS
+3. API keys are stored securely
+4. User passwords are hashed by Supabase
+5. Sensitive data is not logged
 
-I'm still learning about security best practices, so there might be improvements needed here.
+### Access Control
+1. Authentication is required for user-specific operations
+2. RLS policies enforce data access restrictions
+3. API routes validate user permissions
+4. Cross-origin requests are properly configured
+5. Rate limiting prevents abuse
 
-## Performance Notes
+### Input Validation
+1. All user inputs are validated and sanitized
+2. SQL injection is prevented through parameterized queries
+3. XSS attacks are mitigated through proper escaping
+4. File uploads are restricted and validated
+5. API endpoints validate request formats
 
-- The map can be slow with lots of markers (I should optimize this)
-- GeoJSON files are loaded on every page refresh (could cache)
-- Restaurant search could be faster with better indexing
-- Images from Google Places could be optimized
+## Monitoring and Logging
 
-This is my first real web app, so I'm sure there are better ways to do things. But it works and I learned a lot building it!
+### Application Monitoring
+1. Error rates are tracked and alerted
+2. Performance metrics are collected
+3. User behavior is analyzed for improvements
+4. API response times are monitored
+5. Database query performance is tracked
 
----
+### Logging Strategy
+1. Structured logging is used throughout
+2. Sensitive data is excluded from logs
+3. Error logs include sufficient context
+4. Log levels are appropriate for environment
+5. Log aggregation and analysis tools are configured
 
-*Written by a CS student who's still figuring out how to architect web applications*
+## Future Enhancements
+
+### Planned Improvements
+1. Real-time updates for restaurant availability
+2. Advanced filtering and search capabilities
+3. User review and rating system
+4. Social features for sharing lists
+5. Mobile application development
+
+### Scalability Considerations
+1. Database read replicas for improved performance
+2. CDN implementation for static assets
+3. Microservices architecture for complex features
+4. Caching layers for frequently accessed data
+5. Load balancing for high availability

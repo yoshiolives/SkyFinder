@@ -1,57 +1,65 @@
-# Setting Up Supabase for SkyFinder
+# Supabase Configuration Guide
 
-Hey! This is how I set up Supabase for my app. Supabase is basically a backend-as-a-service that gives you a PostgreSQL database plus authentication, which is perfect for beginners like me!
+This guide provides step-by-step instructions for configuring Supabase for the SkyFinder application.
 
-## Why I Chose Supabase
+## Overview
 
-- **Beginner-friendly**: Nice dashboard, good documentation
-- **Free tier**: Perfect for learning and small projects
-- **Built-in auth**: Don't have to build user login from scratch
-- **Real-time**: Can get live updates (though I'm not using this yet)
-- **PostgreSQL**: Industry standard database
-- **Row Level Security**: Keeps user data safe automatically
+Supabase serves as the backend infrastructure for SkyFinder, providing:
+- PostgreSQL database for data storage
+- Built-in authentication system
+- Real-time subscriptions capability
+- Automatic API generation
+- Row Level Security (RLS) for data protection
 
-## Step 1: Create Supabase Account
+## Prerequisites
 
-1. Go to [supabase.com](https://supabase.com)
-2. Click "Start your project"
-3. Sign up with GitHub (easier for developers)
-4. Create a new organization if you don't have one
+- Supabase account (free tier available)
+- Basic understanding of SQL and databases
+- Access to Google Maps API key
+- Node.js development environment
 
-## Step 2: Create Your First Project
+## Step 1: Account Setup
 
-1. Click "New Project"
-2. Choose your organization
-3. Name it something like "skyfinder-app"
-4. Set a strong database password (you'll need this later!)
-5. Choose a region close to you (I picked US West)
-6. Click "Create new project"
+1. Visit [supabase.com](https://supabase.com)
+2. Click "Start your project" to create an account
+3. Sign up using GitHub, Google, or email
+4. Verify your email address if required
 
-Wait a few minutes for it to set up (it takes a bit longer the first time).
+## Step 2: Project Creation
 
-## Step 3: Get Your Project Credentials
+1. From the Supabase dashboard, click "New Project"
+2. Select your organization (create one if needed)
+3. Fill in project details:
+   - **Name**: `skyfinder-app`
+   - **Database Password**: Generate a strong password (12+ characters)
+   - **Region**: Choose the region closest to your target users
+4. Click "Create new project"
+5. Wait for project initialization (2-3 minutes)
 
-Once it's ready:
-1. Go to Settings → API
-2. You'll see two important keys:
-   - **Project URL**: `https://xxxxx.supabase.co`
-   - **anon public key**: Long string starting with `eyJ...`
+## Step 3: Project Configuration
 
-**Important**: Use the "anon public" key, NOT the "service_role" key (that one has admin access and should stay secret).
+### API Settings
+1. Navigate to Settings → API
+2. Locate the following values:
+   - **Project URL**: `https://your-project-ref.supabase.co`
+   - **anon public key**: The public API key (starts with `eyJ...`)
+3. Save these values for environment configuration
 
-## Step 4: Set Up Authentication
-
+### Authentication Settings
 1. Go to Authentication → Settings
-2. Turn on "Enable email confirmations" if you want users to verify emails
-3. Add your site URL: `http://localhost:3000` (for development)
-4. Add redirect URL: `http://localhost:3000/auth/callback`
+2. Configure the following:
+   - **Site URL**: `http://localhost:3000` (development)
+   - **Redirect URLs**: Add `http://localhost:3000/auth/callback`
+   - **Enable email confirmations**: Recommended for production
+   - **Enable phone confirmations**: Optional
 
-## Step 5: Create Database Tables
+## Step 4: Database Schema Setup
 
-Go to the SQL Editor and run these commands:
+Execute the following SQL commands in the SQL Editor:
 
-### Restaurants Table
+### Create Tables
 ```sql
+-- Restaurants table for storing restaurant data
 CREATE TABLE restaurants (
   id SERIAL PRIMARY KEY,
   place_id VARCHAR(255) UNIQUE NOT NULL,
@@ -71,10 +79,8 @@ CREATE TABLE restaurants (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-```
 
-### User Lists Table
-```sql
+-- User lists table for organizing saved restaurants
 CREATE TABLE user_lists (
   id SERIAL PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -83,10 +89,8 @@ CREATE TABLE user_lists (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-```
 
-### List Items Table
-```sql
+-- List items table for linking restaurants to lists
 CREATE TABLE list_items (
   id SERIAL PRIMARY KEY,
   list_id INTEGER REFERENCES user_lists(id) ON DELETE CASCADE,
@@ -96,16 +100,16 @@ CREATE TABLE list_items (
 );
 ```
 
-## Step 6: Set Up Row Level Security (RLS)
-
-This is the cool part - it automatically keeps users' data private:
-
+### Enable Row Level Security
 ```sql
--- Enable RLS on tables
+-- Enable RLS on user-specific tables
 ALTER TABLE user_lists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE list_items ENABLE ROW LEVEL SECURITY;
+```
 
--- Users can only see their own lists
+### Create Security Policies
+```sql
+-- User lists policies
 CREATE POLICY "Users can view own lists" ON user_lists
   FOR SELECT USING (auth.uid() = user_id);
 
@@ -118,7 +122,7 @@ CREATE POLICY "Users can update own lists" ON user_lists
 CREATE POLICY "Users can delete own lists" ON user_lists
   FOR DELETE USING (auth.uid() = user_id);
 
--- List items policies (a bit more complex)
+-- List items policies
 CREATE POLICY "Users can view own list items" ON list_items
   FOR SELECT USING (
     list_id IN (
@@ -141,56 +145,155 @@ CREATE POLICY "Users can remove from own lists" ON list_items
   );
 ```
 
-## Step 7: Test Your Setup
+## Step 5: Database Indexing
 
-1. Go to Authentication → Users
-2. Click "Add user" and create a test user
-3. Go to Table Editor and try adding a list for that user
-4. Make sure you can only see data for the logged-in user
+Add indexes for optimal query performance:
 
-## Common Issues I Ran Into
+```sql
+-- Spatial index for location-based searches
+CREATE INDEX idx_restaurants_location ON restaurants USING GIST (
+  ST_Point(longitude, latitude)
+);
 
-**"Invalid API key" error**: Make sure you're using the anon key, not the service role key
+-- Text search index for restaurant names
+CREATE INDEX idx_restaurants_name ON restaurants USING GIN (
+  to_tsvector('english', name)
+);
 
-**"RLS policy" errors**: The policies need to be created in the right order (user_lists first, then list_items)
+-- Filtering indexes
+CREATE INDEX idx_restaurants_rating ON restaurants (rating);
+CREATE INDEX idx_restaurants_price ON restaurants (price_level);
+CREATE INDEX idx_user_lists_user_id ON user_lists (user_id);
+CREATE INDEX idx_list_items_list_id ON list_items (list_id);
+CREATE INDEX idx_list_items_restaurant_id ON list_items (restaurant_id);
+```
 
-**"Table doesn't exist"**: Make sure you ran all the CREATE TABLE commands
+## Step 6: Environment Configuration
 
-**CORS errors**: Make sure you added the right URLs in Authentication settings
+Create a `.env.local` file in the frontend directory:
 
-## Supabase Dashboard Features I Use
+```env
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_API_KEY=your-anon-public-key
 
-- **Table Editor**: View and edit data directly (great for testing)
-- **SQL Editor**: Run custom queries
-- **Authentication**: Manage users and settings
-- **API Docs**: Auto-generated docs for your database
-- **Logs**: See what's happening with your app
+# Google Maps Configuration
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 
-## Pricing
+# Application Configuration
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+```
 
-- **Free tier**: 500MB database, 50MB file storage, 2GB bandwidth
-- **Pro tier**: $25/month for more storage and features
+## Step 7: Testing Configuration
 
-For learning and small projects, the free tier is plenty!
+### Database Connection Test
+1. Start the development server: `pnpm dev`
+2. Navigate to the application
+3. Check browser console for connection errors
+4. Verify Supabase client initialization
 
-## Why This Setup Works for Me
+### Authentication Test
+1. Attempt to register a new user account
+2. Verify email confirmation (if enabled)
+3. Test login with created credentials
+4. Check that user data appears in Supabase dashboard
 
-- **No server management**: Supabase handles everything
-- **Built-in auth**: Don't have to worry about security
-- **Real-time ready**: Can add live updates later
-- **SQL Editor**: Easy to test queries
-- **Good documentation**: Helpful for beginners
+### Data Operations Test
+1. Create a new restaurant list
+2. Add restaurants to the list
+3. Verify data appears in the database
+4. Test list retrieval and updates
 
-## Things I Want to Learn More About
+## Troubleshooting
 
-- Database indexing for better performance
-- More advanced RLS policies
-- Real-time subscriptions
-- File storage for restaurant photos
-- Database backups and migrations
+### Common Configuration Issues
 
-This setup took me a while to figure out, but now it's working great! Let me know if you have questions.
+**Authentication Errors**
+- Verify the Supabase URL format is correct
+- Check that the anon key is properly copied
+- Ensure site URL matches the configured redirect URL
+- Verify email confirmation settings if enabled
 
----
+**Database Connection Issues**
+- Confirm the project is active and not paused
+- Check that the database password is correct
+- Verify the project region is accessible from your location
+- Ensure proper network connectivity
 
-*Written by a CS student who spent way too much time reading Supabase docs*
+**RLS Policy Errors**
+- Verify all policies are created successfully
+- Check that user authentication is working
+- Ensure policies match the expected access patterns
+- Test with a fresh user account
+
+### Performance Issues
+
+**Slow Queries**
+- Check the Query Performance tab in Supabase dashboard
+- Verify that proper indexes are created
+- Consider adding additional indexes for specific query patterns
+- Monitor database resource usage
+
+**Connection Limits**
+- Monitor concurrent connection usage
+- Consider connection pooling for high-traffic applications
+- Upgrade to a higher tier if needed
+
+## Security Best Practices
+
+### API Key Management
+- Never expose the service role key in client-side code
+- Use environment variables for all sensitive configuration
+- Rotate API keys regularly in production
+- Monitor API key usage for unusual activity
+
+### Database Security
+- Regularly review and update RLS policies
+- Monitor database access logs
+- Implement proper input validation in API routes
+- Use prepared statements to prevent SQL injection
+
+### Authentication Security
+- Enable email confirmation for production
+- Implement strong password requirements
+- Monitor for suspicious authentication attempts
+- Consider implementing additional security measures (2FA, etc.)
+
+## Production Deployment
+
+### Environment Variables
+Configure the following in your production environment:
+- `NEXT_PUBLIC_SUPABASE_URL`: Production Supabase URL
+- `NEXT_PUBLIC_SUPABASE_API_KEY`: Production anon key
+- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`: Production Google Maps key
+- `NEXT_PUBLIC_SITE_URL`: Production site URL
+
+### Database Considerations
+- Enable automatic backups
+- Configure proper monitoring and alerting
+- Set up database replication if needed
+- Implement proper disaster recovery procedures
+
+### Performance Optimization
+- Monitor database performance metrics
+- Implement caching strategies where appropriate
+- Optimize queries based on usage patterns
+- Consider read replicas for improved performance
+
+## Support and Resources
+
+### Documentation
+- [Supabase Documentation](https://supabase.com/docs)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [Next.js Documentation](https://nextjs.org/docs)
+
+### Community Support
+- Supabase Discord community
+- GitHub issues and discussions
+- Stack Overflow with Supabase tags
+
+### Monitoring and Analytics
+- Use Supabase dashboard for real-time monitoring
+- Set up alerts for critical issues
+- Monitor usage patterns and performance metrics
+- Regular security audits and reviews

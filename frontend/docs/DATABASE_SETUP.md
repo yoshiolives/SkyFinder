@@ -1,41 +1,50 @@
 # Database Setup Guide
 
-Hi! This is how I set up the database for SkyFinder. I used Supabase because it's beginner-friendly and has a nice dashboard.
+This guide provides instructions for setting up the Supabase database for the SkyFinder application.
 
-## What You Need
+## Overview
 
-- A Supabase account (it's free!)
-- The app running locally
+SkyFinder uses Supabase as its backend database and authentication provider. Supabase provides a PostgreSQL database with built-in authentication, real-time subscriptions, and automatic API generation.
 
-## Step 1: Create a Supabase Project
+## Prerequisites
 
-1. Go to [supabase.com](https://supabase.com)
-2. Click "New Project"
-3. Choose your organization (or create one)
-4. Pick a name like "skyfinder-db"
-5. Set a database password (save this!)
-6. Choose a region close to you
-7. Click "Create new project"
+- Supabase account (free tier available)
+- Basic understanding of SQL and database concepts
+- Access to the SkyFinder project repository
 
-## Step 2: Get Your Project Credentials
+## Step 1: Create Supabase Project
 
-Once your project is ready:
-1. Go to Settings → API
-2. Copy these two things:
-   - **Project URL** (looks like `https://xxxxx.supabase.co`)
-   - **anon public key** (long string starting with `eyJ...`)
+1. Navigate to [supabase.com](https://supabase.com)
+2. Sign in or create an account
+3. Click "New Project"
+4. Choose your organization
+5. Enter project details:
+   - **Name**: `skyfinder-app` (or your preferred name)
+   - **Database Password**: Create a strong password (save this securely)
+   - **Region**: Select the region closest to your users
+6. Click "Create new project"
+7. Wait for the project to be provisioned (typically 2-3 minutes)
 
-## Step 3: Create the Database Tables
+## Step 2: Configure Project Settings
 
-I created these tables for the app:
+1. Navigate to Settings → API
+2. Copy the following values (you'll need these for environment variables):
+   - **Project URL**: `https://your-project-ref.supabase.co`
+   - **anon public key**: The public API key (starts with `eyJ...`)
 
-### Users Table (handled by Supabase Auth)
-- Supabase automatically creates this when you enable authentication
-- Stores user email, password, etc.
+## Step 3: Set Up Authentication
+
+1. Go to Authentication → Settings
+2. Configure the following settings:
+   - **Enable email confirmations**: Recommended for production
+   - **Site URL**: `http://localhost:3000` (for development)
+   - **Redirect URLs**: Add `http://localhost:3000/auth/callback`
+
+## Step 4: Create Database Tables
+
+Execute the following SQL commands in the Supabase SQL Editor:
 
 ### Restaurants Table
-This stores restaurant info from Google Places API:
-
 ```sql
 CREATE TABLE restaurants (
   id SERIAL PRIMARY KEY,
@@ -59,8 +68,6 @@ CREATE TABLE restaurants (
 ```
 
 ### User Lists Table
-For saving favorite restaurants:
-
 ```sql
 CREATE TABLE user_lists (
   id SERIAL PRIMARY KEY,
@@ -73,8 +80,6 @@ CREATE TABLE user_lists (
 ```
 
 ### List Items Table
-Links restaurants to user lists:
-
 ```sql
 CREATE TABLE list_items (
   id SERIAL PRIMARY KEY,
@@ -85,16 +90,16 @@ CREATE TABLE list_items (
 );
 ```
 
-## Step 4: Set Up Row Level Security (RLS)
+## Step 5: Configure Row Level Security
 
-This makes sure users can only see their own data:
+Execute the following SQL commands to enable Row Level Security:
 
 ```sql
 -- Enable RLS on all tables
 ALTER TABLE user_lists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE list_items ENABLE ROW LEVEL SECURITY;
 
--- Users can only see their own lists
+-- User lists policies
 CREATE POLICY "Users can view own lists" ON user_lists
   FOR SELECT USING (auth.uid() = user_id);
 
@@ -130,41 +135,99 @@ CREATE POLICY "Users can remove from own lists" ON list_items
   );
 ```
 
-## Step 5: Enable Authentication
+## Step 6: Create Database Indexes
 
-1. Go to Authentication → Settings
-2. Turn on "Enable email confirmations" if you want
-3. Add your site URL: `http://localhost:3000` for development
-4. Add redirect URLs: `http://localhost:3000/auth/callback`
+Add the following indexes for optimal performance:
 
-## Step 6: Create Your Environment File
+```sql
+-- Location-based search index
+CREATE INDEX idx_restaurants_location ON restaurants USING GIST (
+  ST_Point(longitude, latitude)
+);
 
-Create a file called `.env.local` in your frontend folder:
+-- Text search index
+CREATE INDEX idx_restaurants_name ON restaurants USING GIN (
+  to_tsvector('english', name)
+);
+
+-- Rating filter index
+CREATE INDEX idx_restaurants_rating ON restaurants (rating);
+
+-- Price level filter index
+CREATE INDEX idx_restaurants_price ON restaurants (price_level);
+
+-- User lists index
+CREATE INDEX idx_user_lists_user_id ON user_lists (user_id);
+
+-- List items indexes
+CREATE INDEX idx_list_items_list_id ON list_items (list_id);
+CREATE INDEX idx_list_items_restaurant_id ON list_items (restaurant_id);
+```
+
+## Step 7: Configure Environment Variables
+
+Create a `.env.local` file in the frontend directory with the following variables:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-NEXT_PUBLIC_SUPABASE_API_KEY=your-anon-key-here
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-google-maps-key
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_API_KEY=your-anon-public-key
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
 ```
+
+## Step 8: Test Database Connection
+
+1. Start the development server: `pnpm dev`
+2. Navigate to the application
+3. Test user registration and login
+4. Verify that user lists are created and accessible
 
 ## Troubleshooting
 
-**"Invalid API key" error**: Make sure you copied the anon key correctly (it's the long one, not the service role key)
+### Common Issues
 
-**"RLS policy" errors**: Make sure you ran all the SQL commands above
+**Authentication Errors**
+- Verify that the Supabase URL and API key are correct
+- Check that the site URL is configured in Authentication settings
+- Ensure the redirect URL is properly set
 
-**"Table doesn't exist"**: Make sure you created all the tables in the right order
+**Database Connection Issues**
+- Confirm the project is active and not paused
+- Verify the database password is correct
+- Check that the project region is accessible
 
-## Why I Chose This Setup
+**RLS Policy Errors**
+- Ensure all policies are created successfully
+- Verify that the user is properly authenticated
+- Check that the policies match the expected user access patterns
 
-- **Supabase**: Easy to use, has a nice dashboard, handles auth for me
-- **PostgreSQL**: Reliable, supports JSON data for complex restaurant info
-- **RLS**: Keeps user data secure without writing lots of auth code
-- **JSONB**: Stores restaurant hours and other complex data easily
+### Performance Optimization
 
-This setup took me a while to figure out, but now it's working pretty well! Let me know if you run into issues.
+- Monitor query performance in the Supabase dashboard
+- Use the Query Performance tab to identify slow queries
+- Consider additional indexes for frequently used search patterns
+- Implement caching strategies for frequently accessed data
 
----
+## Security Considerations
 
-*Written by a CS student who spent way too long figuring out database permissions*
+- Never expose the service role key in client-side code
+- Use the anon key for client-side operations
+- Regularly review and update RLS policies
+- Monitor database access logs for unusual activity
+- Implement proper input validation in API routes
+
+## Backup and Recovery
+
+Supabase provides automatic backups for paid plans. For development projects:
+- Export database schema regularly
+- Keep SQL migration scripts in version control
+- Test backup restoration procedures
+- Document any manual database modifications
+
+## Next Steps
+
+After completing the database setup:
+1. Review the API_ENDPOINTS.md documentation
+2. Test all authentication flows
+3. Verify restaurant data integration
+4. Configure production environment variables
+5. Set up monitoring and logging

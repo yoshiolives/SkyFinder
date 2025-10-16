@@ -4,14 +4,14 @@ SkyFinder is a web application designed to help users discover restaurants and d
 
 ## Overview
 
-SkyFinder provides an intuitive platform for locating restaurants near transit stations, featuring interactive maps, real-time search capabilities, and personalized list management for saving favorite locations.
+SkyFinder provides an intuitive platform for locating restaurants near transit stations, featuring interactive maps, real-time search capabilities, and personalized list management for saving favourite locations.
 
 ### Key Features
 
 - **Transit Station Integration**: Interactive map displaying all rapid transit stations with coverage areas
 - **Radius-Based Search**: Find restaurants within 800m walking distance of selected stations
 - **Real-Time Data**: Integration with Google Places API for current restaurant information
-- **Saved Lists**: Organize and manage favorite restaurants with custom collections
+- **Saved Lists**: Organize and manage favourite restaurants with custom collections
 - **User Authentication**: Secure account management with cloud storage
 
 ## Problem Statement
@@ -87,15 +87,3 @@ The codebase includes comprehensive documentation in the `frontend/docs/` direct
 - Performance optimizations for map rendering
 - User review and rating system
 - Advanced search functionality
-
-## Contributing
-
-This project welcomes contributions and feedback. The documentation provides detailed information about the codebase structure and development setup.
-
-## License
-
-This project is open source and available under the MIT License.
-
----
-
-*SkyFinder - Streamlining urban dining discovery near transit stations*
